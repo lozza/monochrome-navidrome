@@ -975,7 +975,7 @@ export async function renderTrackerTrackPage(trackId, container, _ui) {
 }
 
 export async function initTracker() {
-    await loadArtistsData();
+    // The unreleased tracker UI has been removed from this Navidrome fork.
 }
 
 // Helper function to find a tracker artist by name (for use in normal artist pages)

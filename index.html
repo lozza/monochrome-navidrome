@@ -1579,43 +1579,6 @@
 
         <div id="theme-preview-window" style="display: none"></div>
 
-        <div id="tracker-modal" class="modal tracker-modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content wide" style="max-height: 85vh; display: flex; flex-direction: column">
-                <header class="detail-header" style="margin-bottom: 1rem; padding-bottom: 0">
-                    <img
-                        crossorigin="anonymous"
-                        referrerpolicy="no-referrer"
-                        id="tracker-header-image"
-                        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-                        class="detail-header-image"
-                        style="width: 140px; height: 140px; box-shadow: var(--shadow-md)"
-                        alt=""
-                    />
-                    <div class="detail-header-info">
-                        <div class="type">Unreleased Project</div>
-                        <h1 id="tracker-header-title" class="title" style="font-size: 2rem"></h1>
-                        <div id="tracker-header-meta" class="meta"></div>
-                        <div class="detail-header-actions">
-                            <button class="btn-secondary" id="close-tracker-modal">Close</button>
-                        </div>
-                    </div>
-                </header>
-                <div
-                    id="tracker-filters"
-                    style="padding: 0 2rem 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap"
-                ></div>
-                <div id="tracker-tracklist" class="track-list" style="overflow-y: auto; flex: 1">
-                    <div class="track-list-header">
-                        <span style="width: 40px; text-align: center">#</span>
-                        <span>Title</span>
-                        <span class="duration-header">Duration</span>
-                        <span style="display: flex; justify-content: flex-end; opacity: 0.8">Menu</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="epilepsy-warning-modal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content">
@@ -1764,12 +1727,6 @@
                                 <a href="/recent">
                                     <use svg="./images/recent.svg" size="24" />
                                     <span>Recent</span>
-                                </a>
-                            </li>
-                            <li class="nav-item" id="sidebar-nav-unreleased">
-                                <a href="/unreleased">
-                                    <use svg="./images/squares.svg" size="24" />
-                                    <span>Unreleased</span>
                                 </a>
                             </li>
                             <li class="nav-item" id="sidebar-nav-donate">
@@ -2420,10 +2377,6 @@
                     <div class="track-list" id="recent-tracks-container"></div>
                 </div>
 
-                <div id="page-unreleased" class="page">
-                    <div id="unreleased-content" style="padding: 1rem 0"></div>
-                </div>
-
                 <div id="page-podcasts" class="page">
                     <header class="detail-header">
                         <img
@@ -2464,35 +2417,6 @@
                     <div class="search-tab-content" id="podcasts-tab-recent">
                         <div class="card-grid" id="podcasts-recent-container"></div>
                     </div>
-                </div>
-
-                <div id="page-tracker-artist" class="page">
-                    <header class="detail-header">
-                        <img
-                            crossorigin="anonymous"
-                            referrerpolicy="no-referrer"
-                            id="tracker-artist-detail-image"
-                            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-                            alt=""
-                            class="detail-header-image artist"
-                        />
-                        <div class="detail-header-info">
-                            <div class="type">Unreleased Artist</div>
-                            <h1 class="title" id="tracker-artist-detail-name"></h1>
-                            <div class="meta" id="tracker-artist-detail-meta"></div>
-                            <div class="detail-header-actions">
-                                <button id="play-tracker-artist-btn" class="btn-primary" title="Shuffle Play">
-                                    <use svg="./images/play.svg" size="20" />
-                                    <span>Shuffle Play</span>
-                                </button>
-                                <button id="download-tracker-artist-btn" class="btn-primary" title="Download">
-                                    <use svg="!lucide/download.svg" size="20" />
-                                    <span>Download All</span>
-                                </button>
-                            </div>
-                        </div>
-                    </header>
-                    <div id="tracker-artist-projects-container"></div>
                 </div>
 
                 <div id="page-album" class="page">
@@ -2828,17 +2752,6 @@
                     <section class="content-section" id="artist-section-eps" style="display: none">
                         <h2 class="section-title">EPs and Singles</h2>
                         <div class="card-grid" id="artist-detail-eps"></div>
-                    </section>
-                    <section
-                        class="content-section"
-                        id="artist-section-load-unreleased"
-                        style="display: none; margin: 1.5rem 0"
-                    >
-                        <button id="load-unreleased-btn" class="btn-primary">Load Unreleased Projects</button>
-                    </section>
-                    <section class="content-section" id="artist-section-unreleased" style="display: none">
-                        <h2 class="section-title">Unreleased Music</h2>
-                        <div class="card-grid" id="artist-detail-unreleased"></div>
                     </section>
                     <section class="content-section" id="artist-section-similar" style="display: none">
                         <h2 class="section-title">Similar Artists</h2>
@@ -3619,18 +3532,6 @@
                                         </div>
                                         <label class="toggle-switch">
                                             <input type="checkbox" id="sidebar-show-recent-toggle" checked />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <div class="setting-item">
-                                        <div class="info">
-                                            <span class="label">Show Unreleased in Sidebar</span>
-                                            <span class="description"
-                                                >Display the Unreleased link in the sidebar navigation</span
-                                            >
-                                        </div>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="sidebar-show-unreleased-toggle" checked />
                                             <span class="slider"></span>
                                         </label>
                                     </div>
@@ -6724,144 +6625,6 @@
                             </a>
                         </div>
                     </div>
-                </div>
-                <div id="page-mobile" class="page">
-                    <table
-                        style="
-                            left: 50%;
-                            margin: 0 0 0 50%;
-                            transform: translate(-50%, 0);
-                            width: 100%;
-                            max-width: 1500px;
-                        "
-                    >
-                        <tr>
-                            <td valign="top">
-                                <div
-                                    class="mobile-download-container"
-                                    style="
-                                        text-align: center;
-                                        max-width: 600px;
-                                        margin: 0 auto;
-                                        padding: var(--space-8) var(--space-4);
-                                    "
-                                >
-                                    <h2 class="section-title" style="margin-bottom: var(--space-4)">
-                                        Monochrome Mobile
-                                    </h2>
-                                    <p style="color: var(--muted-foreground); margin-bottom: var(--space-8)">
-                                        Download the app for your device.
-                                    </p>
-                                    <div
-                                        style="
-                                            display: flex;
-                                            flex-wrap: wrap;
-                                            gap: var(--space-4);
-                                            justify-content: center;
-                                            margin-bottom: var(--space-8);
-                                        "
-                                    >
-                                        <a
-                                            href="https://downloads.samidy.com/android.apk"
-                                            class="btn-primary"
-                                            style="display: inline-flex; align-items: center; gap: 8px"
-                                        >
-                                            <use svg="!lucide/download.svg" size="18" />
-                                            Download for Android
-                                        </a>
-                                        <a
-                                            href="https://downloads.samidy.com/iOS.ipa"
-                                            class="btn-primary"
-                                            style="display: inline-flex; align-items: center; gap: 8px"
-                                        >
-                                            <use svg="!lucide/download.svg" size="18" />
-                                            Download for iOS
-                                        </a>
-                                    </div>
-                                    <p style="color: var(--muted-foreground); margin-bottom: var(--space-3)">
-                                        The iOS app must be sideloaded. If you need help getting started, check out this
-                                        <a
-                                            href="https://fmhy.net/mobile#ios-sideloading"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style="color: var(--primary); text-decoration: underline"
-                                            >iOS sideloading guide</a
-                                        >.
-                                    </p>
-                                    <p style="color: var(--color-warning); margin: 0">
-                                        We don't offer support for sideloading. Please do your own research if you run
-                                        into issues.
-                                    </p>
-                                    <p
-                                        style="
-                                            color: var(--muted-foreground);
-                                            margin-top: var(--space-6);
-                                            margin-bottom: 0;
-                                        "
-                                    >
-                                        Downloaded songs are saved to <b>Downloads/Monochrome</b> on your device.
-                                    </p>
-                                </div>
-                            </td>
-                            <td valign="top">
-                                <div
-                                    class="desktop-download-container"
-                                    style="
-                                        text-align: center;
-                                        max-width: 600px;
-                                        margin: 0 auto;
-                                        padding: var(--space-8) var(--space-4);
-                                    "
-                                >
-                                    <h2 class="section-title" style="margin-bottom: var(--space-4)">
-                                        Monochrome Desktop
-                                    </h2>
-                                    <p style="color: var(--muted-foreground); margin-bottom: var(--space-8)">
-                                        Download the app for your desktop device.
-                                    </p>
-                                    <div
-                                        style="
-                                            display: flex;
-                                            flex-wrap: wrap;
-                                            gap: var(--space-4);
-                                            justify-content: center;
-                                            margin-bottom: var(--space-8);
-                                        "
-                                    >
-                                        <a
-                                            href="https://github.com/monochrome-music/desktop-app/releases"
-                                            class="btn-primary"
-                                            style="display: inline-flex; align-items: center; gap: 8px"
-                                        >
-                                            <use svg="!lucide/download.svg" size="18" />
-                                            Download from Github
-                                        </a>
-                                    </div>
-                                    <p style="color: var(--muted-foreground)">
-                                        If you need any help with the desktop app, please reach out to the developer of
-                                        the application. You can find their contact information on the GitHub page
-                                        linked above or contact them directly on discord in our server's
-                                        <a
-                                            href="https://discord.com/channels/1457628745589456910/1457633716049543208"
-                                            style="color: var(--primary); text-decoration: underline"
-                                            ><i>Help Channel</i></a
-                                        >.
-                                    </p>
-                                    <p
-                                        style="
-                                            color: var(--color-warning);
-                                            margin: 0;
-                                            margin-top: var(--space-6);
-                                            margin-bottom: 0;
-                                        "
-                                    >
-                                        This application is currently in beta and may have bugs or issues. Please report
-                                        any problems you encounter to the developer so they can be addressed.
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
                 </div>
                 <div id="page-reset-password" class="page">
                     <div

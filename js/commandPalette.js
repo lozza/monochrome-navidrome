@@ -157,16 +157,6 @@ class CommandPalette {
                 },
             },
             {
-                id: 'nav-unreleased',
-                group: 'Navigation',
-                icon: 'calendar',
-                label: 'Go to Unreleased',
-                keywords: ['unreleased', 'upcoming', 'tracker'],
-                action: () => {
-                    navigate('/unreleased');
-                },
-            },
-            {
                 id: 'nav-settings',
                 group: 'Navigation',
                 icon: 'settings',

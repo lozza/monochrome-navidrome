@@ -77,36 +77,14 @@ export function createRouter(ui) {
             }
             case 'track': {
                 const { provider, id } = extractProviderAndId(param);
-                if (id.startsWith('tracker-')) {
-                    await ui.renderTrackerTrackPage(id);
-                } else {
-                    await ui.renderTrackPage(id, provider);
-                }
+                await ui.renderTrackPage(id, provider);
                 break;
             }
             case 'library':
                 await ui.renderLibraryPage();
                 break;
-            case 'mobile':
-            case 'download':
-                await ui.renderHomePage();
-                break;
             case 'recent':
                 await ui.renderRecentPage();
-                break;
-            case 'unreleased':
-                if (param) {
-                    const parts = param.split('/');
-                    const sheetId = parts[0];
-                    const projectName = parts[1] ? decodeURIComponent(parts[1]) : null;
-                    if (projectName) {
-                        await ui.renderTrackerProjectPage(sheetId, projectName);
-                    } else {
-                        await ui.renderTrackerArtistPage(sheetId);
-                    }
-                } else {
-                    await ui.renderUnreleasedPage();
-                }
                 break;
             case 'podcasts':
                 if (param) {
