@@ -31,6 +31,36 @@ editing native Navidrome playlists is planned separately.
 The root `docker-compose.yml` is ready to paste into an OMV or Portainer stack. It pulls the prebuilt image from
 GitHub Container Registry, so the server does not need to clone or build the repository:
 
+```yaml
+services:
+    monochrome-navidrome:
+        image: ghcr.io/lozza/monochrome-navidrome:latest
+        container_name: monochrome-navidrome
+        pull_policy: always
+        ports:
+            - '3000:4173'
+        environment:
+            NAVIDROME_URL: 'http://host.docker.internal:4533'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        restart: unless-stopped
+        healthcheck:
+            test:
+                - CMD
+                - wget
+                - --quiet
+                - --tries=1
+                - --spider
+                - http://localhost:4173/
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
+```
+
+In Portainer, select **Stacks > Add stack > Web editor**, paste the YAML above, and deploy it. From a terminal with
+the repository's `docker-compose.yml`, run:
+
 ```bash
 docker compose up -d
 ```
