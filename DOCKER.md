@@ -2,17 +2,26 @@
 
 ## Quick Start
 
-### Monochrome Only
+### Production (recommended)
 
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
 
-Visit `http://localhost:3000`
+The root `docker-compose.yml` builds the production app and proxies `/navidrome/` to the server configured in `.env`.
+Visit `http://YOUR-SERVER-IP:3000`.
+
+The first deployment needs a build:
+
+```bash
+docker compose up -d --build
+```
 
 ### Development
 
 ```bash
+cd docker
 docker compose --profile dev up -d
 ```
 

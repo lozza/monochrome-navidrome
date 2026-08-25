@@ -31,11 +31,14 @@ editing native Navidrome playlists is planned separately.
 The container proxies `/navidrome/` to the Navidrome server, which avoids browser CORS issues:
 
 ```bash
-cd docker
-NAVIDROME_URL=http://host.docker.internal:4533 docker compose up -d --build
+git clone https://github.com/lozza/monochrome-navidrome.git
+cd monochrome-navidrome
+cp .env.example .env
+docker compose up -d --build
 ```
 
-Open `http://localhost:3000`, choose **Settings > Instances**, and enter:
+The default `.env` expects Navidrome to be published on port `4533` of the same Docker host. Change
+`NAVIDROME_URL` if yours is elsewhere. Open `http://YOUR-SERVER-IP:3000`, choose **Settings > Instances**, and enter:
 
 - Server URL: `/navidrome`
 - Your Navidrome username and password

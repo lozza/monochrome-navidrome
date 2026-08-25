@@ -1,0 +1,21 @@
+services:
+    monochrome-navidrome:
+        container_name: monochrome-navidrome
+        build:
+            context: .
+            dockerfile: docker/Dockerfile
+        ports:
+            - '${MONOCHROME_PORT:-3000}:4173'
+        environment:
+            # This address must be reachable from inside this container.
+            # The host-gateway mapping below makes this default work on Linux/OMV.
+            NAVIDROME_URL: '${NAVIDROME_URL:-http://host.docker.internal:4533}'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        restart: unless-stopped
+        healthcheck:
+            test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:4173/']
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
