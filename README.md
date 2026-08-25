@@ -28,17 +28,15 @@ editing native Navidrome playlists is planned separately.
 
 ### Docker quick start
 
-The container proxies `/navidrome/` to the Navidrome server, which avoids browser CORS issues:
+The root `docker-compose.yml` is ready to paste into an OMV or Portainer stack. It pulls the prebuilt image from
+GitHub Container Registry, so the server does not need to clone or build the repository:
 
 ```bash
-git clone https://github.com/lozza/monochrome-navidrome.git
-cd monochrome-navidrome
-cp .env.example .env
-docker compose up -d --build
+docker compose up -d
 ```
 
-The default `.env` expects Navidrome to be published on port `4533` of the same Docker host. Change
-`NAVIDROME_URL` if yours is elsewhere. Open `http://YOUR-SERVER-IP:3000`, choose **Settings > Instances**, and enter:
+The Compose file expects Navidrome to be published on port `4533` of the same Docker host. Change `NAVIDROME_URL`
+in the stack if yours is elsewhere. Open `http://YOUR-SERVER-IP:3000`, choose **Settings > Instances**, and enter:
 
 - Server URL: `/navidrome`
 - Your Navidrome username and password

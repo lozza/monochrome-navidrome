@@ -1,9 +1,8 @@
 services:
     monochrome-navidrome:
+        image: ghcr.io/lozza/monochrome-navidrome:latest
         container_name: monochrome-navidrome
-        build:
-            context: .
-            dockerfile: docker/Dockerfile
+        pull_policy: always
         ports:
             - '${MONOCHROME_PORT:-3000}:4173'
         environment:

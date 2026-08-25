@@ -5,18 +5,12 @@
 ### Production (recommended)
 
 ```bash
-cp .env.example .env
 docker compose up -d
 ```
 
-The root `docker-compose.yml` builds the production app and proxies `/navidrome/` to the server configured in `.env`.
-Visit `http://YOUR-SERVER-IP:3000`.
-
-The first deployment needs a build:
-
-```bash
-docker compose up -d --build
-```
+The root `docker-compose.yml` pulls `ghcr.io/lozza/monochrome-navidrome:latest`; it can also be pasted directly into
+an OMV or Portainer stack. It proxies `/navidrome/` to the server configured by `NAVIDROME_URL`. Visit
+`http://YOUR-SERVER-IP:3000`.
 
 ### Development
 
