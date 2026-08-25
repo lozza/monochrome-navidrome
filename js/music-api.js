@@ -82,6 +82,18 @@ export class MusicAPI {
         return this.getAPI().getAlbums(type, size, offset);
     }
 
+    async getAllAlbums(pageSize = 500) {
+        return this.getAPI().getAllAlbums(pageSize);
+    }
+
+    async getArtists() {
+        return this.getAPI().getArtists();
+    }
+
+    async getPlaylists() {
+        return this.getAPI().getPlaylists();
+    }
+
     // Get the appropriate API based on provider
     getAPI() {
         return this.navidromeAPI;

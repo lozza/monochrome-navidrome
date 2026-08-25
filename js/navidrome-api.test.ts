@@ -200,4 +200,70 @@ describe('NavidromeAPI', () => {
         expect(calls).toContain('/rest/star.view');
         expect(calls).toContain('/rest/unstar.view');
     });
+
+    test('browses the complete Navidrome album, artist and playlist library', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn((input: RequestInfo | URL) => {
+                const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+                if (url.pathname.endsWith('/getAlbumList2.view')) {
+                    const offset = Number(url.searchParams.get('offset'));
+                    const albums =
+                        offset === 0
+                            ? [
+                                  { id: 'album-b', name: 'Beta', artist: 'Artist B' },
+                                  { id: 'album-a', name: 'Alpha', artist: 'Artist A' },
+                              ]
+                            : [{ id: 'album-c', name: 'Charlie', artist: 'Artist C' }];
+                    return Promise.resolve(jsonResponse(subsonic({ albumList2: { album: albums } })));
+                }
+                if (url.pathname.endsWith('/getArtists.view')) {
+                    return Promise.resolve(
+                        jsonResponse(
+                            subsonic({
+                                artists: {
+                                    index: [
+                                        { name: 'B', artist: [{ id: 'artist-b', name: 'Beta Artist' }] },
+                                        { name: 'A', artist: [{ id: 'artist-a', name: 'Alpha Artist' }] },
+                                    ],
+                                },
+                            })
+                        )
+                    );
+                }
+                if (url.pathname.endsWith('/getPlaylists.view')) {
+                    return Promise.resolve(
+                        jsonResponse(
+                            subsonic({
+                                playlists: {
+                                    playlist: [
+                                        { id: 'playlist-b', name: 'Road Trip' },
+                                        { id: 'playlist-a', name: 'Chill' },
+                                    ],
+                                },
+                            })
+                        )
+                    );
+                }
+                throw new Error(`Unexpected URL ${url}`);
+            })
+        );
+
+        const api = new NavidromeAPI(settings);
+        const [albums, artists, playlists] = await Promise.all([
+            api.getAllAlbums(2),
+            api.getArtists(),
+            api.getPlaylists(),
+        ]);
+
+        expect(albums.map((album) => album.id)).toEqual(['album-b', 'album-a', 'album-c']);
+        expect((artists as Array<{ name: string }>).map((artist) => artist.name)).toEqual([
+            'Alpha Artist',
+            'Beta Artist',
+        ]);
+        expect((playlists as Array<{ title: string }>).map((playlist) => playlist.title)).toEqual([
+            'Chill',
+            'Road Trip',
+        ]);
+    });
 });

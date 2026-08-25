@@ -16,6 +16,8 @@ The first working integration includes:
 - Navidrome connection settings and a connection test
 - Salted OpenSubsonic token authentication (the password is not sent in the URL)
 - Recently added albums on first use
+- Full alphabetical browsing of Navidrome albums and artists
+- Native Navidrome playlists in the Library page
 - Track, album and artist search
 - Album, artist and playlist pages
 - Direct browser playback, artwork and downloads

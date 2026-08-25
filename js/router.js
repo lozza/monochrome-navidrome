@@ -87,6 +87,10 @@ export function createRouter(ui) {
             case 'library':
                 await ui.renderLibraryPage();
                 break;
+            case 'mobile':
+            case 'download':
+                await ui.renderHomePage();
+                break;
             case 'recent':
                 await ui.renderRecentPage();
                 break;

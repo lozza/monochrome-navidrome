@@ -13,10 +13,7 @@
         <base href="/" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Monochrome" />
-        <meta
-            name="description"
-            content="A minimalist web player for your self-hosted Navidrome music library."
-        />
+        <meta name="description" content="A minimalist web player for your self-hosted Navidrome music library." />
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
         <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
         <meta property="og:type" content="website" />
@@ -164,10 +161,10 @@
                 <li
                     data-action="toggle-like"
                     data-type-filter="album,artist,playlist,mix,user-playlist"
-                    data-label-album="Save album to library"
-                    data-label-unlike-album="Remove album from library"
-                    data-label-playlist="Save playlist to library"
-                    data-label-unlike-playlist="Remove playlist from library"
+                    data-label-album="Star album"
+                    data-label-unlike-album="Unstar album"
+                    data-label-playlist="Star playlist"
+                    data-label-unlike-playlist="Unstar playlist"
                 >
                     Like
                 </li>
@@ -1812,12 +1809,6 @@
                                             <span>About</span>
                                         </a>
                                     </li>
-                                    <li class="nav-item" id="sidebar-nav-mobile">
-                                        <a href="/mobile">
-                                            <use svg="!lucide/download.svg" size="24" />
-                                            <span>Download</span>
-                                        </a>
-                                    </li>
                                     <li class="nav-item" id="sidebar-nav-discordbtn">
                                         <a href="discord.html" target="_blank">
                                             <use svg="./images/discord.svg" size="64" />
@@ -1921,10 +1912,18 @@
                             <p id="home-welcome-message" style="color: var(--muted-foreground)">
                                 Recently added albums
                             </p>
-                            <button id="home-connect-navidrome-btn" class="btn-primary" style="display: none; margin: 1rem auto">
+                            <button
+                                id="home-connect-navidrome-btn"
+                                class="btn-primary"
+                                style="display: none; margin: 1rem auto"
+                            >
                                 Connect Navidrome
                             </button>
-                            <div id="home-navidrome-albums" class="card-grid" style="margin-top: 2rem; text-align: left"></div>
+                            <div
+                                id="home-navidrome-albums"
+                                class="card-grid"
+                                style="margin-top: 2rem; text-align: left"
+                            ></div>
                         </div>
 
                         <div id="home-content" style="display: none">
@@ -2263,12 +2262,12 @@
                     </section>
 
                     <section class="content-section">
-                        <h2 class="section-title">Liked Items & Local Files</h2>
+                        <h2 class="section-title">Navidrome Library & Local Files</h2>
                         <div class="search-tabs">
-                            <button class="search-tab active" data-tab="tracks">Liked Tracks</button>
-                            <button class="search-tab" data-tab="albums">Albums</button>
-                            <button class="search-tab" data-tab="artists">Artists</button>
-                            <button class="search-tab" data-tab="playlists">Playlists and Mixes</button>
+                            <button class="search-tab active" data-tab="tracks">Starred Tracks</button>
+                            <button class="search-tab" data-tab="albums">All Albums</button>
+                            <button class="search-tab" data-tab="artists">All Artists</button>
+                            <button class="search-tab" data-tab="playlists">Navidrome Playlists</button>
                             <button class="search-tab" data-tab="local">Local Files</button>
                         </div>
                         <div class="search-tab-content active" id="library-tab-tracks">
@@ -5843,7 +5842,15 @@
                                         id="navidrome-url-input"
                                         placeholder="https://music.example.com"
                                         autocomplete="url"
-                                        style="width: 260px; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 0.8rem"
+                                        style="
+                                            width: 260px;
+                                            padding: 0.35rem 0.5rem;
+                                            border: 1px solid var(--border);
+                                            border-radius: var(--radius-md);
+                                            background: var(--card);
+                                            color: var(--foreground);
+                                            font-size: 0.8rem;
+                                        "
                                     />
                                 </div>
                                 <div class="setting-item">
@@ -5854,19 +5861,37 @@
                                         type="text"
                                         id="navidrome-username-input"
                                         autocomplete="username"
-                                        style="width: 260px; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 0.8rem"
+                                        style="
+                                            width: 260px;
+                                            padding: 0.35rem 0.5rem;
+                                            border: 1px solid var(--border);
+                                            border-radius: var(--radius-md);
+                                            background: var(--card);
+                                            color: var(--foreground);
+                                            font-size: 0.8rem;
+                                        "
                                     />
                                 </div>
                                 <div class="setting-item">
                                     <div class="info">
                                         <span class="label">Password</span>
-                                        <span class="description">Stored only in this browser and never sent in plain text.</span>
+                                        <span class="description"
+                                            >Stored only in this browser and never sent in plain text.</span
+                                        >
                                     </div>
                                     <input
                                         type="password"
                                         id="navidrome-password-input"
                                         autocomplete="current-password"
-                                        style="width: 260px; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 0.8rem"
+                                        style="
+                                            width: 260px;
+                                            padding: 0.35rem 0.5rem;
+                                            border: 1px solid var(--border);
+                                            border-radius: var(--radius-md);
+                                            background: var(--card);
+                                            color: var(--foreground);
+                                            font-size: 0.8rem;
+                                        "
                                     />
                                 </div>
                                 <div class="setting-item">

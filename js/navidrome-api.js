@@ -16,7 +16,9 @@ function formatResult(items, limit = items.length, offset = 0) {
 }
 
 function normalizeBaseUrl(value) {
-    return String(value || '').trim().replace(/\/+$/, '');
+    return String(value || '')
+        .trim()
+        .replace(/\/+$/, '');
 }
 
 function randomSalt() {
@@ -241,9 +243,21 @@ export class NavidromeAPI {
             Promise.resolve(emptyResult()),
         ]);
         return {
-            tracks: formatResult(asArray(result.song).map((song) => this.mapTrack(song)), limit, offset),
-            artists: formatResult(asArray(result.artist).map((artist) => this.mapArtist(artist)), limit, offset),
-            albums: formatResult(asArray(result.album).map((album) => this.mapAlbum(album)), limit, offset),
+            tracks: formatResult(
+                asArray(result.song).map((song) => this.mapTrack(song)),
+                limit,
+                offset
+            ),
+            artists: formatResult(
+                asArray(result.artist).map((artist) => this.mapArtist(artist)),
+                limit,
+                offset
+            ),
+            albums: formatResult(
+                asArray(result.album).map((album) => this.mapAlbum(album)),
+                limit,
+                offset
+            ),
             playlists,
             videos,
         };
@@ -263,7 +277,9 @@ export class NavidromeAPI {
 
     async searchPlaylists(query, options = {}) {
         const root = await this.request('getPlaylists', {}, options);
-        const normalizedQuery = String(query || '').trim().toLocaleLowerCase();
+        const normalizedQuery = String(query || '')
+            .trim()
+            .toLocaleLowerCase();
         const all = asArray(root.playlists?.playlist).map((playlist) => this.mapPlaylist(playlist));
         const items = normalizedQuery
             ? all.filter((playlist) => playlist.name.toLocaleLowerCase().includes(normalizedQuery))
@@ -278,6 +294,35 @@ export class NavidromeAPI {
     async getAlbums(type = 'newest', size = 24, offset = 0) {
         const root = await this.request('getAlbumList2', { type, size, offset });
         return asArray(root.albumList2?.album).map((album) => this.mapAlbum(album));
+    }
+
+    async getAllAlbums(pageSize = 500) {
+        const albums = [];
+        let offset = 0;
+
+        while (true) {
+            const batch = await this.getAlbums('alphabeticalByName', pageSize, offset);
+            albums.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += batch.length;
+        }
+
+        return albums;
+    }
+
+    async getArtists() {
+        const root = await this.request('getArtists');
+        return asArray(root.artists?.index)
+            .flatMap((index) => asArray(index.artist))
+            .map((artist) => this.mapArtist(artist))
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    }
+
+    async getPlaylists() {
+        const root = await this.request('getPlaylists');
+        return asArray(root.playlists?.playlist)
+            .map((playlist) => this.mapPlaylist(playlist))
+            .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
     }
 
     async getTrackMetadata(id) {

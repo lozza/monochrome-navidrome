@@ -188,16 +188,6 @@ class CommandPalette {
                 },
             },
             {
-                id: 'nav-download',
-                group: 'Navigation',
-                icon: 'download',
-                label: 'Go to Download',
-                keywords: ['download', 'desktop', 'app'],
-                action: () => {
-                    navigate('/download');
-                },
-            },
-            {
                 id: 'nav-donate',
                 group: 'Navigation',
                 icon: 'handHeart',

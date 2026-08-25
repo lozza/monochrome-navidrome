@@ -2768,68 +2768,60 @@ export class UIRenderer {
             tracksContainer.innerHTML = createPlaceholder('No liked tracks yet.');
         }
 
-        const likedAlbums = await db.getFavorites('album');
-        if (likedAlbums.length) {
-            albumsContainer.innerHTML = likedAlbums.map((a) => this.createAlbumCardHTML(a)).join('');
-            for (const album of likedAlbums) {
+        const [allAlbums, allArtists, navidromePlaylists] = await Promise.all([
+            this.api.getAllAlbums().catch((error) => {
+                albumsContainer.innerHTML = createPlaceholder(`Could not load albums: ${error.message}`);
+                return null;
+            }),
+            this.api.getArtists().catch((error) => {
+                artistsContainer.innerHTML = createPlaceholder(`Could not load artists: ${error.message}`);
+                return null;
+            }),
+            this.api.getPlaylists().catch((error) => {
+                playlistsContainer.innerHTML = createPlaceholder(`Could not load playlists: ${error.message}`);
+                return null;
+            }),
+        ]);
+
+        if (allAlbums?.length) {
+            albumsContainer.innerHTML = allAlbums.map((album) => this.createAlbumCardHTML(album)).join('');
+            for (const album of allAlbums) {
                 const el = albumsContainer.querySelector(`[data-album-id="${album.id}"]`);
                 if (el) {
                     trackDataStore.set(el, album);
                     await this.updateLikeState(el, 'album', album.id);
                 }
             }
-        } else {
-            albumsContainer.innerHTML = createPlaceholder('No liked albums yet.');
+        } else if (allAlbums) {
+            albumsContainer.innerHTML = createPlaceholder('No albums found in Navidrome.');
         }
 
-        const likedArtists = await db.getFavorites('artist');
-        if (likedArtists.length) {
-            artistsContainer.innerHTML = likedArtists.map((a) => this.createArtistCardHTML(a)).join('');
-            for (const artist of likedArtists) {
+        if (allArtists?.length) {
+            artistsContainer.innerHTML = allArtists.map((artist) => this.createArtistCardHTML(artist)).join('');
+            for (const artist of allArtists) {
                 const el = artistsContainer.querySelector(`[data-artist-id="${artist.id}"]`);
                 if (el) {
                     trackDataStore.set(el, artist);
                     await this.updateLikeState(el, 'artist', artist.id);
                 }
             }
-        } else {
-            artistsContainer.innerHTML = createPlaceholder('No liked artists yet.');
+        } else if (allArtists) {
+            artistsContainer.innerHTML = createPlaceholder('No artists found in Navidrome.');
         }
 
-        const likedPlaylists = await db.getFavorites('playlist');
-        const likedMixes = await db.getFavorites('mix');
-
-        let mixedContent = [];
-        if (likedPlaylists.length) mixedContent.push(...likedPlaylists.map((p) => ({ ...p, _type: 'playlist' })));
-        if (likedMixes.length) mixedContent.push(...likedMixes.map((m) => ({ ...m, _type: 'mix' })));
-
-        // Sort by addedAt descending
-        mixedContent.sort((a, b) => b.addedAt - a.addedAt);
-
-        if (mixedContent.length) {
-            playlistsContainer.innerHTML = mixedContent
-                .map((item) => {
-                    return item._type === 'playlist' ? this.createPlaylistCardHTML(item) : this.createMixCardHTML(item);
-                })
+        if (navidromePlaylists?.length) {
+            playlistsContainer.innerHTML = navidromePlaylists
+                .map((playlist) => this.createPlaylistCardHTML(playlist))
                 .join('');
-
-            for (const playlist of likedPlaylists) {
+            for (const playlist of navidromePlaylists) {
                 const el = playlistsContainer.querySelector(`[data-playlist-id="${playlist.uuid}"]`);
                 if (el) {
                     trackDataStore.set(el, playlist);
                     await this.updateLikeState(el, 'playlist', playlist.uuid);
                 }
             }
-
-            for (const mix of likedMixes) {
-                const el = playlistsContainer.querySelector(`[data-mix-id="${mix.id}"]`);
-                if (el) {
-                    trackDataStore.set(el, mix);
-                    await this.updateLikeState(el, 'mix', mix.id);
-                }
-            }
-        } else {
-            playlistsContainer.innerHTML = createPlaceholder('No liked playlists or mixes yet.');
+        } else if (navidromePlaylists) {
+            playlistsContainer.innerHTML = createPlaceholder('No playlists found in Navidrome.');
         }
 
         const folders = await db.getFolders();
