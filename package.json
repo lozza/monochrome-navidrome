@@ -1,8 +1,8 @@
 {
-    "name": "monochrome",
+    "name": "monochrome-navidrome",
     "type": "module",
     "version": "2.5.1",
-    "description": "[<img src=\"https://github.com/monochrome-music/monochrome/blob/main/assets/512.png?raw=true\" alt=\"Monochrome Logo\">](https://monochrome.tf)",
+    "description": "A Monochrome-based web player for Navidrome and OpenSubsonic servers",
     "scripts": {
         "dev": "vite",
         "test": "vitest run --config=vite.config.ts",

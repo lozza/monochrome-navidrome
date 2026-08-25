@@ -344,7 +344,10 @@ export class UIRenderer {
     }
 
     async updateLikeState(element, type, id) {
-        const isLiked = await db.isFavorite(type, id);
+        const localLiked = await db.isFavorite(type, id);
+        const isLiked = ['track', 'album', 'artist'].includes(type)
+            ? await this.api.isFavorite(type, id).catch(() => localLiked)
+            : localLiked;
         const btn = element.querySelector('.like-btn');
         if (btn) {
             btn.innerHTML = this.createHeartIcon(isLiked);
@@ -2934,6 +2937,7 @@ export class UIRenderer {
             if (!hasActivity) {
                 if (welcomeEl) welcomeEl.style.display = 'block';
                 if (contentEl) contentEl.style.display = 'none';
+                await this.renderNavidromeWelcome();
                 return;
             }
 
@@ -2967,6 +2971,49 @@ export class UIRenderer {
             ]);
         } finally {
             this.renderLock = false;
+        }
+    }
+
+    async renderNavidromeWelcome() {
+        const title = document.getElementById('home-welcome-title');
+        const message = document.getElementById('home-welcome-message');
+        const connectButton = document.getElementById('home-connect-navidrome-btn');
+        const albumsContainer = document.getElementById('home-navidrome-albums');
+        if (!albumsContainer) return;
+
+        if (!this.api.isConfigured()) {
+            if (title) title.textContent = 'Connect your music library';
+            if (message) message.textContent = 'Add your Navidrome server details to start listening.';
+            if (connectButton) {
+                connectButton.style.display = 'block';
+                connectButton.onclick = () => {
+                    navigate('/settings');
+                    window.setTimeout(() => document.querySelector('.settings-tab[data-tab="instances"]')?.click(), 0);
+                };
+            }
+            albumsContainer.innerHTML = '';
+            return;
+        }
+
+        if (title) title.textContent = 'Your Navidrome library';
+        if (message) message.textContent = 'Recently added albums';
+        if (connectButton) connectButton.style.display = 'none';
+        albumsContainer.innerHTML = this.createSkeletonCards(12, false);
+
+        try {
+            const albums = await this.api.getAlbums('newest', 24);
+            albumsContainer.innerHTML = albums.length
+                ? albums.map((album) => this.createAlbumCardHTML(album)).join('')
+                : createPlaceholder('No albums found in this Navidrome library.');
+            for (const album of albums) {
+                const element = albumsContainer.querySelector(`[data-album-id="${album.id}"]`);
+                if (element) {
+                    trackDataStore.set(element, album);
+                    await this.updateLikeState(element, 'album', album.id);
+                }
+            }
+        } catch (error) {
+            albumsContainer.innerHTML = createPlaceholder(`Could not load Navidrome: ${error.message}`);
         }
     }
 

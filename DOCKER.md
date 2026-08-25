@@ -96,6 +96,24 @@ Override files can extend existing services (add labels, env vars, networks) and
 
 The application is configured via environment variables. Copy `.env.example` to `.env` and edit it to match your setup.
 
+### Navidrome
+
+Set `NAVIDROME_URL` to the URL reachable **from the Monochrome container**. The nginx frontend exposes it to the
+browser at `/navidrome`, avoiding cross-origin browser restrictions.
+
+```env
+NAVIDROME_URL=http://host.docker.internal:4533
+```
+
+If Navidrome is attached to the same Docker network, use its service name instead:
+
+```env
+NAVIDROME_URL=http://navidrome:4533
+```
+
+In the app, use `/navidrome` as the server URL and add your normal Navidrome username and password under
+**Settings > Instances**.
+
 ### Authentication (Appwrite)
 
 Monochrome uses Appwrite for user authentication. While it defaults to official instances, you can use your own self-hosted Appwrite instance:

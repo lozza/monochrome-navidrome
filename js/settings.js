@@ -50,6 +50,8 @@ import {
     devModeSettings,
     serverDisruptionSettings,
 } from './storage.js';
+import { navidromeSettings } from './navidrome-settings.js';
+import { NavidromeAPI } from './navidrome-api.js';
 import { audioContextManager, getPresetsForBandCount } from './audio-context.js';
 import { calculateBiquadResponse, interpolate, getNormalizationOffset, runAutoEqAlgorithm } from './autoeq-engine.js';
 import { parseRawData, TARGETS, SPEAKER_TARGETS } from './autoeq-data.js';
@@ -84,6 +86,67 @@ export async function initializeSettings(scrobbler, player, api, ui) {
 
     // Initialize account system UI & Settings
     authManager.updateUI?.(authManager.user ?? null);
+
+    // ========================================
+    // Navidrome connection
+    // ========================================
+    const navidromeUrl = document.getElementById('navidrome-url-input');
+    const navidromeUsername = document.getElementById('navidrome-username-input');
+    const navidromePassword = document.getElementById('navidrome-password-input');
+    const navidromeSave = document.getElementById('navidrome-save-btn');
+    const navidromeTest = document.getElementById('navidrome-test-btn');
+    const navidromeStatus = document.getElementById('navidrome-connection-status');
+
+    if (navidromeUrl) navidromeUrl.value = navidromeSettings.getUrl();
+    if (navidromeUsername) navidromeUsername.value = navidromeSettings.getUsername();
+    if (navidromePassword && navidromeSettings.getPassword()) navidromePassword.placeholder = 'Password saved';
+
+    const collectNavidromeCredentials = () => ({
+        url: navidromeUrl?.value || '',
+        username: navidromeUsername?.value || '',
+        password: navidromePassword?.value || navidromeSettings.getPassword(),
+    });
+
+    const setNavidromeStatus = (message, isError = false) => {
+        if (!navidromeStatus) return;
+        navidromeStatus.textContent = message;
+        navidromeStatus.style.color = isError ? '#ef4444' : '#22c55e';
+    };
+
+    navidromeSave?.addEventListener('click', () => {
+        const credentials = collectNavidromeCredentials();
+        if (!credentials.url || !credentials.username || !credentials.password) {
+            setNavidromeStatus('Enter the server URL, username and password.', true);
+            return;
+        }
+        navidromeSettings.setCredentials(credentials);
+        setNavidromeStatus('Saved. Reloading…');
+        window.setTimeout(() => window.location.reload(), 350);
+    });
+
+    navidromeTest?.addEventListener('click', async () => {
+        const credentials = collectNavidromeCredentials();
+        if (!credentials.url || !credentials.username || !credentials.password) {
+            setNavidromeStatus('Enter the server URL, username and password.', true);
+            return;
+        }
+
+        const temporarySettings = {
+            getUrl: () => credentials.url,
+            getUsername: () => credentials.username,
+            getPassword: () => credentials.password,
+        };
+        navidromeTest.disabled = true;
+        setNavidromeStatus('Testing…');
+        try {
+            const result = await new NavidromeAPI(temporarySettings).ping();
+            setNavidromeStatus(`Connected to ${result.type}${result.version ? ` ${result.version}` : ''}.`);
+        } catch (error) {
+            setNavidromeStatus(`Connection failed: ${error.message}`, true);
+        } finally {
+            navidromeTest.disabled = false;
+        }
+    });
 
     // ========================================
     // Dev Mode

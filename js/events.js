@@ -1607,6 +1607,14 @@ export async function handleTrackAction(
         await downloadTrackWithMetadata(item, downloadQualitySettings.getQuality(), api, lyricsManager);
     } else if (action === 'toggle-like') {
         const added = await db.toggleFavorite(type, item);
+        if (['track', 'album', 'artist'].includes(type)) {
+            try {
+                await api.setFavorite?.(type, item.id, added);
+            } catch (error) {
+                console.warn('Could not sync favorite to Navidrome:', error);
+                showNotification('Saved locally, but Navidrome sync failed');
+            }
+        }
         await syncManager.syncLibraryItem(type, item, added);
 
         if (added && type === 'track' && scrobbler) {

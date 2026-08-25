@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "monochrome",
+      "name": "monochrome-navidrome",
       "dependencies": {
         "@capacitor/android": "^8.2.0",
         "@capacitor/app": "^8.0.1",

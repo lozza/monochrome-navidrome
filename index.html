@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="referrer" content="no-referrer" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-        <title>Monochrome</title>
+        <title>Monochrome for Navidrome</title>
         <link rel="canonical" href="https://monochrome.tf/" />
         <link rel="alternate" hreflang="en" href="https://monochrome.tf/" />
         <meta name="theme-color" content="#000000" />
@@ -15,17 +15,17 @@
         <meta name="apple-mobile-web-app-title" content="Monochrome" />
         <meta
             name="description"
-            content="Stream and download millions of Hi-Res FLACs, unreleased songs and music videos, all for free on Monochrome."
+            content="A minimalist web player for your self-hosted Navidrome music library."
         />
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
         <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content="en_US" />
         <meta property="og:site_name" content="Monochrome" />
-        <meta property="og:title" content="Monochrome" />
+        <meta property="og:title" content="Monochrome for Navidrome" />
         <meta
             property="og:description"
-            content="Stream and download millions of Hi-Res FLACs, unreleased songs and music videos, all for free on Monochrome."
+            content="A minimalist web player for your self-hosted Navidrome music library."
         />
         <meta property="og:url" content="https://monochrome.tf/" />
         <meta property="og:image" content="https://monochrome.tf/assets/banner.jpg" />
@@ -33,10 +33,10 @@
         <meta property="og:image:alt" content="Monochrome banner" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content="https://monochrome.tf/" />
-        <meta name="twitter:title" content="Monochrome" />
+        <meta name="twitter:title" content="Monochrome for Navidrome" />
         <meta
             name="twitter:description"
-            content="Stream and download millions of Hi-Res FLACs, unreleased songs and music videos, all for free on Monochrome."
+            content="A minimalist web player for your self-hosted Navidrome music library."
         />
         <meta name="twitter:image" content="https://monochrome.tf/assets/banner-twitter.jpg" />
         <meta name="twitter:image:alt" content="Monochrome banner" />
@@ -44,9 +44,9 @@
             {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                "name": "Monochrome",
+                "name": "Monochrome for Navidrome",
                 "url": "https://monochrome.tf/",
-                "description": "Stream and download millions of Hi-Res FLACs, unreleased songs and music videos, all for free on Monochrome.",
+                "description": "A minimalist web player for your self-hosted Navidrome music library.",
                 "potentialAction": {
                     "@type": "SearchAction",
                     "target": "https://monochrome.tf/search/{search_term_string}",
@@ -58,12 +58,12 @@
             {
                 "@context": "https://schema.org",
                 "@type": "WebApplication",
-                "name": "Monochrome",
+                "name": "Monochrome for Navidrome",
                 "url": "https://monochrome.tf/",
                 "applicationCategory": "MusicApplication",
                 "operatingSystem": "Web Browser",
                 "image": "https://monochrome.tf/images/monochrome_logo.svg",
-                "description": "Stream and download millions of Hi-Res FLACs, unreleased songs and music videos, all for free on Monochrome."
+                "description": "A minimalist web player for your self-hosted Navidrome music library."
             }
         </script>
         <!-- bini's seo thing -->
@@ -1910,17 +1910,21 @@
                 <div id="page-home" class="page">
                     <div class="home-header-tabs">
                         <button class="home-tab active" data-tab="for-you">Home</button>
-                        <button class="home-tab" data-tab="explore">Hot & New</button>
-                        <button class="home-tab" data-tab="editors-picks">Editor's Picks</button>
-                        <button class="home-tab" data-tab="aoty">AOTY</button>
+                        <button class="home-tab" data-tab="explore" style="display: none">Hot & New</button>
+                        <button class="home-tab" data-tab="editors-picks" style="display: none">Editor's Picks</button>
+                        <button class="home-tab" data-tab="aoty" style="display: none">AOTY</button>
                     </div>
 
                     <div id="home-view-for-you" class="home-view active">
                         <div id="home-welcome" style="display: none; text-align: center; padding: 4rem 2rem">
-                            <h2 style="margin-bottom: 1rem">Welcome to Monochrome</h2>
-                            <p style="color: var(--muted-foreground)">
-                                You haven't listened to anything yet. Search for your favorite songs to get started!
+                            <h2 id="home-welcome-title" style="margin-bottom: 1rem">Your Navidrome library</h2>
+                            <p id="home-welcome-message" style="color: var(--muted-foreground)">
+                                Recently added albums
                             </p>
+                            <button id="home-connect-navidrome-btn" class="btn-primary" style="display: none; margin: 1rem auto">
+                                Connect Navidrome
+                            </button>
+                            <div id="home-navidrome-albums" class="card-grid" style="margin-top: 2rem; text-align: left"></div>
                         </div>
 
                         <div id="home-content" style="display: none">
@@ -5822,6 +5826,65 @@
                             <div class="settings-group">
                                 <div class="setting-item">
                                     <div class="info">
+                                        <span class="label">Navidrome server</span>
+                                        <span class="description"
+                                            >Connect this player to your Navidrome library using the OpenSubsonic
+                                            API.</span
+                                        >
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="info">
+                                        <span class="label">Server URL</span>
+                                        <span class="description">For example, https://music.example.com</span>
+                                    </div>
+                                    <input
+                                        type="url"
+                                        id="navidrome-url-input"
+                                        placeholder="https://music.example.com"
+                                        autocomplete="url"
+                                        style="width: 260px; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 0.8rem"
+                                    />
+                                </div>
+                                <div class="setting-item">
+                                    <div class="info">
+                                        <span class="label">Username</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="navidrome-username-input"
+                                        autocomplete="username"
+                                        style="width: 260px; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 0.8rem"
+                                    />
+                                </div>
+                                <div class="setting-item">
+                                    <div class="info">
+                                        <span class="label">Password</span>
+                                        <span class="description">Stored only in this browser and never sent in plain text.</span>
+                                    </div>
+                                    <input
+                                        type="password"
+                                        id="navidrome-password-input"
+                                        autocomplete="current-password"
+                                        style="width: 260px; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); color: var(--foreground); font-size: 0.8rem"
+                                    />
+                                </div>
+                                <div class="setting-item">
+                                    <div class="info">
+                                        <span class="description" id="navidrome-connection-status"
+                                            >Credentials are authenticated with a per-request salted token.</span
+                                        >
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem">
+                                        <button id="navidrome-test-btn" class="btn-secondary">Test connection</button>
+                                        <button id="navidrome-save-btn" class="btn-primary">Save &amp; reload</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-group" style="display: none">
+                                <div class="setting-item">
+                                    <div class="info">
                                         <span class="label" style="color: #f59e0b">Dev Mode</span>
                                         <span class="description"
                                             >Route all API requests through a local Tidal HiFi API server. Requires a
@@ -5867,7 +5930,7 @@
                                 </div>
                             </div>
 
-                            <div class="settings-group">
+                            <div class="settings-group" style="display: none">
                                 <div class="setting-item">
                                     <div class="info">
                                         <span class="label">Unified Playback</span>
@@ -5926,7 +5989,7 @@
                                 </div>
                             </div>
 
-                            <div class="settings-group">
+                            <div class="settings-group" style="display: none">
                                 <div class="setting-item">
                                     <div class="info">
                                         <span class="label">Deezer Fallback</span>
@@ -5962,7 +6025,7 @@
                                 </div>
                             </div>
 
-                            <div class="settings-group">
+                            <div class="settings-group" style="display: none">
                                 <div id="api-instance-manager">
                                     <div class="setting-item">
                                         <div class="info">

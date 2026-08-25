@@ -1,14 +1,13 @@
 // js/music-api.js
 
-import { LosslessAPI } from './api.js';
+import { NavidromeAPI } from './navidrome-api.js';
 import { PodcastsAPI } from './podcasts-api.js';
-import { musicProviderSettings } from './storage.js';
 import { getCommunityPlaylist } from './community-playlists.js';
 
 /**
  * MusicAPI - Singleton class that provides a unified interface for accessing music streaming services.
  *
- * Supports multiple providers (primarily Tidal) and includes functionality for searching,
+ * Uses a Navidrome/OpenSubsonic server for searching,
  * retrieving metadata, streaming, and managing playlists, artists, albums, tracks, and podcasts.
  *
  * @class MusicAPI
@@ -31,7 +30,7 @@ import { getCommunityPlaylist } from './community-playlists.js';
  * // Get stream URL
  * const streamUrl = await api.getStreamUrl('track-id', 'HIGH');
  *
- * @property {LosslessAPI} tidalAPI - The Tidal API instance
+ * @property {NavidromeAPI} navidromeAPI - The Navidrome API instance
  * @property {PodcastsAPI} podcastsAPI - The Podcasts API instance
  * @property {Object} _settings - Configuration settings
  * @property {Map} videoArtworkCache - Cache for video artwork data
@@ -53,7 +52,10 @@ export class MusicAPI {
 
     /** @private */
     constructor(settings) {
-        this.tidalAPI = new LosslessAPI(settings);
+        this.navidromeAPI = new NavidromeAPI();
+        // Temporary compatibility alias for the few older UI call sites that
+        // still use the historical property name.
+        this.tidalAPI = this.navidromeAPI;
         this.podcastsAPI = new PodcastsAPI();
         this._settings = settings;
         this.videoArtworkCache = new Map();
@@ -69,12 +71,20 @@ export class MusicAPI {
     }
 
     getCurrentProvider() {
-        return musicProviderSettings.getProvider();
+        return 'navidrome';
+    }
+
+    isConfigured() {
+        return this.getAPI().isConfigured?.() === true;
+    }
+
+    async getAlbums(type = 'newest', size = 24, offset = 0) {
+        return this.getAPI().getAlbums(type, size, offset);
     }
 
     // Get the appropriate API based on provider
     getAPI() {
-        return this.tidalAPI;
+        return this.navidromeAPI;
     }
 
     // Search methods
@@ -115,11 +125,11 @@ export class MusicAPI {
     }
 
     async searchPlaylists(query, options = {}) {
-        return this.tidalAPI.searchPlaylists(query, options);
+        return this.getAPI().searchPlaylists(query, options);
     }
 
     async searchVideos(query, options = {}) {
-        return this.tidalAPI.searchVideos(query, options);
+        return this.getAPI().searchVideos(query, options);
     }
 
     async searchPodcasts(query, options = {}) {
@@ -187,7 +197,7 @@ export class MusicAPI {
     }
 
     async getArtistSocials(artistName) {
-        return this.tidalAPI.getArtistSocials(artistName);
+        return this.getAPI().getArtistSocials(artistName);
     }
 
     async getPlaylist(id, _provider = null) {
@@ -195,12 +205,11 @@ export class MusicAPI {
             return getCommunityPlaylist(id);
         }
 
-        return this.tidalAPI.getPlaylist(id);
+        return this.getAPI().getPlaylist(id);
     }
 
     async getMix(id) {
-        // Mixes are always Tidal for now
-        return this.tidalAPI.getMix(id);
+        return this.getAPI().getMix?.(id);
     }
 
     async getTrackRecommendations(id) {
@@ -219,6 +228,14 @@ export class MusicAPI {
         return api.getStreamUrl(cleanId, quality);
     }
 
+    async isFavorite(type, id) {
+        return this.getAPI().isFavorite?.(type, this.stripProviderPrefix(id)) ?? false;
+    }
+
+    async setFavorite(type, id, liked) {
+        return this.getAPI().setFavorite?.(type, this.stripProviderPrefix(id), liked);
+    }
+
     usesSingleUsePlaybackUrls() {
         return this.getAPI().usesSingleUsePlaybackUrls?.() === true;
     }
@@ -232,14 +249,14 @@ export class MusicAPI {
         if (typeof id === 'string' && id.startsWith('blob:')) {
             return id;
         }
-        return this.tidalAPI.getCoverUrl(this.stripProviderPrefix(id), size);
+        return this.getAPI().getCoverUrl(this.stripProviderPrefix(id), size);
     }
 
     getCoverSrcset(id) {
         if (typeof id === 'string' && id.startsWith('blob:')) {
             return '';
         }
-        return this.tidalAPI.getCoverSrcset(this.stripProviderPrefix(id));
+        return this.getAPI().getCoverSrcset(this.stripProviderPrefix(id));
     }
 
     getVideoCoverUrl(imageId, size = '1280') {
@@ -249,7 +266,7 @@ export class MusicAPI {
         if (typeof imageId === 'string' && imageId.startsWith('blob:')) {
             return imageId;
         }
-        return this.tidalAPI.getVideoCoverUrl(this.stripProviderPrefix(imageId), size);
+        return this.getAPI().getVideoCoverUrl(this.stripProviderPrefix(imageId), size);
     }
 
     async getVideoArtwork(title, artist) {
@@ -279,56 +296,20 @@ export class MusicAPI {
     }
 
     getArtistPictureUrl(id, size = '320') {
-        return this.tidalAPI.getArtistPictureUrl(this.stripProviderPrefix(id), size);
+        return this.getAPI().getArtistPictureUrl(this.stripProviderPrefix(id), size);
     }
 
     getArtistPictureSrcset(id) {
-        return this.tidalAPI.getArtistPictureSrcset(this.stripProviderPrefix(id));
+        return this.getAPI().getArtistPictureSrcset(this.stripProviderPrefix(id));
     }
 
     async getArtistBanner(artistName) {
-        const cacheKey = `banner-${artistName}`.toLowerCase();
-        if (this.videoArtworkCache.has(cacheKey)) {
-            return this.videoArtworkCache.get(cacheKey);
-        }
-
-        try {
-            const url = `https://artwork-boidu-dev.samidy.workers.dev/artist?a=${encodeURIComponent(artistName)}`;
-            const response = await fetch(url);
-            if (!response.ok) return null;
-            const data = await response.json();
-
-            let hlsUrl = null;
-            if (data.animated) {
-                if (typeof data.animated === 'string') {
-                    hlsUrl = data.animated;
-                } else if (typeof data.animated === 'object') {
-                    hlsUrl = data.animated.hls || data.animated.url || data.animated.hlsUrl || data.animated.videoUrl;
-
-                    if (!hlsUrl) {
-                        for (const key in data.animated) {
-                            if (typeof data.animated[key] === 'string' && data.animated[key].includes('.m3u8')) {
-                                hlsUrl = data.animated[key];
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            const result = {
-                hlsUrl: hlsUrl,
-            };
-            this.videoArtworkCache.set(cacheKey, result);
-            return result;
-        } catch (error) {
-            console.warn('Failed to fetch artist banner:', error);
-            return null;
-        }
+        void artistName;
+        return null;
     }
 
     extractStreamUrlFromManifest(manifest) {
-        return this.tidalAPI.extractStreamUrlFromManifest(manifest);
+        return this.getAPI().extractStreamUrlFromManifest(manifest);
     }
 
     // Helper methods
@@ -363,7 +344,7 @@ export class MusicAPI {
     }
 
     async getArtistTopTracks(artistId, options = {}) {
-        return this.tidalAPI.getArtistTopTracks(artistId, options);
+        return this.getAPI().getArtistTopTracks(artistId, options);
     }
 
     async getSimilarAlbums(albumId) {
@@ -373,17 +354,16 @@ export class MusicAPI {
     }
 
     async getRecommendedTracksForPlaylist(tracks, limit = 20, options = {}) {
-        // Use Tidal for recommendations
-        return this.tidalAPI.getRecommendedTracksForPlaylist(tracks, limit, options);
+        return this.getAPI().getRecommendedTracksForPlaylist(tracks, limit, options);
     }
 
     // Cache methods
     async clearCache() {
-        await this.tidalAPI.clearCache();
+        await this.getAPI().clearCache();
     }
 
     getCacheStats() {
-        return this.tidalAPI.getCacheStats();
+        return this.getAPI().getCacheStats();
     }
 
     // Settings accessor for compatibility

@@ -6,6 +6,55 @@
 
 <h1 align="center">Monochrome</h1>
 
+> This fork is being converted into a dedicated web player for
+> [Navidrome](https://www.navidrome.org/) and other compatible OpenSubsonic servers.
+
+## Navidrome fork status
+
+The first working integration includes:
+
+- Navidrome connection settings and a connection test
+- Salted OpenSubsonic token authentication (the password is not sent in the URL)
+- Recently added albums on first use
+- Track, album and artist search
+- Album, artist and playlist pages
+- Direct browser playback, artwork and downloads
+- Similar songs/artists and random-album fallbacks
+- Navidrome starred tracks, albums and artists
+- A same-origin Navidrome proxy in the production Docker image
+
+TIDAL-only discovery feeds, music videos and mixes are disabled. Monochrome's local playlist system is still present;
+editing native Navidrome playlists is planned separately.
+
+### Docker quick start
+
+The container proxies `/navidrome/` to the Navidrome server, which avoids browser CORS issues:
+
+```bash
+cd docker
+NAVIDROME_URL=http://host.docker.internal:4533 docker compose up -d --build
+```
+
+Open `http://localhost:3000`, choose **Settings > Instances**, and enter:
+
+- Server URL: `/navidrome`
+- Your Navidrome username and password
+
+If both containers share a Docker network, `NAVIDROME_URL` can instead use the Navidrome service name, such as
+`http://navidrome:4533`.
+
+### Local development
+
+```bash
+npm install
+npm run dev
+```
+
+For local development, either enter a full Navidrome URL that permits browser requests or put both apps behind the
+same reverse proxy. Production Docker deployments should normally use `/navidrome`.
+
+---
+
 <p align="center">
   <strong>An open-source, privacy-respecting, ad-free music app.</strong>
 </p>
