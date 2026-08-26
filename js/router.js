@@ -1,6 +1,7 @@
 //router.js
 import { getTrackArtists } from './utils.js';
 import { loadProfile } from './profile.js';
+import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
 
 export function navigate(path) {
     if (path === window.location.pathname) {
@@ -82,6 +83,7 @@ export function createRouter(ui) {
             }
             case 'library':
                 await ui.renderLibraryPage();
+                enhanceSinglesAlphabetIndex();
                 break;
             case 'recent':
                 await ui.renderRecentPage();
