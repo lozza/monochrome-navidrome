@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="images/navichrome_logo_black.svg" alt="Navichrome logo" width="128">
+</p>
+
 # Navichrome
 
 A self-hosted web player for [Navidrome](https://www.navidrome.org/) and compatible OpenSubsonic servers.
