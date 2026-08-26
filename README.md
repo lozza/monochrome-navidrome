@@ -19,6 +19,18 @@ playback, favourites, playlists and listening history.
 - Responsive desktop and mobile web interface
 - Prebuilt Docker image for Portainer and Docker Compose
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/album.webp" alt="Album view" width="49%">
+  <img src="docs/screenshots/home.webp" alt="Home recommendations" width="49%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/library.webp" alt="Navidrome library and Singles view" width="49%">
+  <img src="docs/screenshots/settings.webp" alt="Navidrome connection settings" width="49%">
+</p>
+
 ## Docker Compose
 
 ```yaml
