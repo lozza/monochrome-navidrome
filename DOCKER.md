@@ -1,223 +1,52 @@
-# Docker Deployment Guide
+# Docker deployment
 
-## Quick Start
-
-### Production (recommended)
+The root [`docker-compose.yml`](docker-compose.yml) runs the published Navidrome fork and proxies `/navidrome/` to
+your Navidrome server. It can be used from the command line or pasted into a Portainer stack.
 
 ```bash
 docker compose up -d
 ```
 
-The root `docker-compose.yml` pulls `ghcr.io/lozza/monochrome-navidrome:latest`; it can also be pasted directly into
-an OMV or Portainer stack. It proxies `/navidrome/` to the server configured by `NAVIDROME_URL`. Visit
-`http://YOUR-SERVER-IP:3000`.
-
-### Development
-
-```bash
-cd docker
-docker compose --profile dev up -d
-```
-
-Visit `http://localhost:5173` (hot-reload enabled)
-
----
-
-## How It Works
-
-### Profiles
-
-Docker Compose [profiles](https://docs.docker.com/compose/how-tos/profiles/) control which services start. A service with no profile always runs. A service with a profile only runs when that profile is activated.
-
-| Command                                                   | What starts                          |
-| --------------------------------------------------------- | ------------------------------------ |
-| `docker compose up -d`                                    | Monochrome                           |
-| `docker compose --profile pocketbase up -d`               | Monochrome + PocketBase              |
-| `docker compose --profile dev up -d`                      | Monochrome + Dev server              |
-| `docker compose --profile dev --profile pocketbase up -d` | Monochrome + Dev server + PocketBase |
-
-In `docker-compose.yml`, it looks like this:
-
-```yaml
-services:
-    monochrome: # no profile -- always starts
-
-    pocketbase:
-        profiles: ['pocketbase'] # opt-in
-
-    monochrome-dev:
-        profiles: ['dev'] # opt-in
-```
-
-### Override File
-
-Docker Compose automatically merges `docker-compose.override.yml` into `docker-compose.yml` if it exists in the same directory. No flags needed.
-
-This is useful for forks that need to add custom services or configuration (Traefik labels, extra containers, custom networks) without modifying the base `docker-compose.yml`.
-
-The override file does not exist in the upstream repo, don't search it!
-
-**Example** -- adding Traefik labels to PocketBase in your fork:
-
-```yaml
-# docker-compose.override.yml
-services:
-    pocketbase:
-        labels:
-            - traefik.enable=true
-            - traefik.http.routers.pocketbase.rule=Host(`pocketbase.example.com`)
-            - traefik.http.routers.pocketbase.entrypoints=websecure
-            - traefik.http.routers.pocketbase.tls.certresolver=letsencrypt
-            - traefik.http.services.pocketbase.loadbalancer.server.port=8090
-        networks:
-            - proxy-network
-
-networks:
-    proxy-network:
-        external: true
-```
-
-**Example** -- adding a custom service in your fork:
-
-```yaml
-# docker-compose.override.yml
-services:
-    my-custom-api:
-        image: my-api:latest
-        restart: unless-stopped
-        ports:
-            - '4000:4000'
-        networks:
-            - monochrome-network
-```
-
-Override files can extend existing services (add labels, env vars, networks) and define entirely new services. See the [Docker docs](https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/) for the full merge behavior.
-
----
+The default address is `http://YOUR-SERVER-IP:3002`.
 
 ## Configuration
 
-The application is configured via environment variables. Copy `.env.example` to `.env` and edit it to match your setup.
+| Variable          | Default                            | Purpose                                        |
+| ----------------- | ---------------------------------- | ---------------------------------------------- |
+| `MONOCHROME_PORT` | `3002`                             | Port exposed on the Docker host                |
+| `NAVIDROME_URL`   | `http://host.docker.internal:4533` | Navidrome address reachable from the container |
 
-### Navidrome
+If Navidrome is on the same Docker network, use its service name instead, for example
+`NAVIDROME_URL=http://navidrome:4533`.
 
-Set `NAVIDROME_URL` to the URL reachable **from the Monochrome container**. The nginx frontend exposes it to the
-browser at `/navidrome`, avoiding cross-origin browser restrictions.
+In Monochrome, sign in with server URL `/navidrome` and your normal Navidrome username and password.
 
-```env
-NAVIDROME_URL=http://host.docker.internal:4533
+## Portainer
+
+1. Open **Stacks > Add stack**.
+2. Use **Web editor** and paste the root Compose file, or use **Repository** with this repository and
+   `docker-compose.yml` as the Compose path.
+3. Deploy the stack.
+4. To update later, choose **Update the stack**, enable **Re-pull image**, and deploy again.
+
+## Cloudflare Tunnel
+
+When cloudflared is a separate container using `host.docker.internal`, set the public hostname service to:
+
+```text
+http://host.docker.internal:3002
 ```
 
-If Navidrome is attached to the same Docker network, use its service name instead:
+When both containers share a Docker network, use the internal container port instead:
 
-```env
-NAVIDROME_URL=http://navidrome:4533
+```text
+http://monochrome-navidrome:4173
 ```
 
-In the app, use `/navidrome` as the server URL and add your normal Navidrome username and password under
-**Settings > Instances**.
+Do not point Cloudflare at `4173` through the Docker host unless that port is explicitly published. The supplied
+Compose file publishes host port `3002` to container port `4173`.
 
-### Authentication (Appwrite)
+## Data
 
-Monochrome uses Appwrite for user authentication. While it defaults to official instances, you can use your own self-hosted Appwrite instance:
-
-1. Create a project in Appwrite.
-2. Enable the **Google** or **Email/Password** providers in the Appwrite Console.
-3. Set these variables in your `.env`:
-    - `APPWRITE_ENDPOINT`: Your Appwrite API endpoint (e.g., `https://auth.yourdomain.com/v1`).
-    - `APPWRITE_PROJECT_ID`: Your Appwrite project ID (e.g., `auth-for-monochrome`).
-
-### Database (PocketBase)
-
-Monochrome uses PocketBase to store user data (playlists, favorites, profiles, etc.). You can run it alongside Monochrome using the `pocketbase` profile:
-
-```bash
-docker compose --profile pocketbase up -d
-```
-
-#### PocketBase Schema Note
-
-The current PocketBase collection schema is committed at [`database/pb_schema.json`](database/pb_schema.json). Import that schema into a fresh PocketBase instance when setting up account data storage.
-
----
-
-## Portainer Deployment
-
-Portainer can deploy directly from your GitHub fork with auto-updates on push.
-
-### Setup
-
-1. In Portainer, go to **Stacks > Add Stack > Repository**
-2. Enter your fork URL and branch
-3. Compose path: `docker-compose.yml`
-4. If your fork has a `docker-compose.override.yml`, Portainer loads it automatically
-5. Under **Environment variables**, add:
-    - `COMPOSE_PROFILES=pocketbase` (to enable PocketBase -- omit if not needed)
-    - `PB_ADMIN_EMAIL=your@email.com`
-    - `PB_ADMIN_PASSWORD=your_secure_password`
-    - Any other variables from `.env.example`
-6. Enable **GitOps updates** to auto-redeploy on push
-
-> **Tip:** `COMPOSE_PROFILES` is a built-in Docker Compose variable. Setting it to `pocketbase` is equivalent to passing `--profile pocketbase` on the command line.
-
-> **Warning:** The `dev` profile is for **local development only**. It uses volume mounts to enable hot-reload, which requires the source code to be present on the host machine. Do **not** include `dev` in `COMPOSE_PROFILES` on Portainer deployments from GitHub - it will fail because there's no local source code to mount.
-
-### Fork Workflow
-
-To add custom services (Traefik, monitoring, etc.) to your fork:
-
-1. Create `docker-compose.override.yml` in your fork
-2. Remove the `docker-compose.override.yml` line from `.gitignore`
-3. Commit both changes to your fork
-4. Portainer will auto-load the override file alongside the base compose
-
-When pulling updates from upstream (`git pull upstream main`), there are no conflicts -- the upstream repo does not have an override file.
-
----
-
-## Common Operations
-
-```bash
-# View logs
-docker compose logs -f
-docker compose logs -f pocketbase
-
-# Rebuild after code changes
-docker compose up -d --build
-
-# Stop everything (include all profiles you started)
-docker compose --profile pocketbase down
-
-# Stop and remove volumes (data loss!)
-docker compose --profile pocketbase down -v
-
-# Backup PocketBase data
-docker compose exec pocketbase tar czf - /pb_data > backup.tar.gz
-
-# Restore PocketBase data
-docker compose exec pocketbase tar xzf - -C / < backup.tar.gz
-```
-
----
-
-## Architecture
-
-### Production (Dockerfile)
-
-Node.js Alpine image (multi-arch: amd64 + arm64). Installs dependencies, runs `vite build`, then serves the built files with `vite preview` on port 4173.
-
-### Development (Dockerfile.dev)
-
-Node.js Alpine image with source code mounted as a volume for hot-reload.
-
-### Files
-
-| File                          | Purpose                       | In upstream repo |
-| ----------------------------- | ----------------------------- | :--------------: |
-| `docker-compose.yml`          | All services with profiles    |       Yes        |
-| `docker-compose.override.yml` | Fork-specific customizations  |        No        |
-| `.env.example`                | Environment variable template |       Yes        |
-| `.env`                        | Your local configuration      |        No        |
-| `Dockerfile`                  | Production build              |       Yes        |
-| `Dockerfile.dev`              | Development build             |       Yes        |
-| `.dockerignore`               | Build context exclusions      |       Yes        |
+The frontend does not need a data volume. Library data, favourites, playlists and listening history live in
+Navidrome. Browser storage only keeps this device's connection settings and a fallback cache.

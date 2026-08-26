@@ -23,7 +23,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/monochrome-music/monochrome.git"
+        "url": "git+https://github.com/lozza/monochrome-navidrome.git"
     },
     "keywords": [
         "music"
@@ -31,9 +31,9 @@
     "author": "",
     "license": "Apache-2.0",
     "bugs": {
-        "url": "https://github.com/monochrome-music/monochrome/issues"
+        "url": "https://github.com/lozza/monochrome-navidrome/issues"
     },
-    "homepage": "https://github.com/monochrome-music/monochrome#readme",
+    "homepage": "https://github.com/lozza/monochrome-navidrome#readme",
     "devDependencies": {
         "@lhci/cli": "^0.14.0",
         "@types/node": "^25.3.5",

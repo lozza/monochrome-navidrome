@@ -15,7 +15,6 @@ import {
     waveformSettings,
     silenceRemovalSettings,
     crossfadeSettings,
-    donationPromptSettings,
     keyboardShortcuts,
 } from './storage.js';
 import { showNotification, downloadTrackWithMetadata, downloadAlbum, downloadPlaylist } from './downloads.js';
@@ -35,57 +34,6 @@ import { UIRenderer } from './ui.js';
 
 let currentTrackIdForWaveform = null;
 let copiedTracks = [];
-
-const DONATION_PROMPT_EVERY = 10;
-const DONATION_PLAY_COUNT_KEY = 'donation-prompt-play-count';
-
-function showDonationPrompt() {
-    if (!donationPromptSettings.isEnabled()) return;
-    let container = document.getElementById('support-notifications');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'support-notifications';
-        document.body.appendChild(container);
-    }
-    const el = document.createElement('div');
-    el.className = 'support-banner donation-prompt';
-    el.innerHTML = `
-        <div style="font-weight: 600; margin-bottom: 0.4rem;">Support Monochrome</div>
-        <p style="margin: 0 0 0.75rem; font-size: 0.85rem; line-height: 1.5; color: var(--muted-foreground);">
-            Enjoying the music? Monochrome is free, has no ads, and runs entirely on donations.
-        </p>
-        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-            <button class="btn-secondary" data-action="dismiss" style="padding: 0.35rem 0.8rem; font-size: 0.8rem;">Maybe Later</button>
-            <button class="btn-primary" data-action="donate" style="padding: 0.35rem 0.8rem; font-size: 0.8rem;">Donate</button>
-        </div>
-    `;
-    const dismiss = () => {
-        el.style.animation = 'slide-out 0.3s ease forwards';
-        setTimeout(() => el.remove(), 300);
-    };
-    el.querySelector('[data-action="dismiss"]').onclick = dismiss;
-    el.querySelector('[data-action="donate"]').onclick = () => {
-        dismiss();
-        navigate('/donate');
-    };
-    container.appendChild(el);
-}
-
-function countPlayForDonationPrompt() {
-    if (!donationPromptSettings.isEnabled()) return;
-    let count = 0;
-    try {
-        count = parseInt(localStorage.getItem(DONATION_PLAY_COUNT_KEY), 10) || 0;
-    } catch {}
-    count++;
-    if (count >= DONATION_PROMPT_EVERY) {
-        count = 0;
-        showDonationPrompt();
-    }
-    try {
-        localStorage.setItem(DONATION_PLAY_COUNT_KEY, String(count));
-    } catch {}
-}
 
 const trackSelection = {
     selectedIds: new Set(),
@@ -549,7 +497,6 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
                     _previousTrackId = currentId;
                     listeningTracker.onTrackStart(player.currentTrack);
                     _trackPlayStartTime = Date.now();
-                    countPlayForDonationPrompt();
                 }
 
                 if (scrobbler.isAuthenticated()) {
@@ -668,8 +615,10 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
 
                 if (currentTime >= 10 && player.currentTrack && player.currentTrack.id !== historyLoggedTrackId) {
                     historyLoggedTrackId = player.currentTrack.id;
-                    const historyEntry = await db.addToHistory(player.currentTrack);
-                    await syncManager.syncHistoryItem(historyEntry);
+                    await db.addToHistory(player.currentTrack);
+                    await ui.api.scrobble(player.currentTrack.id, true).catch((error) => {
+                        console.error('Failed to save play history to Navidrome:', error);
+                    });
 
                     if (window.location.hash === '#recent') {
                         ui.renderRecentPage();

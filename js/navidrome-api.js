@@ -310,6 +310,39 @@ export class NavidromeAPI {
         return albums;
     }
 
+    async getRecentTracks(pageSize = 500, limit = 100) {
+        const tracks = [];
+        let offset = 0;
+
+        while (true) {
+            const root = await this.request('search3', {
+                query: '""',
+                artistCount: 0,
+                albumCount: 0,
+                songCount: pageSize,
+                songOffset: offset,
+            });
+            const songs = asArray(root.searchResult3?.song);
+            tracks.push(...songs);
+            if (songs.length < pageSize) break;
+            offset += songs.length;
+        }
+
+        return tracks
+            .filter((song) => song.played)
+            .sort((a, b) => new Date(b.played).getTime() - new Date(a.played).getTime())
+            .slice(0, limit)
+            .map((song) => ({ ...this.mapTrack(song), timestamp: new Date(song.played).getTime() }));
+    }
+
+    async scrobble(id, submission = true) {
+        await this.request('scrobble', {
+            id: String(id),
+            submission,
+            time: Date.now(),
+        });
+    }
+
     async getArtists() {
         const root = await this.request('getArtists');
         return asArray(root.artists?.index)

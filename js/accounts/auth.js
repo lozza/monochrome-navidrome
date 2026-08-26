@@ -198,8 +198,11 @@ export class AuthManager {
         this.user = null;
         this.authListeners = [];
         this.authRefreshId = 0;
-        this.setupNativeOAuthListener().catch(console.error);
-        this.init().catch(console.error);
+        const customAuthEnabled = Boolean(window.__AUTH_URL__ || localStorage.getItem('monochrome-auth-url'));
+        if (customAuthEnabled) {
+            this.setupNativeOAuthListener().catch(console.error);
+            this.init().catch(console.error);
+        }
     }
 
     async init() {
@@ -262,7 +265,7 @@ export class AuthManager {
         });
 
         const launchEvent = await App.getLaunchUrl?.();
-        if (launchEvent?.url) this.handleNativeOAuthCallback(launchEvent.url);
+        if (launchEvent?.url) void this.handleNativeOAuthCallback(launchEvent.url);
     }
 
     async handleNativeOAuthCallback(url) {

@@ -260,8 +260,6 @@ export class UIRenderer {
                 await this.renderHomeEditorsPicks(true, 'home-editors-picks');
             }
         });
-
-        this.loadDonateGoal();
     }
 
     static async initialize(api, player) {
@@ -2505,75 +2503,6 @@ export class UIRenderer {
             document.querySelectorAll('.settings-tab').forEach((t) => t.classList.remove('active'));
             document.querySelectorAll('.settings-tab-content').forEach((c) => c.classList.remove('active'));
         }
-
-        if (pageId === 'donate') {
-            this.loadDonateGoal();
-        }
-    }
-
-    setupCryptoCopy() {
-        const list = document.getElementById('donate-crypto-list');
-        if (!list || list.dataset.copyBound === 'true') return;
-        list.dataset.copyBound = 'true';
-
-        const revealBtn = document.getElementById('donate-crypto-btn');
-        const actions = document.getElementById('donate-actions');
-        const section = document.getElementById('donate-crypto-section');
-        if (revealBtn && actions && section) {
-            revealBtn.addEventListener('click', () => {
-                actions.hidden = true;
-                section.hidden = false;
-            });
-        }
-
-        list.addEventListener('click', async (e) => {
-            const wallet = e.target.closest('.crypto-wallet');
-            if (!wallet) return;
-            const address = wallet.dataset.address;
-            if (!address) return;
-            try {
-                await navigator.clipboard.writeText(address);
-                showNotification(`${wallet.dataset.label || 'Address'} copied to clipboard!`);
-            } catch (error) {
-                showNotification('Failed to copy address');
-            }
-        });
-    }
-
-    async loadDonateGoal() {
-        this.setupCryptoCopy();
-
-        const goal = document.getElementById('donate-goal');
-        const goalPercent = document.getElementById('donate-goal-percent');
-        const goalProgress = document.getElementById('donate-goal-progress');
-        const donateBtn = document.querySelector('#page-donate a.btn-primary');
-
-        const sidebarProgress = document.getElementById('sidebar-donate-goal-progress');
-        const sidebarText = document.getElementById('sidebar-donate-goal-text');
-
-        try {
-            const response = await fetch('https://goal.samidy.xyz/index.json');
-            const data = await response.json();
-            if (data && data.goal) {
-                const current = data.goal.current_amount || 0;
-                const target = data.goal.target_amount || 1000;
-                const percentage = Math.min(100, Math.max(0, (current / target) * 100));
-
-                if (goal)
-                    goal.textContent = `$${current.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                if (goalPercent) goalPercent.textContent = `${percentage.toFixed(1)}%`;
-                if (goalProgress) goalProgress.style.width = `${percentage}%`;
-
-                if (sidebarText) {
-                    sidebarText.textContent = `${percentage.toFixed(0)}%`;
-                }
-                if (sidebarProgress) {
-                    sidebarProgress.style.width = `${percentage}%`;
-                }
-            }
-        } catch (error) {
-            // lowk wrapping it in the try-catch for the larp
-        }
     }
 
     async renderPartiesPage() {
@@ -2630,71 +2559,6 @@ export class UIRenderer {
         }
     }
 
-    async renderResetPasswordPage() {
-        await this.showPage('reset-password');
-        const form = document.getElementById('reset-password-form');
-        const errorEl = document.getElementById('reset-password-error');
-        const successEl = document.getElementById('reset-password-success');
-        const btn = document.getElementById('reset-password-submit-btn');
-        const btnText = document.getElementById('reset-password-btn-text');
-        const spinner = document.getElementById('reset-password-btn-spinner');
-        const passwordInput = document.getElementById('reset-password-input');
-        const confirmInput = document.getElementById('reset-password-confirm');
-
-        if (!form) return;
-
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-
-        if (!token) {
-            errorEl.textContent = 'Invalid or missing password reset link.';
-            errorEl.style.display = 'block';
-            form.style.display = 'none';
-            return;
-        }
-
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            errorEl.style.display = 'none';
-            successEl.style.display = 'none';
-
-            const password = passwordInput.value;
-            const confirm = confirmInput.value;
-
-            if (password !== confirm) {
-                errorEl.textContent = 'Passwords do not match.';
-                errorEl.style.display = 'block';
-                return;
-            }
-
-            try {
-                btn.disabled = true;
-                btnText.style.display = 'none';
-                spinner.style.display = 'block';
-
-                await authManager.resetPassword(token, password, confirm);
-
-                successEl.textContent = 'Password reset successfully. Opening login...';
-                successEl.style.display = 'block';
-                form.style.display = 'none';
-
-                setTimeout(() => {
-                    const authModal = document.getElementById('email-auth-modal');
-                    if (authModal) {
-                        authModal.classList.add('active');
-                    }
-                }, 2000);
-            } catch (error) {
-                errorEl.textContent = error.message || 'Failed to reset password. Please try again.';
-                errorEl.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btnText.style.display = 'inline';
-                spinner.style.display = 'none';
-            }
-        };
-    }
-
     async renderPartyDetailPage(id) {
         await this.showPage('party-detail');
         await partyManager.joinParty(id);
@@ -2705,6 +2569,7 @@ export class UIRenderer {
 
         const tracksContainer = document.getElementById('library-tracks-container');
         const albumsContainer = document.getElementById('library-albums-container');
+        const singlesContainer = document.getElementById('library-singles-container');
         const artistsContainer = document.getElementById('library-artists-container');
         const playlistsContainer = document.getElementById('library-playlists-container');
         const localContainer = document.getElementById('library-local-container');
@@ -2769,9 +2634,25 @@ export class UIRenderer {
         ]);
 
         if (allAlbums?.length) {
-            albumsContainer.innerHTML = allAlbums.map((album) => this.createAlbumCardHTML(album)).join('');
+            const isSingle = (album) => {
+                const releaseTypes = Array.isArray(album.releaseTypes) ? album.releaseTypes : [];
+                return (
+                    releaseTypes.some((type) => String(type).toLowerCase() === 'single') ||
+                    String(album.albumType || '').toLowerCase() === 'single' ||
+                    Number(album.numberOfTracks) === 1
+                );
+            };
+            const singles = allAlbums.filter(isSingle);
+            const albums = allAlbums.filter((album) => !isSingle(album));
+
+            albumsContainer.innerHTML = albums.map((album) => this.createAlbumCardHTML(album)).join('');
+            singlesContainer.innerHTML = singles.length
+                ? singles.map((album) => this.createAlbumCardHTML(album)).join('')
+                : createPlaceholder('No singles found in Navidrome.');
+
             for (const album of allAlbums) {
-                const el = albumsContainer.querySelector(`[data-album-id="${album.id}"]`);
+                const container = isSingle(album) ? singlesContainer : albumsContainer;
+                const el = container.querySelector(`[data-album-id="${album.id}"]`);
                 if (el) {
                     trackDataStore.set(el, album);
                     await this.updateLikeState(el, 'album', album.id);
@@ -2779,6 +2660,7 @@ export class UIRenderer {
             }
         } else if (allAlbums) {
             albumsContainer.innerHTML = createPlaceholder('No albums found in Navidrome.');
+            singlesContainer.innerHTML = createPlaceholder('No singles found in Navidrome.');
         }
 
         if (allArtists?.length) {
@@ -3150,8 +3032,6 @@ export class UIRenderer {
         container.innerHTML = `
             <div style="font-size:0.72rem;color:var(--muted-foreground);margin-bottom:0.9rem;">
                 Powered by <a href="https://aoty.prigoana.pw/" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;">aoty-api</a>
-                &nbsp;·&nbsp;
-                <a href="https://ko-fi.com/edideaur" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;">consider donating</a>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.5rem;">
                 ${TABS.map(({ id, label }, i) => `<button class="aoty-subnav-btn" data-aoty-tab="${id}" style="${pill(i === 0)}">${label}</button>`).join('')}
@@ -6561,15 +6441,15 @@ export class UIRenderer {
     async renderRecentPage() {
         await this.showPage('recent');
         const container = document.getElementById('recent-tracks-container');
-        const clearBtn = document.getElementById('clear-history-btn');
         container.innerHTML = this.createSkeletonTracks(10, true);
 
         try {
-            const history = await db.getHistory();
-
-            // Show/hide clear button based on whether there's history
-            if (clearBtn) {
-                clearBtn.style.display = history.length > 0 ? 'flex' : 'none';
+            let history;
+            try {
+                history = await this.api.getRecentTracks();
+            } catch (error) {
+                console.warn('Could not load Navidrome history; using this device as a fallback:', error);
+                history = await db.getHistory();
             }
 
             if (history.length === 0) {
@@ -6624,27 +6504,9 @@ export class UIRenderer {
                     container.appendChild(tempContainer.firstChild);
                 }
             }
-
-            // Setup clear button handler
-            if (clearBtn) {
-                clearBtn.onclick = async () => {
-                    if (confirm('Clear all recently played tracks? This cannot be undone.')) {
-                        try {
-                            await db.clearHistory();
-                            await syncManager.clearHistory();
-                            container.innerHTML = createPlaceholder("You haven't played any tracks yet.");
-                            clearBtn.style.display = 'none';
-                        } catch (err) {
-                            console.error('Failed to clear history:', err);
-                            alert('Failed to clear history');
-                        }
-                    }
-                };
-            }
         } catch (error) {
             console.error('Failed to load history:', error);
             container.innerHTML = createPlaceholder('Failed to load history.');
-            if (clearBtn) clearBtn.style.display = 'none';
         }
     }
 

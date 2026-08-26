@@ -1,37 +1,21 @@
- <p align="center">
-  <a href="https://monochrome.tf">
-    <img src="https://github.com/monochrome-music/monochrome/blob/main/public/assets/512.png?raw=true" alt="Monochrome Logo" width="150px">
-  </a>
-</p>
+# Monochrome for Navidrome
 
-<h1 align="center">Monochrome</h1>
+A self-hosted web player for [Navidrome](https://www.navidrome.org/) and compatible OpenSubsonic servers.
 
-> This fork is being converted into a dedicated web player for
-> [Navidrome](https://www.navidrome.org/) and other compatible OpenSubsonic servers.
+This is a Navidrome-focused fork of Monochrome. It uses your own Navidrome server for authentication, library data,
+playback, favourites, playlists and listening history.
 
-## Navidrome fork status
+## Features
 
-The first working integration includes:
+- Sign in with your Navidrome username and password
+- Cross-device recently played history stored by Navidrome
+- Full album, single and artist browsing
+- Navidrome playlists and starred tracks
+- Search, playback, artwork, lyrics and downloads
+- Responsive desktop and mobile web interface
+- Prebuilt Docker image for Portainer and Docker Compose
 
-- Navidrome connection settings and a connection test
-- Salted OpenSubsonic token authentication (the password is not sent in the URL)
-- Recently added albums on first use
-- Full alphabetical browsing of Navidrome albums and artists
-- Native Navidrome playlists in the Library page
-- Track, album and artist search
-- Album, artist and playlist pages
-- Direct browser playback, artwork and downloads
-- Similar songs/artists and random-album fallbacks
-- Navidrome starred tracks, albums and artists
-- A same-origin Navidrome proxy in the production Docker image
-
-TIDAL-only discovery feeds, music videos and mixes are disabled. Monochrome's local playlist system is still present;
-editing native Navidrome playlists is planned separately.
-
-### Docker quick start
-
-The root `docker-compose.yml` is ready to paste into an OMV or Portainer stack. It pulls the prebuilt image from
-GitHub Container Registry, so the server does not need to clone or build the repository:
+## Docker Compose
 
 ```yaml
 services:
@@ -40,326 +24,55 @@ services:
         container_name: monochrome-navidrome
         pull_policy: always
         ports:
-            - '3000:4173'
+            - '3002:4173'
         environment:
             NAVIDROME_URL: 'http://host.docker.internal:4533'
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         restart: unless-stopped
         healthcheck:
-            test:
-                - CMD
-                - wget
-                - --quiet
-                - --tries=1
-                - --spider
-                - http://localhost:4173/
+            test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:4173/']
             interval: 30s
             timeout: 5s
             retries: 3
             start_period: 15s
 ```
 
-In Portainer, select **Stacks > Add stack > Web editor**, paste the YAML above, and deploy it. From a terminal with
-the repository's `docker-compose.yml`, run:
+In Portainer, open **Stacks > Add stack > Web editor**, paste the Compose file, and deploy it.
 
-```bash
-docker compose up -d
-```
-
-The Compose file expects Navidrome to be published on port `4533` of the same Docker host. Change `NAVIDROME_URL`
-in the stack if yours is elsewhere. Open `http://YOUR-SERVER-IP:3000`, choose **Settings > Instances**, and enter:
-
-- Server URL: `/navidrome`
-- Your Navidrome username and password
-
-If both containers share a Docker network, `NAVIDROME_URL` can instead use the Navidrome service name, such as
+The example expects Navidrome on port `4533` of the same Docker host. Change `NAVIDROME_URL` if yours is elsewhere.
+If the containers share a Docker network, you can use the Navidrome service name, such as
 `http://navidrome:4533`.
 
-### Local development
+Open `http://YOUR-SERVER-IP:3002` and sign in using:
+
+- Server URL: `/navidrome`
+- Your Navidrome username
+- Your Navidrome password
+
+For Cloudflare Tunnel, point your public hostname at `http://host.docker.internal:3002` from a separate cloudflared
+container, or at `http://monochrome-navidrome:4173` when both containers share a Docker network.
+
+## Updating
+
+In Portainer, open the stack, choose **Update the stack**, enable **Re-pull image**, and deploy it again.
+
+## Local development
 
 ```bash
+git clone https://github.com/lozza/monochrome-navidrome.git
+cd monochrome-navidrome
 npm install
 npm run dev
 ```
 
-For local development, either enter a full Navidrome URL that permits browser requests or put both apps behind the
-same reverse proxy. Production Docker deployments should normally use `/navidrome`.
+For local development, use a Navidrome URL that permits browser requests or place both applications behind the same
+reverse proxy. Production Docker deployments should normally use `/navidrome`.
 
----
+## Repository
 
-<p align="center">
-  <strong>An open-source, privacy-respecting, ad-free music app.</strong>
-</p>
+- [Source code](https://github.com/lozza/monochrome-navidrome)
+- [Issues](https://github.com/lozza/monochrome-navidrome/issues)
+- Container image: `ghcr.io/lozza/monochrome-navidrome:latest`
 
-<p align="center">
-  <a href="https://monochrome.tf">Website</a> -
-  <a href="https://ko-fi.com/monochrometf">Donate</a> -
-  <a href="#features">Features</a> -
-  <a href="#usage">Usage</a> -
-  <a href="#self-hosting">Self-Hosting</a> -
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/monochrome-music/monochrome/stargazers">
-    <img src="https://img.shields.io/github/stars/monochrome-music/monochrome?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/monochrome-music/monochrome/forks">
-    <img src="https://img.shields.io/github/forks/monochrome-music/monochrome?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub forks">
-  </a>
-  <a href="https://github.com/monochrome-music/monochrome/issues">
-    <img src="https://img.shields.io/github/issues/monochrome-music/monochrome?style=for-the-badge&color=ffffff&labelColor=000000" alt="GitHub issues">
-  </a>
-</p>
-
----
-
-## What is Monochrome?
-
-**Monochrome** is an open-source, privacy-respecting, ad-free web music player. It provides a beautiful, minimalist interface for streaming high-quality music without the clutter of traditional streaming platforms.
-
-[![Monochrome UI: NASIR by Nas](https://i.samidy.xyz/NASIR.png)](https://monochrome.tf/album/90502209)
-
-## [![Monochrome UI: Jump Out by Osamason](https://i.samidy.xyz/jumpout.png)](https://monochrome.tf/album/413189044)
-
-## Features
-
-### Audio Quality
-
-- High-quality High-Res/lossless audio streaming
-- Support for local music files
-- API caching for improved performance
-
-### Interface
-
-- Dark, minimalist interface optimized for focus
-- Animated Album Covers For Supported Albums
-- Customizable themes & Community Theme Store
-- Accurate and unique audio visualizer
-- Offline-capable Progressive Web App (PWA)
-- Media Session API integration for system controls
-
-### Library & Organization
-
-- Recently Played tracking for easy history access
-- Comprehensive Personal Library for favorites
-- Queue management with shuffle and repeat modes
-- Native Podcast support & organization
-- Playlist import from other platforms
-- Public playlists for social sharing
-- Smart recommendations for new songs, albums & artists
-- Infinite Recommendation Radio
-- Explore Page (Hot & New) for discovering newly added music and whats trending overall or within each genre
-
-### Lyrics & Metadata
-
-- Lyrics support with karaoke mode
-- Genius integration for lyrics
-- Track downloads with automatic metadata embedding
-
-### Integrations
-
-- Account system for cross-device syncing
-- Customizable & Public Profiles
-- Real-time Listening Parties for synced playback with friends
-- Last.fm and ListenBrainz integration for scrobbling
-- OAuth support (Google, Discord, GitHub, Spotify)
-- Unreleased music from [ArtistGrid](https://artistgrid.cx)
-- Dynamic Discord Embeds
-- Artist Biography + Social Links for learning more about your favorite artists
-- Multiple API instance support with failover
-
-### Power User Features
-
-- Keyboard shortcuts & Command Palette (CTRL+K) for power users
-
----
-
-## Quick Start
-
-### Live Instance
-
-Our Recommended way to use monochrome is through our official instance:
-
-**[monochrome.tf](https://monochrome.tf)** / **[monochrome.samidy.com](https://monochrome.samidy.com)**
-
-For alternative instances, check [INSTANCES.md](INSTANCES.md).
-
----
-
-## Self-Hosting
-
-NOTE: Accounts will not work on self-hosted instances. Our Appwrite authentication system only allows authorized domains.
-
-We had to heavily customize the authentication system and write several custom scripts to support features like SMTP and Google OAuth (which are currently bugged in Appwrite). Because of this, we can no longer provide a self-hostable accounts system.
-
-> [!WARNING]
-> You will not be able to stream music after self-hosting and placing the website on a domain. Our API is configured to only accept official instances of Monochrome so you can only stream music on localhost after self-hosting. However, if you have a working and paid HiFi API endpoint then Settings > Instances > Turn on Dev Mode > Place your endpoint there.
-
-### Option 1: Docker (Recommended)
-
-```bash
-git clone https://github.com/monochrome-music/monochrome.git
-cd monochrome/docker
-docker compose up -d
-```
-
-Visit `http://localhost:3000`
-
-### Tailscale Access
-
-Visit `http://<tailscale_server_hostname_or_ip>:3000`
-
-By default, the app uses Vite preview, which restricts access to localhost.  
-To allow access over Tailscale:
-
-1. Open `vite.config.js`
-
-2. Uncomment and configure the `preview` section:
-
-```js
-preview: {
-    host: true,
-    allowedHosts: ['<your_tailscale_hostname>'], // e.g. pi5.tailf5f622.ts.net
-},
-```
-
-3. Restart with a fresh container (if already running):
-
-```bash
-docker compose down
-docker compose up -d
-```
-
-For development mode and advanced setups, see [DOCKER.md](DOCKER.md).
-
-### Option 2: Manual Installation
-
-#### Prerequisites
-
-- [Bun](https://bun.sh/) (Preferred) or [Node.js](https://nodejs.org/) (Version 20+ or 22+ recommended)
-- [Git](https://git-scm.com/)
-
-#### PocketBase Schema
-
-The current PocketBase collection schema is stored in [`database/pb_schema.json`](database/pb_schema.json). Import this schema into a fresh PocketBase instance when setting up account data storage.
-
-#### Local Development
-
-1. **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/monochrome-music/monochrome.git
-    cd monochrome
-    ```
-
-2. **Install dependencies:**
-
-    ```bash
-    bun install
-    # or
-    npm install # NPM is included with Node.js
-    ```
-
-3. **Start the development server:**
-
-    ```bash
-    bun run dev
-    # or
-    npm run dev
-    ```
-
-4. **Open your browser:**
-   Navigate to `http://localhost:5173/`
-
-#### Building for Production
-
-```bash
-bun run build
-# or
-npm run build
-```
-
----
-
-## Usage
-
-### Basic Usage
-
-1. Visit the [Website](https://monochrome.tf) or your local development server
-2. Search for your favorite artists, albums, or tracks
-3. Click play to start streaming
-4. Use the media controls to manage playback, queue, and volume
-
-### Keyboard Shortcuts
-
-| Shortcut      | Action                       |
-| ------------- | ---------------------------- |
-| `Space`       | Play / Pause                 |
-| `→`           | Seek forward 10s             |
-| `←`           | Seek backward 10s            |
-| `Shift` + `→` | Next track                   |
-| `Shift` + `←` | Previous track               |
-| `↑`           | Volume up                    |
-| `↓`           | Volume down                  |
-| `M`           | Mute / Unmute                |
-| `S`           | Toggle shuffle               |
-| `R`           | Toggle repeat                |
-| `Q`           | Open queue                   |
-| `L`           | Toggle lyrics                |
-| `/`           | Focus search                 |
-| `Esc`         | Close modals                 |
-| `[`           | Previous visualizer preset   |
-| `]`           | Next visualizer preset       |
-| `\`           | Toggle visualizer auto-cycle |
-| `Ctrl` + `K`  | Command Palette              |
-
-### Account Features
-
-To sync your library, history, and playlists across devices:
-
-1. Click the "Accounts" Section
-2. Sign in with Google or Email
-3. Your data will automatically sync across all devices
-
----
-
-## Contributing
-
-We welcome contributions from the community! Please see our [Contributing Guide](CONTRIBUTING.md) for:
-
-- Setting up your development environment
-- Code style and linting
-- Project structure
-- Before You Contribute
-- Commit message conventions
-- Deployment information
-
----
-
-<p align="center">
-  <a href="https://fmhy.net/audio#streaming-sites">
-    <img src="https://raw.githubusercontent.com/monochrome-music/monochrome/refs/heads/main/public/assets/asseenonfmhy880x310.png" alt="As seen on FMHY" height="50">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://notbyai.fyi">
-    <img src="https://i.samidy.xyz/Developed-By-Humans-Not-By-AI-Badge-black%402x.png" alt="Developed by Humans" height="50">
-  </a>
-</p>
-
-<p align="center">
-  Made with ❤️ by the Monochrome team
-</p>
-
-## Star History
-
-<a href="https://star-history.dera.page/#monochrome-music/monochrome&type=date&logscale&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=monochrome-music/monochrome&type=date&theme=dark&logscale&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=monochrome-music/monochrome&type=date&logscale&legend=top-left" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=monochrome-music/monochrome&type=date&logscale&legend=top-left" />
- </picture>
-</a>
+Based on the original [Monochrome project](https://github.com/monochrome-music/monochrome).

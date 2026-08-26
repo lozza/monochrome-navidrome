@@ -12,7 +12,6 @@ import {
     waveformSettings,
     silenceRemovalSettings,
     crossfadeSettings,
-    donationPromptSettings,
     replayGainSettings,
     downloadQualitySettings,
     losslessContainerSettings,
@@ -57,8 +56,6 @@ import { calculateBiquadResponse, interpolate, getNormalizationOffset, runAutoEq
 import { parseRawData, TARGETS, SPEAKER_TARGETS } from './autoeq-data.js';
 import { fetchAutoEqIndex, fetchHeadphoneData, searchHeadphones, POPULAR_HEADPHONES } from './autoeq-importer.js';
 import { db } from './db.js';
-import { authManager } from './accounts/auth.js';
-import { syncManager } from './accounts/pocketbase.js';
 import { containerFormats, customFormats } from './ffmpegFormats.ts';
 import { BulkDownloadMethod, modernSettings } from './ModernSettings.js';
 import { canBrowserStreamAtmosQuality } from './platform-detection.js';
@@ -83,9 +80,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         settingsTab.classList.add('active');
         document.getElementById(`settings-tab-${savedTab}`)?.classList.add('active');
     }
-
-    // Initialize account system UI & Settings
-    authManager.updateUI?.(authManager.user ?? null);
 
     // ========================================
     // Navidrome connection
@@ -148,6 +142,50 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         }
     });
 
+    const accountNavidromeUrl = document.getElementById('account-navidrome-url');
+    const accountNavidromeUsername = document.getElementById('account-navidrome-username');
+    const accountNavidromePassword = document.getElementById('account-navidrome-password');
+    const accountNavidromeLogin = document.getElementById('account-navidrome-login');
+    const accountNavidromeStatus = document.getElementById('account-navidrome-status');
+
+    if (accountNavidromeUrl) accountNavidromeUrl.value = navidromeSettings.getUrl();
+    if (accountNavidromeUsername) accountNavidromeUsername.value = navidromeSettings.getUsername();
+
+    accountNavidromeLogin?.addEventListener('click', async () => {
+        const credentials = {
+            url: accountNavidromeUrl.value.trim(),
+            username: accountNavidromeUsername.value.trim(),
+            password: accountNavidromePassword.value || navidromeSettings.getPassword(),
+        };
+        if (!credentials.url || !credentials.username || !credentials.password) {
+            accountNavidromeStatus.textContent = 'Enter the server URL, username and password.';
+            accountNavidromeStatus.style.color = '#ef4444';
+            return;
+        }
+
+        const temporarySettings = {
+            getUrl: () => credentials.url,
+            getUsername: () => credentials.username,
+            getPassword: () => credentials.password,
+        };
+        accountNavidromeLogin.disabled = true;
+        accountNavidromeStatus.textContent = 'Signing in…';
+        accountNavidromeStatus.style.color = 'var(--muted-foreground)';
+        try {
+            await new NavidromeAPI(temporarySettings).ping();
+            navidromeSettings.setCredentials(credentials);
+            accountNavidromeStatus.textContent = 'Signed in. Loading your library…';
+            accountNavidromeStatus.style.color = '#22c55e';
+            window.setTimeout(() => {
+                window.location.href = '/';
+            }, 350);
+        } catch (error) {
+            accountNavidromeStatus.textContent = `Sign in failed: ${error.message}`;
+            accountNavidromeStatus.style.color = '#ef4444';
+            accountNavidromeLogin.disabled = false;
+        }
+    });
+
     // ========================================
     // Dev Mode
     // ========================================
@@ -190,81 +228,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         dismissDisruptionBtn.addEventListener('click', () => {
             serverDisruptionSettings.dismiss();
             if (disruptionBanner) disruptionBanner.style.display = 'none';
-        });
-    }
-
-    // Email Auth UI Logic
-    const toggleEmailBtn = document.getElementById('toggle-email-auth-btn');
-    const authModalCloseBtn = document.getElementById('email-auth-modal-close');
-    const authModal = document.getElementById('email-auth-modal');
-    const emailInput = document.getElementById('auth-email');
-    const passwordInput = document.getElementById('auth-password');
-    const signInBtn = document.getElementById('email-signin-btn');
-    const signUpBtn = document.getElementById('email-signup-btn');
-    const resetPasswordBtn = document.getElementById('reset-password-btn');
-
-    if (toggleEmailBtn && authModal) {
-        toggleEmailBtn.addEventListener('click', () => {
-            authModal.classList.add('active');
-        });
-    }
-
-    if (authModal) {
-        const closeAuthModal = () => authModal.classList.remove('active');
-        authModalCloseBtn?.addEventListener('click', closeAuthModal);
-        authModal.querySelector('.modal-overlay')?.addEventListener('click', closeAuthModal);
-    }
-
-    if (signInBtn) {
-        signInBtn.addEventListener('click', async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            if (!email || !password) {
-                alert('Please enter both email and password.');
-                return;
-            }
-            try {
-                await authManager.signInWithEmail(email, password);
-                authModal.classList.remove('active');
-                emailInput.value = '';
-                passwordInput.value = '';
-            } catch {
-                // Error handled in authManager
-            }
-        });
-    }
-
-    if (signUpBtn) {
-        signUpBtn.addEventListener('click', async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            if (!email || !password) {
-                alert('Please enter both email and password.');
-                return;
-            }
-            try {
-                await authManager.signUpWithEmail(email, password);
-                authModal.classList.remove('active');
-                emailInput.value = '';
-                passwordInput.value = '';
-            } catch {
-                // Error handled in authManager
-            }
-        });
-    }
-
-    if (resetPasswordBtn) {
-        resetPasswordBtn.addEventListener('click', async () => {
-            const email = emailInput.value;
-            if (!email) {
-                alert('Please enter your email address to reset your password.');
-                return;
-            }
-            try {
-                await authManager.sendPasswordReset(email);
-            } catch {
-                /* ignore */
-            }
         });
     }
 
@@ -6438,26 +6401,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
-    const sidebarShowDonateToggle = document.getElementById('sidebar-show-donate-toggle');
-    if (sidebarShowDonateToggle) {
-        sidebarShowDonateToggle.checked = sidebarSectionSettings.shouldShowDonate();
-        sidebarShowDonateToggle.addEventListener('change', (e) => {
-            sidebarSectionSettings.setShowDonate(e.target.checked);
-            sidebarSectionSettings.applySidebarVisibility();
-        });
-    }
-
-    const donationPromptToggle = document.getElementById('donation-prompts-toggle');
-    if (donationPromptToggle) {
-        donationPromptToggle.checked = donationPromptSettings.isEnabled();
-        donationPromptToggle.addEventListener('change', (e) => {
-            donationPromptSettings.setEnabled(e.target.checked);
-            if (!e.target.checked) {
-                document.querySelectorAll('.donation-prompt').forEach((prompt) => prompt.remove());
-            }
-        });
-    }
-
     const sidebarShowSettingsToggle = document.getElementById('sidebar-show-settings-toggle');
     if (sidebarShowSettingsToggle) {
         sidebarShowSettingsToggle.checked = true;
@@ -6470,24 +6413,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         sidebarShowAboutToggle.checked = sidebarSectionSettings.shouldShowAbout();
         sidebarShowAboutToggle.addEventListener('change', (e) => {
             sidebarSectionSettings.setShowAbout(e.target.checked);
-            sidebarSectionSettings.applySidebarVisibility();
-        });
-    }
-
-    const sidebarShowDiscordToggle = document.getElementById('sidebar-show-discordbtn-toggle');
-    if (sidebarShowDiscordToggle) {
-        sidebarShowDiscordToggle.checked = sidebarSectionSettings.shouldShowDiscord();
-        sidebarShowDiscordToggle.addEventListener('change', (e) => {
-            sidebarSectionSettings.setShowDiscord(e.target.checked);
-            sidebarSectionSettings.applySidebarVisibility();
-        });
-    }
-
-    const sidebarShowPartyToggle = document.getElementById('sidebar-show-party-toggle');
-    if (sidebarShowPartyToggle) {
-        sidebarShowPartyToggle.checked = sidebarSectionSettings.shouldShowParty();
-        sidebarShowPartyToggle.addEventListener('change', (e) => {
-            sidebarSectionSettings.setShowParty(e.target.checked);
             sidebarSectionSettings.applySidebarVisibility();
         });
     }
@@ -6780,19 +6705,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
                 btn.textContent = originalText;
                 btn.disabled = false;
             }, 1500);
-        }
-    });
-
-    document.getElementById('auth-clear-cloud-btn')?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to delete ALL your data from the cloud? This cannot be undone.')) {
-            try {
-                await syncManager.clearCloudData();
-                alert('Cloud data cleared successfully.');
-                await authManager.signOut();
-            } catch (error) {
-                console.error('Failed to clear cloud data:', error);
-                alert('Failed to clear cloud data: ' + error.message);
-            }
         }
     });
 

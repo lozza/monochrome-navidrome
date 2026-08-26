@@ -79,13 +79,6 @@ export function NowPlayingBar() {
 
             <div className="volume-controls">
                 <div className="player-actions-row">
-                    <PlayerButton
-                        className="now-playing-party-btn"
-                        hidden
-                        icon={icons.users}
-                        id="now-playing-party-btn"
-                        label="Open listening party"
-                    />
                     <button
                         aria-label="Save to favorites"
                         className="like-btn"

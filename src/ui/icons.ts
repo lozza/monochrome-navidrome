@@ -22,11 +22,8 @@ import search from '../../node_modules/lucide-static/icons/search.svg?svg';
 import settings from '../../node_modules/lucide-static/icons/settings.svg?svg';
 import shuffle from '../../node_modules/lucide-static/icons/shuffle.svg?svg';
 import plus from '../../node_modules/lucide-static/icons/plus.svg?svg';
-import smartphone from '../../node_modules/lucide-static/icons/smartphone.svg?svg';
 import user from '../../node_modules/lucide-static/icons/user.svg?svg';
-import users from '../../node_modules/lucide-static/icons/users.svg?svg';
 import trash from '../../node_modules/lucide-static/icons/trash.svg?svg';
-import discord from '../../images/discord.svg?svg';
 import github from '../../images/github.svg?svg';
 import mix from '../../images/mix.svg?svg';
 import logo from '../../images/monochrome_logo.svg?svg';
@@ -41,7 +38,6 @@ export const icons = {
     chevronLeft,
     chevronRight,
     clock,
-    discord,
     download,
     github,
     handHeart,
@@ -65,9 +61,7 @@ export const icons = {
     search,
     settings,
     shuffle,
-    smartphone,
     squares,
     user,
-    users,
     trash,
 } as const;

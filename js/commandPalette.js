@@ -178,17 +178,6 @@ class CommandPalette {
                 },
             },
             {
-                id: 'nav-donate',
-                group: 'Navigation',
-                icon: 'handHeart',
-                label: 'Go to Donate',
-                keywords: ['donate', 'support', 'contribute'],
-                action: () => {
-                    navigate('/donate');
-                },
-            },
-
-            {
                 id: 'play-pause',
                 group: 'Playback',
                 icon: 'play',
@@ -647,25 +636,15 @@ class CommandPalette {
                 },
             },
             {
-                id: 'acc-edit-profile',
-                group: 'Account',
-                icon: 'pencil',
-                label: 'Edit Profile',
-                keywords: ['edit', 'profile', 'username', 'avatar', 'display name'],
-                action: async () => {
-                    const { openEditProfile } = await import('./profile.js');
-                    await openEditProfile();
-                },
-            },
-            {
                 id: 'acc-sign-out',
                 group: 'Account',
                 icon: 'logOut',
                 label: 'Sign Out',
                 keywords: ['sign out', 'log out', 'logout', 'disconnect'],
                 action: async () => {
-                    const { authManager } = await import('./accounts/auth.js');
-                    await authManager.signOut();
+                    const { navidromeSettings } = await import('./navidrome-settings.js');
+                    navidromeSettings.clear();
+                    window.location.reload();
                 },
             },
             {

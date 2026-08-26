@@ -1,8 +1,5 @@
 //js/app.js
 import './sentry.js';
-import discordSvg from '../images/discord.svg?svg&size=22';
-import googleSvg from '../images/google.svg?svg&size=22';
-import githubSvg from '../images/github.svg?svg&size=22';
 import { isIos, isSafari } from './platform-detection.js';
 import { hapticLight } from './haptics.js';
 import { MusicAPI } from './music-api.js';
@@ -30,12 +27,10 @@ import { sidePanelManager } from './side-panel.js';
 import { db } from './db.js';
 import { showNotification } from './downloads.js';
 import { syncManager } from './accounts/pocketbase.js';
-import { authManager } from './accounts/auth.js';
 import { registerSW } from 'virtual:pwa-register';
-import { openEditProfile } from './profile.js';
+import { navidromeSettings } from './navidrome-settings.js';
 import { ThemeStore } from './themeStore.js';
 import './commandPalette.js';
-import { initTracker } from './tracker.js';
 import { initAnalytics } from './analytics.js';
 import {
     parseCSV,
@@ -480,29 +475,6 @@ async function registerAmazonDecrypterServiceWorkerFallback() {
     }
 }
 
-async function uploadCoverImage(file) {
-    try {
-        const response = await fetch(`https://worker.uploads.monochrome.qzz.io/${file.name}`, {
-            method: 'PUT',
-            headers: {
-                'x-api-key': 'if_youre_reading_this_fuck_off',
-                'Content-Type': file.type || 'application/octet-stream',
-            },
-            body: file,
-        });
-
-        if (!response.ok) {
-            if (response.status === 413) throw new Error('File exceeds 10MB');
-            throw new Error(`Upload failed: ${response.status}`);
-        }
-
-        return `https://images.monochrome.qzz.io/${await response.text()}`;
-    } catch (error) {
-        console.error('Cover upload error:', error);
-        throw error;
-    }
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
     await modernSettings.waitPending();
 
@@ -531,14 +503,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Populate commit info
     {
-        const repo = 'https://github.com/monochrome-music/monochrome';
+        const repo = 'https://github.com/lozza/monochrome-navidrome';
         // eslint-disable-next-line no-undef
         const hash = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev';
         const commitLink =
             hash !== 'dev' && hash !== 'unknown'
                 ? `<a href="${repo}/commit/${hash}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">${hash}</a>`
                 : hash;
-        const repoLink = `<a href="${repo}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">monochrome-music/monochrome</a>`;
+        const repoLink = `<a href="${repo}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">lozza/monochrome-navidrome</a>`;
         const html = `Commit ${commitLink} · ${repoLink}`;
         const aboutEl = document.getElementById('about-commit-info');
         const settingsEl = document.getElementById('settings-commit-info');
@@ -583,7 +555,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Player.initialize(audioPlayer, MusicAPI.instance, currentQuality);
 
     // Initialize tracker
-    initTracker().catch(console.error);
 
     const castBtn = document.getElementById('cast-btn');
     initializeCasting(audioPlayer, castBtn);
@@ -976,71 +947,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Cover image upload functionality
-    const coverUploadBtn = document.getElementById('playlist-cover-upload-btn');
-    const coverFileInput = document.getElementById('playlist-cover-file-input');
-    const coverToggleUrlBtn = document.getElementById('playlist-cover-toggle-url-btn');
-    const coverUrlInput = document.getElementById('playlist-cover-input');
-    const coverUploadStatus = document.getElementById('playlist-cover-upload-status');
-    const coverUploadText = document.getElementById('playlist-cover-upload-text');
-
-    let useUrlInput = false;
-
-    coverUploadBtn?.addEventListener('click', () => {
-        if (useUrlInput) return;
-        coverFileInput?.click();
-    });
-
-    coverFileInput?.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
-            return;
-        }
-
-        // Show uploading status
-        coverUploadStatus.style.display = 'block';
-        coverUploadText.textContent = 'Uploading...';
-        coverUploadBtn.disabled = true;
-
-        try {
-            const publicUrl = await uploadCoverImage(file);
-            coverUrlInput.value = publicUrl;
-            coverUploadText.textContent = 'Done!';
-            coverUploadText.style.color = 'var(--success)';
-
-            setTimeout(() => {
-                coverUploadStatus.style.display = 'none';
-            }, 2000);
-        } catch (error) {
-            coverUploadText.textContent = 'Failed - try URL';
-            coverUploadText.style.color = 'var(--error)';
-            console.error('Upload failed:', error);
-        } finally {
-            coverUploadBtn.disabled = false;
-        }
-    });
-
-    coverToggleUrlBtn?.addEventListener('click', () => {
-        useUrlInput = !useUrlInput;
-        if (useUrlInput) {
-            coverUploadBtn.style.flex = '0 0 auto';
-            coverUploadBtn.style.display = 'none';
-            coverUrlInput.style.display = 'block';
-            coverToggleUrlBtn.textContent = 'Upload';
-            coverToggleUrlBtn.title = 'Switch to file upload';
-        } else {
-            coverUploadBtn.style.flex = '1';
-            coverUploadBtn.style.display = 'flex';
-            coverUrlInput.style.display = 'none';
-            coverToggleUrlBtn.textContent = 'or URL';
-            coverToggleUrlBtn.title = 'Switch to URL input';
-        }
-    });
-
     document.getElementById('nav-back')?.addEventListener('click', () => {
         window.history.back();
     });
@@ -1360,7 +1266,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('playlist-modal-title').textContent = 'Create Playlist';
             document.getElementById('playlist-name-input').value = '';
             document.getElementById('playlist-cover-input').value = '';
-            document.getElementById('playlist-cover-file-input').value = '';
             document.getElementById('playlist-description-input').value = '';
             modal.dataset.editingId = '';
             document.getElementById('import-section').style.display = 'block';
@@ -1387,22 +1292,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const shareBtn = document.getElementById('playlist-share-btn');
             if (publicToggle) publicToggle.checked = false;
             if (shareBtn) shareBtn.style.display = 'none';
-
-            // Reset cover upload state
-            const coverUploadBtn = document.getElementById('playlist-cover-upload-btn');
-            const coverUrlInput = document.getElementById('playlist-cover-input');
-            const coverUploadStatus = document.getElementById('playlist-cover-upload-status');
-            const coverToggleUrlBtn = document.getElementById('playlist-cover-toggle-url-btn');
-            if (coverUploadBtn) {
-                coverUploadBtn.style.flex = '1';
-                coverUploadBtn.style.display = 'flex';
-            }
-            if (coverUrlInput) coverUrlInput.style.display = 'none';
-            if (coverUploadStatus) coverUploadStatus.style.display = 'none';
-            if (coverToggleUrlBtn) {
-                coverToggleUrlBtn.textContent = 'or URL';
-                coverToggleUrlBtn.title = 'Switch to URL input';
-            }
 
             modal.classList.add('active');
             document.getElementById('playlist-name-input').focus();
@@ -2050,29 +1939,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         };
                     }
 
-                    // Set cover upload state - show URL input if there's an existing cover
-                    const coverUploadBtn = document.getElementById('playlist-cover-upload-btn');
-                    const coverUrlInput = document.getElementById('playlist-cover-input');
-                    const coverToggleUrlBtn = document.getElementById('playlist-cover-toggle-url-btn');
-                    if (playlist.cover) {
-                        if (coverUploadBtn) coverUploadBtn.style.display = 'none';
-                        if (coverUrlInput) coverUrlInput.style.display = 'block';
-                        if (coverToggleUrlBtn) {
-                            coverToggleUrlBtn.textContent = 'Upload';
-                            coverToggleUrlBtn.title = 'Switch to file upload';
-                        }
-                    } else {
-                        if (coverUploadBtn) {
-                            coverUploadBtn.style.flex = '1';
-                            coverUploadBtn.style.display = 'flex';
-                        }
-                        if (coverUrlInput) coverUrlInput.style.display = 'none';
-                        if (coverToggleUrlBtn) {
-                            coverToggleUrlBtn.textContent = 'or URL';
-                            coverToggleUrlBtn.title = 'Switch to URL input';
-                        }
-                    }
-
                     modal.dataset.editingId = playlistId;
                     document.getElementById('import-section').style.display = 'none';
                     modal.classList.add('active');
@@ -2127,29 +1993,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     .then(() => alert('Link copied to clipboard!'))
                                     .catch(console.error);
                             };
-                        }
-
-                        // Set cover upload state - show URL input if there's an existing cover
-                        const coverUploadBtn = document.getElementById('playlist-cover-upload-btn');
-                        const coverUrlInput = document.getElementById('playlist-cover-input');
-                        const coverToggleUrlBtn = document.getElementById('playlist-cover-toggle-url-btn');
-                        if (playlist.cover) {
-                            if (coverUploadBtn) coverUploadBtn.style.display = 'none';
-                            if (coverUrlInput) coverUrlInput.style.display = 'block';
-                            if (coverToggleUrlBtn) {
-                                coverToggleUrlBtn.textContent = 'Upload';
-                                coverToggleUrlBtn.title = 'Switch to file upload';
-                            }
-                        } else {
-                            if (coverUploadBtn) {
-                                coverUploadBtn.style.flex = '1';
-                                coverUploadBtn.style.display = 'flex';
-                            }
-                            if (coverUrlInput) coverUrlInput.style.display = 'none';
-                            if (coverToggleUrlBtn) {
-                                coverToggleUrlBtn.textContent = 'or URL';
-                                coverToggleUrlBtn.title = 'Switch to URL input';
-                            }
                         }
 
                         modal.dataset.editingId = playlistId;
@@ -2857,112 +2700,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     const headerAccountImg = document.getElementById('header-account-img');
     const headerAccountIcon = document.getElementById('header-account-icon');
 
-    // Temporarily disable accounts - show popup
-    const isAccountsDisabled = false;
-
     if (headerAccountBtn && headerAccountDropdown) {
-        if (isAccountsDisabled) {
-            headerAccountBtn.style.opacity = '0.5';
-            headerAccountBtn.style.cursor = 'not-allowed';
-            headerAccountBtn.title = 'Accounts temporarily unavailable';
-            headerAccountBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                alert('.');
-            });
-        } else {
-            headerAccountBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                headerAccountDropdown.classList.toggle('active');
-                await updateAccountDropdown();
-            });
-        }
+        const updateAccountDropdown = () => {
+            const configured = navidromeSettings.isConfigured();
+            const username = navidromeSettings.getUsername();
+            headerAccountDropdown.innerHTML = configured
+                ? `
+                    <span style="font-size:0.8rem;color:var(--muted-foreground);padding:0.25rem 0.5rem">
+                        Signed in to Navidrome as <strong>${username}</strong>
+                    </span>
+                    <button class="btn-secondary" id="header-navidrome-settings">Connection settings</button>
+                    <button class="btn-secondary danger" id="header-navidrome-sign-out">Sign out</button>
+                `
+                : '<button class="btn-primary" id="header-navidrome-sign-in">Sign in to Navidrome</button>';
 
-        document.addEventListener('click', (e) => {
-            if (!headerAccountBtn.contains(e.target) && !headerAccountDropdown.contains(e.target)) {
+            document.getElementById('header-navidrome-sign-in')?.addEventListener('click', () => navigate('/account'));
+            document
+                .getElementById('header-navidrome-settings')
+                ?.addEventListener('click', () => navigate('/settings'));
+            document.getElementById('header-navidrome-sign-out')?.addEventListener('click', () => {
+                navidromeSettings.clear();
+                window.location.reload();
+            });
+        };
+
+        headerAccountBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            updateAccountDropdown();
+            headerAccountDropdown.classList.toggle('active');
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!headerAccountBtn.contains(event.target) && !headerAccountDropdown.contains(event.target)) {
                 headerAccountDropdown.classList.remove('active');
             }
         });
 
-        async function updateAccountDropdown() {
-            const user = authManager?.user;
-            headerAccountDropdown.innerHTML = '';
-
-            if (!user) {
-                const iconBtnStyle =
-                    'background:none;border:none;cursor:pointer;width:32px;height:32px;padding:0;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:opacity 0.15s';
-                headerAccountDropdown.innerHTML = `
-                    <span style="font-size:0.75rem;color:var(--muted-foreground);padding:0.25rem 0.5rem">Connect with</span>
-                    <div style="display:flex;width:100%;justify-content:space-evenly;padding:0.25rem 0.5rem;align-items:center">
-                        <button id="header-discord-auth" title="Discord" style="${iconBtnStyle}">${discordSvg}</button>
-                        <button id="header-google-auth" title="Google" style="${iconBtnStyle}">${googleSvg}</button>
-                        <button id="header-github-auth" title="GitHub" style="${iconBtnStyle}">${githubSvg}</button>
-                    </div>
-                    <hr style="border:none;border-top:1px solid var(--border);margin:0.25rem 0">
-                    <button class="btn-secondary" id="header-email-auth">Connect with Email</button>
-                `;
-
-                for (const id of ['header-discord-auth', 'header-google-auth', 'header-github-auth']) {
-                    const btn = document.getElementById(id);
-                    const svg = btn.querySelector('svg');
-                    svg.style.display = 'block';
-                    svg.style.filter = 'brightness(0) invert(1)';
-                    svg.style.transition = 'filter 0.15s';
-                    btn.addEventListener('mouseenter', () => {
-                        svg.style.filter = 'brightness(0) invert(0.5)';
-                    });
-                    btn.addEventListener('mouseleave', () => {
-                        svg.style.filter = 'brightness(0) invert(1)';
-                    });
-                }
-
-                document.getElementById('header-google-auth').onclick = () => authManager.signInWithGoogle();
-                document.getElementById('header-github-auth').onclick = () => authManager.signInWithGitHub();
-                document.getElementById('header-discord-auth').onclick = () => authManager.signInWithDiscord();
-                document.getElementById('header-email-auth').onclick = () => {
-                    document.getElementById('email-auth-modal').classList.add('active');
-                    headerAccountDropdown.classList.remove('active');
-                };
-            } else {
-                const data = await syncManager.getUserData();
-                const hasProfile = data && data.profile && data.profile.username;
-
-                if (hasProfile) {
-                    headerAccountDropdown.innerHTML = `
-                        <button class="btn-secondary" id="header-view-profile">My Profile</button>
-                        <button class="btn-secondary danger" id="header-sign-out">Sign Out</button>
-                    `;
-                    document.getElementById('header-view-profile').onclick = () => {
-                        navigate(`/user/@${data.profile.username}`);
-                        headerAccountDropdown.classList.remove('active');
-                    };
-                } else {
-                    headerAccountDropdown.innerHTML = `
-                        <button class="btn-primary" id="header-create-profile">Create Profile</button>
-                        <button class="btn-secondary danger" id="header-sign-out">Sign Out</button>
-                    `;
-                    document.getElementById('header-create-profile').onclick = async () => {
-                        openEditProfile().catch(console.error);
-                        headerAccountDropdown.classList.remove('active');
-                    };
-                }
-
-                document.getElementById('header-sign-out').onclick = () => authManager.signOut();
-            }
-        }
-
-        authManager.onAuthStateChanged(async (user) => {
-            if (user) {
-                const data = await syncManager.getUserData();
-                if (data && data.profile && data.profile.avatar_url) {
-                    headerAccountImg.src = data.profile.avatar_url + '?s=100';
-                    headerAccountImg.style.display = 'block';
-                    headerAccountIcon.style.display = 'none';
-                    return;
-                }
-            }
-            headerAccountImg.style.display = 'none';
-            headerAccountIcon.style.display = 'flex';
-        });
+        headerAccountImg.style.display = 'none';
+        headerAccountIcon.style.display = 'flex';
+        headerAccountBtn.title = navidromeSettings.isConfigured()
+            ? `Navidrome: ${navidromeSettings.getUsername()}`
+            : 'Sign in to Navidrome';
     }
 });
 

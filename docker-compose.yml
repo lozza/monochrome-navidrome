@@ -4,7 +4,7 @@ services:
         container_name: monochrome-navidrome
         pull_policy: always
         ports:
-            - '${MONOCHROME_PORT:-3000}:4173'
+            - '${MONOCHROME_PORT:-3002}:4173'
         environment:
             # This address must be reachable from inside this container.
             # The host-gateway mapping below makes this default work on Linux/OMV.

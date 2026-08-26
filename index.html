@@ -442,41 +442,8 @@
                         id="playlist-cover-input"
                         class="template-input"
                         placeholder="Cover image URL"
-                        style="flex: 1; margin: 0; display: none"
+                        style="flex: 1; margin: 0"
                     />
-                    <input type="file" id="playlist-cover-file-input" accept="image/*" style="display: none" />
-                    <button
-                        type="button"
-                        id="playlist-cover-upload-btn"
-                        class="template-btn"
-                        style="
-                            flex: 1;
-                            padding: 0.5rem;
-                            font-size: 0.85rem;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 0.5rem;
-                        "
-                    >
-                        <use svg="!lucide/upload.svg" size="16" />
-                        <span id="playlist-cover-btn-text">Upload</span>
-                    </button>
-                    <button
-                        type="button"
-                        id="playlist-cover-toggle-url-btn"
-                        class="template-btn"
-                        style="padding: 0.5rem; font-size: 0.85rem; white-space: nowrap"
-                        title="Switch to URL input"
-                    >
-                        or URL
-                    </button>
-                </div>
-                <div
-                    id="playlist-cover-upload-status"
-                    style="display: none; margin: -0.25rem 0 0.5rem 0; font-size: 0.75rem; opacity: 0.8"
-                >
-                    <span id="playlist-cover-upload-text"></span>
                 </div>
                 <textarea
                     id="playlist-description-input"
@@ -1050,44 +1017,6 @@
             </div>
         </div>
 
-        <div id="email-auth-modal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content email-auth-modal-content">
-                <div class="email-auth-modal-header">
-                    <h3>Email Authentication</h3>
-                    <button
-                        type="button"
-                        class="btn-icon email-auth-modal-close"
-                        id="email-auth-modal-close"
-                        title="Close"
-                    >
-                        <use svg="!lucide/x.svg" size="20" />
-                    </button>
-                </div>
-                <input
-                    type="email"
-                    id="auth-email"
-                    class="template-input email-auth-input"
-                    placeholder="Email Address"
-                />
-                <div class="email-auth-password-block">
-                    <input
-                        type="password"
-                        id="auth-password"
-                        class="template-input email-auth-input"
-                        placeholder="Password"
-                    />
-                    <button type="button" id="reset-password-btn" class="email-auth-forgot-link">
-                        Forgot password?
-                    </button>
-                </div>
-                <div class="email-auth-actions">
-                    <button type="button" id="email-signin-btn" class="btn-primary email-auth-submit">Sign In</button>
-                    <button type="button" id="email-signup-btn" class="btn-secondary email-auth-submit">Sign Up</button>
-                </div>
-            </div>
-        </div>
-
         <div id="playlist-select-modal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content">
@@ -1277,7 +1206,7 @@
                     <br />
                     A Guide To Set This Up Can Be Found
                     <a
-                        href="https://github.com/monochrome-music/monochrome/blob/main/DOCKER.md"
+                        href="https://github.com/lozza/monochrome-navidrome/blob/main/DOCKER.md"
                         style="text-decoration: underline"
                         >Here</a
                     >.
@@ -1486,7 +1415,7 @@
                             <p style="font-size: 0.8rem; color: var(--muted-foreground); margin-bottom: 0.5rem">
                                 Define your CSS variables or custom styles here.
                                 <a
-                                    href="https://github.com/monochrome-music/monochrome/blob/main/THEME_GUIDE.md"
+                                    href="https://github.com/lozza/monochrome-navidrome/blob/main/THEME_GUIDE.md"
                                     target="_blank"
                                     style="text-decoration: underline; color: var(--primary)"
                                     >Read the Theme Guide</a
@@ -1729,18 +1658,6 @@
                                     <span>Recent</span>
                                 </a>
                             </li>
-                            <li class="nav-item" id="sidebar-nav-donate">
-                                <a href="/donate">
-                                    <use svg="!lucide/hand-heart.svg" size="24" />
-                                    <span>Donate</span>
-                                </a>
-                                <div id="sidebar-donate-goal-container" class="sidebar-donate-goal">
-                                    <div class="sidebar-donate-goal-track">
-                                        <div id="sidebar-donate-goal-progress" class="sidebar-donate-goal-fill"></div>
-                                    </div>
-                                    <span id="sidebar-donate-goal-text">0%</span>
-                                </div>
-                            </li>
                             <li class="nav-item" id="sidebar-nav-settings">
                                 <a href="/settings">
                                     <use svg="!lucide/settings.svg" size="24" />
@@ -1766,20 +1683,8 @@
                                             <span>About</span>
                                         </a>
                                     </li>
-                                    <li class="nav-item" id="sidebar-nav-discordbtn">
-                                        <a href="discord.html" target="_blank">
-                                            <use svg="./images/discord.svg" size="64" />
-                                            <span>Discord</span>
-                                        </a>
-                                    </li>
-                                    <li class="nav-item" id="sidebar-nav-party">
-                                        <a href="/parties" id="sidebar-party-btn">
-                                            <use svg="!lucide/users.svg" size="24" />
-                                            <span>Parties</span>
-                                        </a>
-                                    </li>
                                     <li class="nav-item" id="sidebar-nav-githubbtn" style="display: none">
-                                        <a href="https://github.com/monochrome-music/monochrome" target="_blank">
+                                        <a href="https://github.com/lozza/monochrome-navidrome" target="_blank">
                                             <use svg="./images/github.svg" size="24" />
                                             <span>GitHub</span>
                                         </a>
@@ -2223,6 +2128,7 @@
                         <div class="search-tabs">
                             <button class="search-tab active" data-tab="tracks">Starred Tracks</button>
                             <button class="search-tab" data-tab="albums">All Albums</button>
+                            <button class="search-tab" data-tab="singles">Singles</button>
                             <button class="search-tab" data-tab="artists">All Artists</button>
                             <button class="search-tab" data-tab="playlists">Navidrome Playlists</button>
                             <button class="search-tab" data-tab="local">Local Files</button>
@@ -2308,6 +2214,9 @@
                         <div class="search-tab-content" id="library-tab-albums">
                             <div class="card-grid" id="library-albums-container"></div>
                         </div>
+                        <div class="search-tab-content" id="library-tab-singles">
+                            <div class="card-grid" id="library-singles-container"></div>
+                        </div>
                         <div class="search-tab-content" id="library-tab-artists">
                             <div class="card-grid" id="library-artists-container"></div>
                         </div>
@@ -2369,10 +2278,6 @@
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem"
                     >
                         <h2 class="section-title" style="margin-bottom: 0">Recently played</h2>
-                        <button class="btn-secondary" id="clear-history-btn" title="Clear History">
-                            <use svg="!lucide/trash-2.svg" size="16" />
-                            <span>Clear</span>
-                        </button>
                     </div>
                     <div class="track-list" id="recent-tracks-container"></div>
                 </div>
@@ -3537,31 +3442,6 @@
                                     </div>
                                     <div class="setting-item">
                                         <div class="info">
-                                            <span class="label">Show Donate in Sidebar</span>
-                                            <span class="description"
-                                                >Display the Donate link in the sidebar navigation</span
-                                            >
-                                        </div>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="sidebar-show-donate-toggle" checked />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <div class="setting-item">
-                                        <div class="info">
-                                            <span class="label">Donation Reminders</span>
-                                            <span class="description"
-                                                >Occasionally show a notification inviting you to support
-                                                Monochrome</span
-                                            >
-                                        </div>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="donation-prompts-toggle" checked />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <div class="setting-item">
-                                        <div class="info">
                                             <span class="label">Show Settings in Sidebar</span>
                                             <span class="description"
                                                 >Display the Settings link in the sidebar navigation</span
@@ -3584,30 +3464,6 @@
                                         </div>
                                         <label class="toggle-switch">
                                             <input type="checkbox" id="sidebar-show-about-bottom-toggle" checked />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <div class="setting-item">
-                                        <div class="info">
-                                            <span class="label">Show Discord in Sidebar</span>
-                                            <span class="description"
-                                                >Display the Discord link in the sidebar navigation</span
-                                            >
-                                        </div>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="sidebar-show-discordbtn-toggle" checked />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <div class="setting-item">
-                                        <div class="info">
-                                            <span class="label">Show Parties in Sidebar</span>
-                                            <span class="description"
-                                                >Display the Parties button in the sidebar navigation</span
-                                            >
-                                        </div>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="sidebar-show-party-toggle" checked />
                                             <span class="slider"></span>
                                         </label>
                                     </div>
@@ -5844,18 +5700,6 @@
                                 </div>
                             </div>
 
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">ADVANCED: Custom Database/Auth</span>
-                                        <span class="description"
-                                            >Configure custom PocketBase and Appwrite instances</span
-                                        >
-                                    </div>
-                                    <button id="custom-db-btn" class="btn-secondary">Configure</button>
-                                </div>
-                            </div>
-
                             <div class="settings-group" style="display: none">
                                 <div class="setting-item">
                                     <div class="info">
@@ -6023,17 +5867,6 @@
                                     </div>
                                     <button id="reset-local-data-btn" class="btn-secondary danger">Reset</button>
                                 </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Clear Cloud Data</span>
-                                        <span class="description"
-                                            >Delete all your data from the cloud (cannot be undone)</span
-                                        >
-                                    </div>
-                                    <button id="auth-clear-cloud-btn" class="btn-secondary danger">
-                                        Clear Cloud Data
-                                    </button>
-                                </div>
                             </div>
 
                             <div class="settings-group">
@@ -6160,575 +5993,54 @@
                 </div>
 
                 <div id="page-about" class="page">
-                    <h2 class="section-title" style="text-align: center">About Monochrome</h2>
+                    <h2 class="section-title" style="text-align: center">About Monochrome for Navidrome</h2>
                     <div class="about-content">
-                        <p class="about-description">
-                            Monochrome is a lightweight, privacy-focused music streaming client designed for
-                            high-fidelity audio playback. Built with modern web technologies, it provides a clean,
-                            distraction-free listening experience.
-                            <br />
-                        </p>
-                        <div class="about-donate">
-                            <h2 class="section-title" style="text-align: center">Support Monochrome</h2>
-                            <p style="text-align: center" class="donate-description">
-                                If Monochrome has been useful to you and you're able to, consider making a donation.
-                                <br />
-                                It helps pay for the server and domain, and you get to support us :)
-                            </p>
-                            <p style="text-align: center; color: var(--muted-foreground); margin-top: 1rem">
-                                If you cannot financially support us, please consider starring the project on GitHub and
-                                sharing with friends!
-                            </p>
-                            <div
-                                class="donate-button"
-                                id="donate-button-container"
-                                style="
-                                    display: flex;
-                                    gap: 20px;
-                                    align-items: center;
-                                    justify-content: center;
-                                    margin-top: 30px;
-                                    flex-wrap: wrap;
-                                "
-                            >
-                                <a
-                                    href="/donate"
-                                    class="btn-secondary"
-                                    style="
-                                        text-decoration: none;
-                                        display: inline-flex;
-                                        align-items: center;
-                                        gap: 0.5rem;
-                                    "
-                                >
-                                    Donate to Monochrome
-                                </a>
-                                <a
-                                    href="https://github.com/monochrome-music/monochrome"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="btn-secondary"
-                                    style="
-                                        text-decoration: none;
-                                        display: inline-flex;
-                                        align-items: center;
-                                        gap: 0.5rem;
-                                    "
-                                >
-                                    Star on GitHub
-                                </a>
-                            </div>
-                        </div>
-                        <p style="text-align: center; color: grey">
-                            made with ‪‪❤︎‬ by
-                            <a href="https://prigoana.com/" style="text-decoration: underline">Edideaur</a> &
-                            <a href="https://samidy.com" style="text-decoration: underline">Samidy</a>.
-                        </p>
-                        <p style="text-align: center; color: grey">
-                            We also take paid code commissions (we don't work for free)! Contact any of us for details.
-                        </p>
-                        <br />
-                        <h3 style="text-align: center">Contributors List:</h3>
-                        <br />
-                        <div class="about-contributors"></div>
-                        <div class="about-contributors-failed"></div>
+                        <p class="about-description">A self-hosted web player for your own Navidrome music library.</p>
                         <div class="about-footer">
-                            <p class="version">Version 2.5.0</p>
                             <p class="version" id="about-commit-info"></p>
                             <p class="disclaimer">
-                                This is an independent client and is not affiliated with or endorsed by TIDAL or any
-                                music streaming service.
-                            </p>
-                            <p class="disclaimer">
-                                This application does not host, store, or distribute any media files. <br />
-                                All content displayed or accessed through this app is provided by third‑party services
-                                and APIs that are publicly available on the internet. <br />
-                                We do not control, operate, or maintain any external content sources and are not
-                                responsible for the accuracy, availability, or legality of any content provided by third
-                                parties. <br />
-                                Users are solely responsible for how they use this application and for ensuring that
-                                their use complies with applicable laws and regulations in their jurisdiction.
+                                This fork does not host or distribute media. Music is streamed from the Navidrome server
+                                configured by the user.
                             </p>
                         </div>
                     </div>
                 </div>
                 <div id="page-account" class="page">
-                    <h2 class="section-title" style="text-align: center">Sign Up / Sign In</h2>
-                    <div class="account-content">
-                        <p style="text-align: center" class="account-description">
-                            Make an account to allow syncing your library between devices.
+                    <div style="max-width: 520px; margin: 0 auto">
+                        <h2 class="section-title" style="text-align: center">Sign in to Navidrome</h2>
+                        <p style="text-align: center; color: var(--muted-foreground); margin-bottom: 2rem">
+                            Use the same Navidrome account on every device. Listening history is stored by your
+                            Navidrome server and follows this account.
                         </p>
-                        <div
-                            class="account-buttons"
-                            id="auth-buttons-container"
-                            style="
-                                display: flex;
-                                gap: 20px;
-                                align-items: center;
-                                justify-content: center;
-                                margin-top: 50px;
-                                flex-wrap: wrap;
-                            "
-                        >
-                            <button id="auth-connect-btn" class="btn-secondary">Connect with Google</button>
-                            <button id="auth-github-btn" class="btn-secondary">Connect with GitHub</button>
-                            <button id="auth-discord-btn" class="btn-secondary">Connect with Discord</button>
-                            <button id="toggle-email-auth-btn" class="btn-secondary">Connect with Email</button>
-                            <button id="view-my-profile-btn" class="btn-secondary" style="display: none">
-                                View My Profile
-                            </button>
+                        <div class="settings-group" style="display: grid; gap: 0.75rem; padding: 1.25rem">
+                            <label for="account-navidrome-url">Navidrome server</label>
+                            <input
+                                id="account-navidrome-url"
+                                class="template-input"
+                                type="url"
+                                placeholder="/navidrome"
+                                autocomplete="url"
+                            />
+                            <label for="account-navidrome-username">Username</label>
+                            <input
+                                id="account-navidrome-username"
+                                class="template-input"
+                                type="text"
+                                autocomplete="username"
+                            />
+                            <label for="account-navidrome-password">Password</label>
+                            <input
+                                id="account-navidrome-password"
+                                class="template-input"
+                                type="password"
+                                autocomplete="current-password"
+                            />
+                            <button id="account-navidrome-login" class="btn-primary" type="button">Sign in</button>
+                            <p
+                                id="account-navidrome-status"
+                                style="color: var(--muted-foreground); margin-top: 1rem"
+                            ></p>
                         </div>
-
-                        <p id="auth-status" style="text-align: center; padding-top: 15px; color: #8b8b93">
-                            Sync your library across devices
-                        </p>
-                        <p style="padding-top: 50px; text-align: center; color: #8b8b93">
-                            We only store music data and a randomized ID to find out which Google/Email account is
-                            which.
-                            <br />
-                            All data is anonymous. We do not store anything like emails, usernames, or anything
-                            sensitive. <br />
-                        </p>
-                        <p style="padding-top: 50px; text-align: center; color: #8b8b93">
-                            However, if you want complete control over your data, we allow you to use your own Database
-                            Configuration.
-                        </p>
-                        <div
-                            style="
-                                display: flex;
-                                gap: 50px;
-                                align-items: center;
-                                justify-content: center;
-                                padding-top: 25px;
-                            "
-                        >
-                            <a id="advanced-config-link" class="btn-secondary" href="/settings"
-                                >Advanced: Custom Configuration</a
-                            >
-                        </div>
-                    </div>
-                </div>
-                <div id="page-donate" class="page">
-                    <div class="donate-page-wrapper">
-                        <h2 class="section-title donate-page-title">Support Monochrome</h2>
-                        <p class="donate-page-desc">
-                            If Monochrome has been useful to you and you're able to, consider making a donation. It
-                            helps pay for the server and domain, and you get to support us :)
-                        </p>
-                        <div class="donate-goal-card">
-                            <div class="donate-goal-card-header">
-                                <span class="donate-goal-card-label">Q3 Donation Goal</span>
-                                <span id="donate-goal-percent" class="donate-goal-card-percent">0%</span>
-                            </div>
-                            <div class="donate-goal-track">
-                                <div id="donate-goal-progress" class="donate-goal-fill"></div>
-                            </div>
-                            <div class="donate-goal-card-footer">
-                                <span id="donate-goal">$0.00</span>
-                                <span>of $1,000.00 goal</span>
-                            </div>
-                        </div>
-                        <div class="donate-actions" id="donate-actions">
-                            <a
-                                href="https://ko-fi.com/monochrometf"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="btn-primary donate-kofi-btn"
-                            >
-                                Donate on Ko-fi
-                            </a>
-                            <button type="button" class="btn-primary donate-crypto-btn" id="donate-crypto-btn">
-                                Donate with crypto
-                            </button>
-                        </div>
-                        <div class="donate-crypto-section" id="donate-crypto-section" hidden>
-                            <h3 class="donate-crypto-title">Pay with crypto</h3>
-                            <p class="donate-crypto-subtitle">Tap any address to copy it to your clipboard.</p>
-                            <div class="donate-crypto-list" id="donate-crypto-list">
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Monero (XMR)"
-                                    data-address="84QSJs6sq1GSS6f3HFL1Yc6QK3f73867aQduTnaxGdcvXTkpnduaU16f98akdwRo6HdPYfoNwn1GJijc3iLfGXhd5MLcfsk"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Monero (XMR)</span>
-                                        <span class="crypto-wallet-addr"
-                                            >84QSJs6sq1GSS6f3HFL1Yc6QK3f73867aQduTnaxGdcvXTkpnduaU16f98akdwRo6HdPYfoNwn1GJijc3iLfGXhd5MLcfsk</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (Active)"
-                                    data-address="bc1qzl0kznz3xxdpmz2m77qe3mx8ds06tcvm7pk2t4"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · Active</span>
-                                        <span class="crypto-wallet-addr"
-                                            >bc1qzl0kznz3xxdpmz2m77qe3mx8ds06tcvm7pk2t4</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (P2WPKH)"
-                                    data-address="bc1qf7elcxp394a7ly5pgqg0wsetzkkqn2xrlzpeh2"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · P2WPKH</span>
-                                        <span class="crypto-wallet-addr"
-                                            >bc1qf7elcxp394a7ly5pgqg0wsetzkkqn2xrlzpeh2</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (P2PKH)"
-                                    data-address="1NnLbNBH8RcTfbfEpZyf1iW1ezXv3XBAQR"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · P2PKH</span>
-                                        <span class="crypto-wallet-addr">1NnLbNBH8RcTfbfEpZyf1iW1ezXv3XBAQR</span>
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (P2SH)"
-                                    data-address="3J3YpbRZtX7exyt962s5zbC9PMGQhZ4B7j"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · P2SH</span>
-                                        <span class="crypto-wallet-addr">3J3YpbRZtX7exyt962s5zbC9PMGQhZ4B7j</span>
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (P2TR)"
-                                    data-address="bc1p87xf6f8tnsnlt0tjkj9suysyq72kxz4a8fprgynggxk6p9mcr3wq5rhd43"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · P2TR (Taproot)</span>
-                                        <span class="crypto-wallet-addr"
-                                            >bc1p87xf6f8tnsnlt0tjkj9suysyq72kxz4a8fprgynggxk6p9mcr3wq5rhd43</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (P2WSH)"
-                                    data-address="bc1q6luyymmww83d260925g6cvy8qjy4y4djg40cgqjcqszs9upes3xsy9nt6m"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · P2WSH</span>
-                                        <span class="crypto-wallet-addr"
-                                            >bc1q6luyymmww83d260925g6cvy8qjy4y4djg40cgqjcqszs9upes3xsy9nt6m</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin (Silent Payments)"
-                                    data-address="sp1qq0wnt8ehzg9hes4kyc23s5h4mc0gcr69fp6clm4m5yjuc78v0as4xq5j3wz03v9jw4yslcmue7xy7ek80sm3lnw8eq7ce9tkjfs3d0rj3yhj6lw6"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · Silent Payments</span>
-                                        <span class="crypto-wallet-addr"
-                                            >sp1qq0wnt8ehzg9hes4kyc23s5h4mc0gcr69fp6clm4m5yjuc78v0as4xq5j3wz03v9jw4yslcmue7xy7ek80sm3lnw8eq7ce9tkjfs3d0rj3yhj6lw6</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin Lightning"
-                                    data-address="oblongbalinese7350@cake.cash"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin · Lightning</span>
-                                        <span class="crypto-wallet-addr">oblongbalinese7350@cake.cash</span>
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Litecoin (Active)"
-                                    data-address="ltc1qt9jspfdwcgas9q4sf5q9ajn7x9ka8mfywsehrr"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Litecoin · Active</span>
-                                        <span class="crypto-wallet-addr"
-                                            >ltc1qt9jspfdwcgas9q4sf5q9ajn7x9ka8mfywsehrr</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Litecoin (P2WPKH)"
-                                    data-address="ltc1qqtsdhlae2rm67avrw7eal57j77845lz5kvz6qj"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Litecoin · P2WPKH</span>
-                                        <span class="crypto-wallet-addr"
-                                            >ltc1qqtsdhlae2rm67avrw7eal57j77845lz5kvz6qj</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Litecoin (MWEB)"
-                                    data-address="ltcmweb1qq06pgdyw2xlwy64vhz3l903kmp84j0qgx9nu7er8ckr6tp2289r9sqe9ntqyzyd2usf298ln5cvpfc7wccsys320ajr5sx8hfy43eut74c2jae4c"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Litecoin · MWEB</span>
-                                        <span class="crypto-wallet-addr"
-                                            >ltcmweb1qq06pgdyw2xlwy64vhz3l903kmp84j0qgx9nu7er8ckr6tp2289r9sqe9ntqyzyd2usf298ln5cvpfc7wccsys320ajr5sx8hfy43eut74c2jae4c</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="EVM address"
-                                    data-address="0x078A47E9bbe2e0D7aEb2B2B09302ceB2af964593"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name"
-                                            >Ethereum / EVM · ETH · BNB · Polygon · Base · Arbitrum</span
-                                        >
-                                        <span class="crypto-wallet-addr"
-                                            >0x078A47E9bbe2e0D7aEb2B2B09302ceB2af964593</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Solana (SOL)"
-                                    data-address="2zdNcs4Uu2377Nzjc8P91qH7hHiyQs8E1f27A6icUSKx"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Solana (SOL)</span>
-                                        <span class="crypto-wallet-addr"
-                                            >2zdNcs4Uu2377Nzjc8P91qH7hHiyQs8E1f27A6icUSKx</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Zcash (ZEC)"
-                                    data-address="u120zcwxlt9azs36d07uafdnj7fzsa62stwuk4f2eruk272e8he0czxvyjquakhp968mvm0tuzmqx6ln7c5k3qdw2qem2ypk4p6s3hgczx"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Zcash (ZEC)</span>
-                                        <span class="crypto-wallet-addr"
-                                            >u120zcwxlt9azs36d07uafdnj7fzsa62stwuk4f2eruk272e8he0czxvyjquakhp968mvm0tuzmqx6ln7c5k3qdw2qem2ypk4p6s3hgczx</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Tron (TRX)"
-                                    data-address="TQU2kovh58VnnPr1PUjZUhNY2a3UfM4ERh"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Tron (TRX)</span>
-                                        <span class="crypto-wallet-addr">TQU2kovh58VnnPr1PUjZUhNY2a3UfM4ERh</span>
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Dogecoin (DOGE)"
-                                    data-address="DNpErVMo3yPM6UFAStSfWuBbHPvUwx95D9"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Dogecoin (DOGE)</span>
-                                        <span class="crypto-wallet-addr">DNpErVMo3yPM6UFAStSfWuBbHPvUwx95D9</span>
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Bitcoin Cash (BCH)"
-                                    data-address="bitcoincash:qzg8j4ddjew3ptcr9g503qk0345kdr332s5jmrzeym"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Bitcoin Cash (BCH)</span>
-                                        <span class="crypto-wallet-addr"
-                                            >bitcoincash:qzg8j4ddjew3ptcr9g503qk0345kdr332s5jmrzeym</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="crypto-wallet"
-                                    data-label="Nano (XNO)"
-                                    data-address="nano_1qfmbi1b9tzocx9socbffy7z6te6r7z75byc7ofpfpqjpbfb1i3eaqe3etjz"
-                                >
-                                    <span class="crypto-wallet-meta">
-                                        <span class="crypto-wallet-name">Nano (XNO)</span>
-                                        <span class="crypto-wallet-addr"
-                                            >nano_1qfmbi1b9tzocx9socbffy7z6te6r7z75byc7ofpfpqjpbfb1i3eaqe3etjz</span
-                                        >
-                                    </span>
-                                    <use svg="!lucide/copy.svg" size="18" class="crypto-wallet-copy-icon" />
-                                </button>
-                            </div>
-                        </div>
-                        <div class="donate-alt-section">
-                            <p class="donate-alt-text">
-                                While donating isn't required and the service can still live on without hitting our
-                                goals, we're deeply grateful if you do! It helps the project have "just-in-case" money
-                                and helps us (the developers) out personally!
-                            </p>
-                            <p class="donate-alt-text">
-                                If you cannot financially support us, please consider starring the project on GitHub and
-                                sharing with friends!
-                            </p>
-                            <a
-                                href="https://github.com/monochrome-music/monochrome"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="btn-secondary donate-github-btn"
-                            >
-                                Star on GitHub
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <div id="page-reset-password" class="page">
-                    <div
-                        class="reset-password-container"
-                        style="text-align: center; padding: var(--space-8); max-width: 400px; margin: 0 auto"
-                    >
-                        <h2 class="section-title" style="margin-bottom: var(--space-10)">Reset your Password</h2>
-
-                        <div
-                            id="reset-password-error"
-                            class="message error-msg"
-                            style="
-                                display: none;
-                                padding: var(--space-3) 0;
-                                border-radius: var(--radius-md);
-                                font-size: var(--text-sm);
-                                margin-bottom: var(--space-4);
-                                background: transparent;
-                                color: #ff6b6b;
-                                text-align: left;
-                            "
-                        ></div>
-                        <div
-                            id="reset-password-success"
-                            class="message success-msg"
-                            style="
-                                display: none;
-                                padding: var(--space-3) 0;
-                                border-radius: var(--radius-md);
-                                font-size: var(--text-sm);
-                                margin-bottom: var(--space-4);
-                                background: transparent;
-                                color: var(--foreground);
-                                text-align: left;
-                            "
-                        ></div>
-
-                        <form id="reset-password-form">
-                            <div style="margin-bottom: var(--space-4)">
-                                <input
-                                    type="password"
-                                    id="reset-password-input"
-                                    placeholder="New Password"
-                                    required
-                                    minlength="8"
-                                    style="
-                                        width: 100%;
-                                        padding: var(--space-3) var(--space-4);
-                                        border: 1px solid var(--border);
-                                        border-radius: var(--radius-md);
-                                        background: var(--card);
-                                        color: var(--foreground);
-                                        font-size: 0.925rem;
-                                        outline: none;
-                                        transition: border-color 0.15s;
-                                    "
-                                />
-                            </div>
-                            <div style="margin-bottom: var(--space-6)">
-                                <input
-                                    type="password"
-                                    id="reset-password-confirm"
-                                    placeholder="Confirm New Password"
-                                    required
-                                    minlength="8"
-                                    style="
-                                        width: 100%;
-                                        padding: var(--space-3) var(--space-4);
-                                        border: 1px solid var(--border);
-                                        border-radius: var(--radius-md);
-                                        background: var(--card);
-                                        color: var(--foreground);
-                                        font-size: 0.925rem;
-                                        outline: none;
-                                        transition: border-color 0.15s;
-                                    "
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                id="reset-password-submit-btn"
-                                class="btn-primary"
-                                style="width: 100%; justify-content: center"
-                            >
-                                <span id="reset-password-btn-text">Reset Password</span>
-                                <div
-                                    id="reset-password-btn-spinner"
-                                    class="animate-spin"
-                                    style="display: none; width: 18px; height: 18px"
-                                >
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        style="width: 100%; height: 100%"
-                                    >
-                                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                                    </svg>
-                                </div>
-                            </button>
-                        </form>
                     </div>
                 </div>
             </main>
@@ -6780,15 +6092,6 @@
                 </div>
                 <div class="volume-controls">
                     <div class="player-actions-row">
-                        <button
-                            id="now-playing-party-btn"
-                            class="now-playing-party-btn"
-                            title="Open listening party"
-                            aria-label="Open listening party"
-                            style="display: none"
-                        >
-                            <use svg="!lucide/users.svg" size="20" />
-                        </button>
                         <button
                             id="now-playing-like-btn"
                             class="like-btn"

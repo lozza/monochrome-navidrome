@@ -86,6 +86,14 @@ export class MusicAPI {
         return this.getAPI().getAllAlbums(pageSize);
     }
 
+    async getRecentTracks(pageSize = 500, limit = 100) {
+        return this.getAPI().getRecentTracks(pageSize, limit);
+    }
+
+    async scrobble(id, submission = true) {
+        return this.getAPI().scrobble(id, submission);
+    }
+
     async getArtists() {
         return this.getAPI().getArtists();
     }
