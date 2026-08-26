@@ -370,7 +370,7 @@ export class UIRenderer {
                             ? this.api.getArtistPictureUrl(item.cover)
                             : this.api.getCoverUrl(item.cover);
                     const coverClass = item.type === 'artist' ? 'artist' : '';
-                    iconHTML = `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${coverUrl}" class="pinned-item-cover ${coverClass}" alt="${escapeHtml(item.name)}" loading="lazy" onerror="this.src='images/monochrome_logo.svg'">`;
+                    iconHTML = `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${coverUrl}" class="pinned-item-cover ${coverClass}" alt="${escapeHtml(item.name)}" loading="lazy" onerror="this.src='images/navichrome_logo.svg'">`;
                 }
 
                 return `
@@ -3245,14 +3245,14 @@ export class UIRenderer {
                 const img = document.createElement('img');
                 img.crossOrigin = 'anonymous';
                 img.referrerPolicy = 'no-referrer';
-                img.src = aotyCoverUrl(item.image) || 'images/monochrome_logo.svg';
+                img.src = aotyCoverUrl(item.image) || 'images/navichrome_logo.svg';
                 img.width = 88;
                 img.height = 56;
                 img.style.cssText =
                     'width:88px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--secondary);';
                 img.loading = 'lazy';
                 img.onerror = () => {
-                    img.src = 'images/monochrome_logo.svg';
+                    img.src = 'images/navichrome_logo.svg';
                     img.onerror = null;
                 };
                 el.appendChild(img);
@@ -3324,12 +3324,12 @@ export class UIRenderer {
                     const thumb = document.createElement('img');
                     thumb.crossOrigin = 'anonymous';
                     thumb.referrerPolicy = 'no-referrer';
-                    thumb.src = entry.cover || 'images/monochrome_logo.svg';
+                    thumb.src = entry.cover || 'images/navichrome_logo.svg';
                     thumb.width = 44;
                     thumb.height = 44;
                     thumb.loading = 'lazy';
                     thumb.onerror = () => {
-                        thumb.src = 'images/monochrome_logo.svg';
+                        thumb.src = 'images/navichrome_logo.svg';
                         thumb.onerror = null;
                     };
                     thumb.style.cssText =
@@ -3410,9 +3410,9 @@ export class UIRenderer {
 
                 row.innerHTML = `
                     <span style="font-size:0.8rem;font-weight:700;color:var(--primary);min-width:2rem;text-align:right;flex-shrink:0;">#${escapeHtml(item.rank || '')}</span>
-                    <img crossorigin="anonymous" referrerpolicy="no-referrer" src="${aotyCoverUrl(item.cover) || 'images/monochrome_logo.svg'}" width="48" height="48"
+                    <img crossorigin="anonymous" referrerpolicy="no-referrer" src="${aotyCoverUrl(item.cover) || 'images/navichrome_logo.svg'}" width="48" height="48"
                         style="border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--secondary);"
-                        loading="lazy" onerror="this.src='images/monochrome_logo.svg';this.onerror=null;">
+                        loading="lazy" onerror="this.src='images/navichrome_logo.svg';this.onerror=null;">
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:500;font-size:0.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" class="row-title"></div>
                         <div style="font-size:0.75rem;color:var(--muted-foreground);margin-top:2px;" class="row-meta"></div>
@@ -3540,7 +3540,7 @@ export class UIRenderer {
     createAOTYAlbumCardHTML(album, isUpcoming = false) {
         const title = escapeHtml(album.title || 'Unknown Album');
         const artist = escapeHtml(album.artist || '');
-        const cover = `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${aotyCoverUrl(album.cover) || 'images/monochrome_logo.svg'}" alt="${title}" class="card-image" loading="lazy" onerror="this.src='images/monochrome_logo.svg'">`;
+        const cover = `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${aotyCoverUrl(album.cover) || 'images/navichrome_logo.svg'}" alt="${title}" class="card-image" loading="lazy" onerror="this.src='images/navichrome_logo.svg'">`;
 
         const scoreParts = [];
         if (album.criticScore) scoreParts.push(`${album.criticScore} critic`);
@@ -4895,7 +4895,7 @@ export class UIRenderer {
                                 const quote = decodeHtml(review.text || 'No review text available.');
                                 reviewdiv.innerHTML = `
                                 <img crossorigin="anonymous" src="${review.image || ''}" width="50" height="50" style="border-radius:8px;object-fit:cover;background:var(--highlight);flex-shrink:0;"
-                                     onerror="this.src='images/monochrome_logo.svg';this.onerror=null;" loading="lazy" referrerpolicy="no-referrer">
+                                     onerror="this.src='images/navichrome_logo.svg';this.onerror=null;" loading="lazy" referrerpolicy="no-referrer">
                                 <div style="flex:1;">
                                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem;">
                                         <div class="pub-name" style="font-weight:600;color:var(--foreground);"></div>
@@ -5417,7 +5417,7 @@ export class UIRenderer {
                     numberOfTracks: playlistData.tracks ? playlistData.tracks.length : 0,
                     isUserPlaylist: true,
                 });
-                document.title = `${playlistData.name || playlistData.title} - Monochrome`;
+                document.title = `${playlistData.name || playlistData.title} - Navichrome`;
 
                 // Setup playlist search
                 this.setupTracklistSearch();
@@ -7101,7 +7101,7 @@ export class UIRenderer {
             trendingContainer.innerHTML = createPlaceholder('Failed to load trending podcasts.');
         }
 
-        document.title = 'Podcasts - Monochrome Music';
+        document.title = 'Podcasts - Navichrome';
     }
 
     cleanupPodcastState() {
@@ -7147,7 +7147,7 @@ export class UIRenderer {
                 this.podcastState.podcastTitle = 'Unknown Podcast';
             }
 
-            document.title = `${podcastResult?.title || 'Podcast'} - Monochrome Music`;
+            document.title = `${podcastResult?.title || 'Podcast'} - Navichrome`;
 
             episodesContainer.innerHTML = '';
             await this.loadAllPodcastEpisodes();

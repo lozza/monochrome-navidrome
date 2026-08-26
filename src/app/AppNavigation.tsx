@@ -81,9 +81,9 @@ export function AppNavigation() {
     return (
         <>
             <div className="sidebar-logo">
-                <a aria-label="Monochrome home" className="sidebar-logo-link" href="/">
+                <a aria-label="Navichrome home" className="sidebar-logo-link" href="/">
                     <Icon className="app-logo" svg={icons.logo} size={22} />
-                    <span>Monochrome</span>
+                    <span>Navichrome</span>
                 </a>
                 <button
                     aria-label="Collapse sidebar"

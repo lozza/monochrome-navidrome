@@ -13,29 +13,21 @@ jobs:
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 1
 
-            - name: Setup Bun
-              uses: oven-sh/setup-bun@v1
+            - name: Setup Node
+              uses: actions/setup-node@v6
               with:
-                  bun-version: latest
-
-            - name: Cache dependencies
-              uses: actions/cache@v3
-              with:
-                  path: |
-                      ./bun_modules
-                      ./node_modules
-                      ./bun.lock
-                  key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+                  node-version: '24'
+                  package-manager-cache: false
 
             - name: Install dependencies
-              run: bun install --frozen-lockfile
+              run: npm install --no-audit --no-fund
 
             - name: Install playwright dependencies
-              run: bun run install:playwright
+              run: npm run install:playwright
 
             - name: Run vitest
-              run: bun run test:headless
+              run: npm run test:headless

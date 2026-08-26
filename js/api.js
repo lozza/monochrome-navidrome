@@ -1213,7 +1213,7 @@ export class LosslessAPI {
         try {
             const searchUrl = `https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(artistName)}&fmt=json`;
             const searchRes = await fetch(searchUrl, {
-                headers: { 'User-Agent': 'Monochrome-Navidrome ( https://github.com/lozza/monochrome-navidrome )' },
+                headers: { 'User-Agent': 'Navichrome ( https://github.com/lozza/monochrome-navidrome )' },
             });
             const searchData = await searchRes.json();
 
@@ -1224,7 +1224,7 @@ export class LosslessAPI {
 
             const detailsUrl = `https://musicbrainz.org/ws/2/artist/${mbid}?inc=url-rels&fmt=json`;
             const detailsRes = await fetch(detailsUrl, {
-                headers: { 'User-Agent': 'Monochrome-Navidrome ( https://github.com/lozza/monochrome-navidrome )' },
+                headers: { 'User-Agent': 'Navichrome ( https://github.com/lozza/monochrome-navidrome )' },
             });
             const detailsData = await detailsRes.json();
 

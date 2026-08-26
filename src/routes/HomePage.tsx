@@ -50,7 +50,7 @@ export function HomePage() {
 
             <div aria-hidden="false" className="home-view active" id="home-view-for-you" role="tabpanel">
                 <div className="home-welcome" id="home-welcome" style={{ display: 'none' }}>
-                    <h1>Welcome to Monochrome</h1>
+                    <h1>Welcome to Navichrome</h1>
                     <p>You haven't listened to anything yet. Search for your favorite songs to get started.</p>
                 </div>
 

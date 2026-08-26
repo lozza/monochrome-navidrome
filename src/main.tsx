@@ -24,7 +24,7 @@ function mountChrome() {
     const playerRoot = document.querySelector<HTMLElement>('.now-playing-bar');
 
     if (!navigationRoot || !headerRoot || !playerRoot) {
-        throw new Error('Monochrome app chrome is incomplete.');
+        throw new Error('Navichrome app chrome is incomplete.');
     }
 
     render(<AppNavigation />, navigationRoot);

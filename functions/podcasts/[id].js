@@ -1,8 +1,6 @@
 // functions/podcasts/[id].js
 
 const PODCASTINDEX_API_BASE = 'https://api.podcastindex.org/api/1.0';
-const PODCAST_API_KEY = 'YU5HMSDYBQQVYDF6QN4P';
-const PODCAST_API_SECRET = '8hCvpjSL7T$S7^5ftnf5MhqQwYUYVjM^fmUL3Ld$';
 
 async function sha1(str) {
     const encoder = new TextEncoder();
@@ -12,13 +10,18 @@ async function sha1(str) {
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function getAuthHeaders() {
+async function getAuthHeaders(env) {
+    const apiKey = env.PODCASTINDEX_API_KEY;
+    const apiSecret = env.PODCASTINDEX_API_SECRET;
+    if (!apiKey || !apiSecret) {
+        throw new Error('PodcastIndex is not configured for this deployment.');
+    }
     const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
-    const combined = PODCAST_API_KEY + PODCAST_API_SECRET + apiHeaderTime;
+    const combined = apiKey + apiSecret + apiHeaderTime;
     const authHeader = await sha1(combined);
     return {
-        'User-Agent': 'MonochromeMusic/1.0',
-        'X-Auth-Key': PODCAST_API_KEY,
+        'User-Agent': 'Navichrome/1.0',
+        'X-Auth-Key': apiKey,
         'X-Auth-Date': apiHeaderTime,
         Authorization: authHeader,
     };
@@ -35,7 +38,7 @@ export async function onRequest(context) {
 
     if (isBot && podcastId) {
         try {
-            const headers = await getAuthHeaders();
+            const headers = await getAuthHeaders(env);
             const response = await fetch(`${PODCASTINDEX_API_BASE}/podcasts/byfeedid?id=${podcastId}&pretty`, {
                 method: 'GET',
                 headers,
@@ -52,9 +55,9 @@ export async function onRequest(context) {
                 const episodeCount = feed.episodeCount || 0;
                 const _rawDescription = feed.description || '';
                 const description = author
-                    ? `Podcast by ${author} • ${episodeCount} Episodes\nListen on Monochrome`
-                    : `Podcast • ${episodeCount} Episodes\nListen on Monochrome`;
-                const imageUrl = feed.image || feed.artwork || 'https://monochrome.tf/assets/appicon.png';
+                    ? `Podcast by ${author} • ${episodeCount} Episodes\nListen on Navichrome`
+                    : `Podcast • ${episodeCount} Episodes\nListen on Navichrome`;
+                const imageUrl = feed.image || feed.artwork || new URL('/assets/appicon.png', request.url).href;
                 const pageUrl = new URL(request.url).href;
 
                 const metaHtml = `
@@ -66,7 +69,7 @@ export async function onRequest(context) {
                         <meta name="description" content="${description}">
                         <meta name="theme-color" content="#000000">
 
-                        <meta property="og:site_name" content="Monochrome">
+                        <meta property="og:site_name" content="Navichrome">
                         <meta property="og:title" content="${title}">
                         <meta property="og:description" content="${description}">
                         <meta property="og:image" content="${imageUrl}">

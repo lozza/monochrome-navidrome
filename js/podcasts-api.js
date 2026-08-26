@@ -1,10 +1,10 @@
 // js/podcasts-api.js
-// PodcastIndex.org API integration for Monochrome Music
+// PodcastIndex.org API integration for Navichrome
 
 const PODCASTINDEX_API_BASE = 'https://api.podcastindex.org/api/1.0';
 
-const PODCAST_API_KEY = 'YU5HMSDYBQQVYDF6QN4P';
-const PODCAST_API_SECRET = '8hCvpjSL7T$S7^5ftnf5MhqQwYUYVjM^fmUL3Ld$';
+const PODCAST_API_KEY = globalThis.NAVICHROME_PODCASTINDEX_API_KEY || '';
+const PODCAST_API_SECRET = globalThis.NAVICHROME_PODCASTINDEX_API_SECRET || '';
 
 export class PodcastsAPI {
     constructor() {
@@ -13,11 +13,14 @@ export class PodcastsAPI {
     }
 
     async getAuthHeaders() {
+        if (!PODCAST_API_KEY || !PODCAST_API_SECRET) {
+            throw new Error('PodcastIndex is not configured for this deployment.');
+        }
         const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
         const combined = PODCAST_API_KEY + PODCAST_API_SECRET + apiHeaderTime;
         const authHeader = await this.sha1(combined);
         return {
-            'User-Agent': 'MonochromeMusic/1.0',
+            'User-Agent': 'Navichrome/1.0',
             'X-Auth-Key': PODCAST_API_KEY,
             'X-Auth-Date': apiHeaderTime,
             Authorization: authHeader,

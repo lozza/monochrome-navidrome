@@ -26,7 +26,7 @@ import user from '../../node_modules/lucide-static/icons/user.svg?svg';
 import trash from '../../node_modules/lucide-static/icons/trash.svg?svg';
 import github from '../../images/github.svg?svg';
 import mix from '../../images/mix.svg?svg';
-import logo from '../../images/monochrome_logo.svg?svg';
+import logo from '../../images/navichrome_logo.svg?svg';
 import play from '../../images/play.svg?svg';
 import recent from '../../images/recent.svg?svg';
 import squares from '../../images/squares.svg?svg';

@@ -40,7 +40,7 @@ export async function writeID3v2Tag(mp3Blob, metadata, coverBlob = null) {
         frames.push(createTextFrame('TCOP', metadata.copyright));
     }
 
-    frames.push(createTextFrame('TENC', 'Monochrome'));
+    frames.push(createTextFrame('TENC', 'Navichrome'));
 
     if (coverBlob) {
         frames.push(await createAPICFrame(coverBlob));

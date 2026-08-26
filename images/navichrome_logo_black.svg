@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="100%" height="100%"
+  shape-rendering="crispEdges" role="img" aria-labelledby="title">
+  <title id="title">Navichrome icon</title>
+  <g fill="black">
+    <rect x="1" y="1" width="2" height="8" />
+    <rect x="7" y="1" width="2" height="8" />
+  </g>
+  <path d="M3 1h2l2 8H5z" fill="#168b96" />
+</svg>

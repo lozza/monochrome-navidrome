@@ -1,8 +1,8 @@
 {
-    "name": "monochrome-navidrome",
+    "name": "navichrome",
     "type": "module",
     "version": "2.5.1",
-    "description": "A Monochrome-based web player for Navidrome and OpenSubsonic servers",
+    "description": "Navichrome, a self-hosted web player for Navidrome and OpenSubsonic servers",
     "scripts": {
         "dev": "vite",
         "test": "vitest run --config=vite.config.ts",
@@ -16,7 +16,7 @@
         "lint:js": "eslint .",
         "lint:css": "stylelint \"**/*.css\"",
         "lint:html": "htmlhint \"**/*.html\" --ignore=\"dist/**,legacy/**,node_modules/**\"",
-        "lint": "bun run lint:js && bun run lint:css && bun run lint:html",
+        "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
         "format": "prettier --write .",
         "lhci": "lhci",
         "lhci:autorun": "npm run build && lhci autorun"

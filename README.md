@@ -1,8 +1,8 @@
-# Monochrome for Navidrome
+# Navichrome
 
 A self-hosted web player for [Navidrome](https://www.navidrome.org/) and compatible OpenSubsonic servers.
 
-This is a Navidrome-focused fork of Monochrome. It uses your own Navidrome server for authentication, library data,
+Navichrome is a Navidrome-focused fork of Monochrome. It uses your own Navidrome server for authentication, library data,
 playback, favourites, playlists and listening history.
 
 ## Features

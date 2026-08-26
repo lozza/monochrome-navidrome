@@ -4,49 +4,44 @@
         <meta charset="UTF-8" />
         <meta name="referrer" content="no-referrer" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-        <title>Monochrome for Navidrome</title>
-        <link rel="canonical" href="https://monochrome.tf/" />
-        <link rel="alternate" hreflang="en" href="https://monochrome.tf/" />
+        <title>Navichrome</title>
         <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <base href="/" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Monochrome" />
+        <meta name="apple-mobile-web-app-title" content="Navichrome" />
         <meta name="description" content="A minimalist web player for your self-hosted Navidrome music library." />
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
         <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content="en_US" />
-        <meta property="og:site_name" content="Monochrome" />
-        <meta property="og:title" content="Monochrome for Navidrome" />
+        <meta property="og:site_name" content="Navichrome" />
+        <meta property="og:title" content="Navichrome" />
         <meta
             property="og:description"
             content="A minimalist web player for your self-hosted Navidrome music library."
         />
-        <meta property="og:url" content="https://monochrome.tf/" />
-        <meta property="og:image" content="https://monochrome.tf/assets/banner.jpg" />
-        <meta property="og:image:type" content="image/jpeg" />
-        <meta property="og:image:alt" content="Monochrome banner" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="https://monochrome.tf/" />
-        <meta name="twitter:title" content="Monochrome for Navidrome" />
+        <meta property="og:image" content="/assets/appicon.png" />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:alt" content="Navichrome logo" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="Navichrome" />
         <meta
             name="twitter:description"
             content="A minimalist web player for your self-hosted Navidrome music library."
         />
-        <meta name="twitter:image" content="https://monochrome.tf/assets/banner-twitter.jpg" />
-        <meta name="twitter:image:alt" content="Monochrome banner" />
+        <meta name="twitter:image" content="/assets/appicon.png" />
+        <meta name="twitter:image:alt" content="Navichrome logo" />
         <script type="application/ld+json">
             {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                "name": "Monochrome for Navidrome",
-                "url": "https://monochrome.tf/",
+                "name": "Navichrome",
                 "description": "A minimalist web player for your self-hosted Navidrome music library.",
                 "potentialAction": {
                     "@type": "SearchAction",
-                    "target": "https://monochrome.tf/search/{search_term_string}",
+                    "target": "/search/{search_term_string}",
                     "query-input": "required name=search_term_string"
                 }
             }
@@ -55,29 +50,21 @@
             {
                 "@context": "https://schema.org",
                 "@type": "WebApplication",
-                "name": "Monochrome for Navidrome",
-                "url": "https://monochrome.tf/",
+                "name": "Navichrome",
                 "applicationCategory": "MusicApplication",
                 "operatingSystem": "Web Browser",
-                "image": "https://monochrome.tf/images/monochrome_logo.svg",
+                "image": "/assets/appicon.png",
                 "description": "A minimalist web player for your self-hosted Navidrome music library."
             }
         </script>
-        <!-- bini's seo thing -->
-        <meta
-            name="ahrefs-site-verification"
-            content="889c6a5c1584832256b87bb36beaa665b40bb6e201582d416f04d074794044ef"
-        />
-        <meta name="google-site-verification" content="ChAPlKFJ5Dk2YbWhiUfnH5sHgCC8SnNdCBtjVcahArY" />
-
         <!-- Preconnect to critical third-party origins -->
         <link rel="preconnect" href="https://resources.tidal.com" crossorigin />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-        <link rel="apple-touch-icon" href="/images/monochrome_logo.svg" />
+        <link rel="apple-touch-icon" href="/assets/appicon.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="/images/monochrome_logo.svg" type="image/svg+xml" />
+        <link rel="icon" href="/images/navichrome_icon.svg" type="image/svg+xml" />
         <link
             rel="preload"
             as="style"
@@ -1100,8 +1087,8 @@
                 <div class="missing-tracks-content">
                     <p>
                         Unfortunately, some songs weren't able to be added. This could be an issue with our import
-                        system - try searching for the song and adding it. It could also be due to Monochrome not having
-                        the song :(
+                        system. Try searching for the track and adding it manually; it may not exist in your Navidrome
+                        library.
                     </p>
                     <div class="missing-tracks-list">
                         <h4>Missing Tracks:</h4>
@@ -1184,58 +1171,6 @@
                 <div class="modal-actions" style="margin-top: 1.5rem">
                     <button class="btn-secondary" id="cancel-discography-download">Cancel</button>
                     <button class="btn-primary" id="start-discography-download">Download</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="custom-db-modal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
-                    <h3 style="margin: 0">Custom Database/Auth</h3>
-                    <button
-                        id="custom-db-reset"
-                        class="btn-secondary danger"
-                        style="padding: 0.4rem 0.8rem; font-size: 0.8rem"
-                    >
-                        Reset to Defaults
-                    </button>
-                </div>
-                <p style="font-size: 0.9rem; color: var(--muted-foreground); margin-bottom: 1rem">
-                    Configure custom PocketBase and Appwrite instances. Leave empty to use defaults.
-                    <br />
-                    A Guide To Set This Up Can Be Found
-                    <a
-                        href="https://github.com/lozza/monochrome-navidrome/blob/main/DOCKER.md"
-                        style="text-decoration: underline"
-                        >Here</a
-                    >.
-                </p>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">PocketBase URL</label>
-                    <input type="url" id="custom-pb-url" class="template-input" placeholder="https://data.samidy.xyz" />
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Appwrite Endpoint</label>
-                    <input
-                        type="url"
-                        id="custom-appwrite-endpoint"
-                        class="template-input"
-                        placeholder="https://auth.samidy.com/v1"
-                    />
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Appwrite Project ID</label>
-                    <input
-                        type="text"
-                        id="custom-appwrite-project"
-                        class="template-input"
-                        placeholder="auth-for-monochrome"
-                    />
-                </div>
-                <div class="modal-actions">
-                    <button id="custom-db-cancel" class="btn-secondary">Cancel</button>
-                    <button id="custom-db-save" class="btn-primary">Save & Reload</button>
                 </div>
             </div>
         </div>
@@ -1407,7 +1342,7 @@
                                 placeholder="https://example.com"
                             />
                             <p style="font-size: 0.8rem; color: var(--muted-foreground); margin-top: 0.25rem">
-                                It is recommended to create a Monochrome profile instead.
+                                Add a public author website if you would like it shown with the theme.
                             </p>
                         </div>
                         <div style="margin-bottom: 1rem">
@@ -1535,7 +1470,7 @@
             <div class="modal-overlay"></div>
             <div class="modal-content">
                 <h3>Update Available</h3>
-                <p>A new version of Monochrome is available.</p>
+                <p>A new version of Navichrome is available.</p>
                 <div
                     id="desktop-update-notes"
                     style="
@@ -1625,8 +1560,8 @@
                 <div class="sidebar-content">
                     <div class="sidebar-logo">
                         <a href="./" class="sidebar-logo-link">
-                            <use svg="./images/monochrome_logo.svg" size="200" class="app-logo" />
-                            <span>Monochrome</span>
+                            <use svg="./images/navichrome_logo.svg" size="200" class="app-logo" />
+                            <span>Navichrome</span>
                         </a>
                         <button
                             id="sidebar-toggle"
@@ -5476,7 +5411,7 @@
                                         type="text"
                                         id="zip-folder-template"
                                         class="template-input"
-                                        placeholder="{albumTitle} - {albumArtist} - monochrome.tf"
+                                        placeholder="{albumTitle} - {albumArtist} - Navichrome"
                                     />
                                 </div>
                             </div>
@@ -5993,7 +5928,7 @@
                 </div>
 
                 <div id="page-about" class="page">
-                    <h2 class="section-title" style="text-align: center">About Monochrome for Navidrome</h2>
+                    <h2 class="section-title" style="text-align: center">About Navichrome</h2>
                     <div class="about-content">
                         <p class="about-description">A self-hosted web player for your own Navidrome music library.</p>
                         <div class="about-footer">

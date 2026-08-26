@@ -7,8 +7,7 @@ on:
         branches: [main]
 
 permissions:
-    contents: write
-    actions: write
+    contents: read
 
 jobs:
     lint:
@@ -16,47 +15,32 @@ jobs:
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 1
                   repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
                   ref: ${{ github.head_ref || github.ref }}
 
-            - name: Setup Bun
-              uses: oven-sh/setup-bun@v1
+            - name: Setup Node
+              uses: actions/setup-node@v6
               with:
-                  bun-version: latest
-
-            - name: Cache dependencies
-              uses: actions/cache@v3
-              with:
-                  path: |
-                      ./bun_modules
-                      ./node_modules
-                      ./bun.lock
-                  key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+                  node-version: '24'
+                  package-manager-cache: false
 
             - name: Install dependencies
-              run: bun install --frozen-lockfile
+              run: npm install --no-audit --no-fund
 
             - name: Run JS Lint
-              run: bun run lint:js -- --fix
+              run: npm run lint:js -- --fix
               continue-on-error: true
 
             - name: Run CSS Lint
-              run: bun run lint:css -- --fix
+              run: npm run lint:css -- --fix
               continue-on-error: true
 
             - name: Format with Prettier
-              run: bun run format
+              run: npm run format
               continue-on-error: true
 
-            - name: Commit and Push lint fixes
-              uses: stefanzweifel/git-auto-commit-action@v5
-              with:
-                  commit_message: 'style: auto-fix linting issues'
-                  commit_user_name: 'github-actions[bot]'
-                  commit_user_email: 'github-actions[bot]@users.noreply.github.com'
-
             - name: Run HTML Lint
-              run: bun run lint:html
+              run: npm run lint:html
