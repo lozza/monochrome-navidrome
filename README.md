@@ -22,13 +22,13 @@ playback, favourites, playlists and listening history.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/album.webp" alt="Album view" width="49%">
-  <img src="docs/screenshots/home.webp" alt="Home recommendations" width="49%">
+  <img src="docs/screenshots/album.jpg" alt="Album view" width="49%">
+  <img src="docs/screenshots/home.jpg" alt="Home recommendations" width="49%">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/library.webp" alt="Navidrome library and Singles view" width="49%">
-  <img src="docs/screenshots/settings.webp" alt="Navidrome connection settings" width="49%">
+  <img src="docs/screenshots/library.jpg" alt="Navidrome library and Singles view" width="49%">
+  <img src="docs/screenshots/settings.jpg" alt="Navidrome connection settings" width="49%">
 </p>
 
 ## Docker Compose
