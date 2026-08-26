@@ -1,5 +1,65 @@
 import { NavidromeAPI } from './navidrome-api.js';
 
+function normalizeIsrcValue(value) {
+    if (value === undefined || value === null || value === '') return '';
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const normalized = normalizeIsrcValue(item);
+            if (normalized) return normalized;
+        }
+        return '';
+    }
+
+    if (typeof value === 'object') {
+        return normalizeIsrcValue(value.value ?? value.isrc ?? value.code ?? value.id ?? '');
+    }
+
+    return String(value).trim();
+}
+
+function normalizeTrackIsrc(track) {
+    if (!track || typeof track !== 'object') return track;
+
+    const source = track.isrc ?? track.mediaMetadata?.isrc ?? track.audioQuality?.isrc ?? '';
+    track.isrc = normalizeIsrcValue(source);
+    return track;
+}
+
+// Navidrome/OpenSubsonic implementations can expose ISRC as a structured or
+// repeated value. Legacy lyrics code expects a scalar string and calls trim()
+// directly, so normalize it at the adapter boundary.
+const originalMapTrack = NavidromeAPI.prototype.mapTrack;
+NavidromeAPI.prototype.mapTrack = function (raw = {}) {
+    return normalizeTrackIsrc(originalMapTrack.call(this, raw));
+};
+
+// Also repair tracks already persisted in the browser queue by an older build.
+// This runs before Player.loadQueueState(), so reopening Lyrics for a restored
+// song cannot hit the same non-string ISRC value.
+try {
+    const queueKey = 'monochrome-queue';
+    const storedQueue = localStorage.getItem(queueKey);
+    if (storedQueue) {
+        const state = JSON.parse(storedQueue);
+        let changed = false;
+
+        for (const key of ['queue', 'shuffledQueue', 'originalQueueBeforeShuffle']) {
+            if (!Array.isArray(state?.[key])) continue;
+            for (const track of state[key]) {
+                if (!track || typeof track !== 'object') continue;
+                const before = track.isrc;
+                normalizeTrackIsrc(track);
+                if (before !== track.isrc) changed = true;
+            }
+        }
+
+        if (changed) localStorage.setItem(queueKey, JSON.stringify(state));
+    }
+} catch (error) {
+    console.warn('Could not normalize saved Navidrome queue metadata:', error);
+}
+
 // Restoring the saved queue happens before routing starts. If Navidrome
 // credentials are missing, legacy UI restore code can ask for cover art before
 // the user has any chance to open Settings. Navidrome's buildUrl() correctly
@@ -65,6 +125,7 @@ if (typeof NavidromeAPI.prototype.enrichTrack !== 'function') {
                         artist: metadata.artist || track.artist,
                         artists: metadata.artists || track.artists,
                     };
+                    normalizeTrackIsrc(enrichedTrack);
                 }
             } catch (error) {
                 console.warn('Could not hydrate Navidrome track before download:', error);
