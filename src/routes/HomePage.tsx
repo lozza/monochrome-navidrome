@@ -49,9 +49,30 @@ export function HomePage() {
             </div>
 
             <div aria-hidden="false" className="home-view active" id="home-view-for-you" role="tabpanel">
-                <div className="home-welcome" id="home-welcome" style={{ display: 'none' }}>
-                    <h1>Welcome to Navichrome</h1>
-                    <p>You haven't listened to anything yet. Search for your favorite songs to get started.</p>
+                <div
+                    className="home-welcome"
+                    id="home-welcome"
+                    style={{ display: 'none', padding: '4rem 2rem', textAlign: 'center' }}
+                >
+                    <h2 id="home-welcome-title" style={{ marginBottom: '1rem' }}>
+                        Your Navidrome library
+                    </h2>
+                    <p id="home-welcome-message" style={{ color: 'var(--muted-foreground)' }}>
+                        Recently added albums
+                    </p>
+                    <button
+                        className="btn-primary"
+                        id="home-connect-navidrome-btn"
+                        style={{ display: 'none', margin: '1rem auto' }}
+                        type="button"
+                    >
+                        Connect Navidrome
+                    </button>
+                    <div
+                        className="card-grid"
+                        id="home-navidrome-albums"
+                        style={{ marginTop: '2rem', textAlign: 'left' }}
+                    />
                 </div>
 
                 <div id="home-content" style={{ display: 'none' }}>

@@ -561,6 +561,64 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await UIRenderer.initialize(MusicAPI.instance, Player.instance);
 
+    // Start routing as soon as the core UI exists. Optional integrations below
+    // must never be able to leave the app shell visible with every page hidden.
+    const router = createRouter(UIRenderer.instance);
+
+    const handleRouteChange = async (event) => {
+        const overlay = document.getElementById('fullscreen-cover-overlay');
+        const isFullscreenOpen = overlay && getComputedStyle(overlay).display === 'flex';
+
+        if (isFullscreenOpen && window.location.hash !== '#fullscreen') {
+            UIRenderer.instance.closeFullscreenCover();
+        }
+
+        if (event?.state?.exitTrap) {
+            const { showNotification } = await loadDownloadsModule();
+            showNotification('Press back again to exit');
+            setTimeout(() => {
+                if (history.state?.exitTrap) {
+                    history.pushState({ app: true }, '', window.location.pathname);
+                }
+            }, 2000);
+            return;
+        }
+
+        if (event && modalSettings.shouldInterceptBackToClose() && modalSettings.hasOpenModalsOrPanels()) {
+            sidePanelManager.close();
+            modalSettings.closeAllModals();
+            history.pushState(history.state || { app: true }, '', window.location.pathname);
+            return;
+        }
+
+        if (modalSettings.shouldCloseOnNavigation()) {
+            sidePanelManager.close();
+            modalSettings.closeAllModals();
+        }
+
+        await router();
+        if (window.location.pathname.replace(/\/+$/, '') === '/about') {
+            fetchcontributors();
+        }
+        updateTabTitle(Player.instance);
+    };
+
+    await handleRouteChange();
+    window.addEventListener('popstate', handleRouteChange);
+
+    document.body.addEventListener('click', (event) => {
+        const link = event.target.closest('a');
+        if (
+            link &&
+            link.origin === window.location.origin &&
+            link.target !== '_blank' &&
+            !link.hasAttribute('download')
+        ) {
+            event.preventDefault();
+            navigate(link.pathname);
+        }
+    });
+
     /**
      * Scans the configured local media folder and refreshes `window.localFilesCache`.
      * Called by the folder-select button handler and by downloads.js after a
@@ -2499,66 +2557,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.querySelector('.now-playing-bar .play-pause-btn').innerHTML = SVG_PLAY(20);
-
-    const router = createRouter(UIRenderer.instance);
-
-    const handleRouteChange = async (event) => {
-        const overlay = document.getElementById('fullscreen-cover-overlay');
-        const isFullscreenOpen = overlay && getComputedStyle(overlay).display === 'flex';
-
-        if (isFullscreenOpen && window.location.hash !== '#fullscreen') {
-            UIRenderer.instance.closeFullscreenCover();
-        }
-
-        if (event && event.state && event.state.exitTrap) {
-            const { showNotification } = await loadDownloadsModule();
-            showNotification('Press back again to exit');
-            setTimeout(() => {
-                if (history.state && history.state.exitTrap) {
-                    history.pushState({ app: true }, '', window.location.pathname);
-                }
-            }, 2000);
-            return;
-        }
-
-        // Intercept back navigation to close modals first if setting is enabled
-        if (event && modalSettings.shouldInterceptBackToClose() && modalSettings.hasOpenModalsOrPanels()) {
-            sidePanelManager.close();
-            modalSettings.closeAllModals();
-            history.pushState(history.state || { app: true }, '', window.location.pathname);
-            return;
-        }
-
-        // Close side panel (queue/lyrics) and modals on navigation if setting is enabled
-        if (modalSettings.shouldCloseOnNavigation()) {
-            sidePanelManager.close();
-            modalSettings.closeAllModals();
-        }
-
-        await router();
-        if (window.location.pathname.replace(/\/+$/, '') === '/about') {
-            fetchcontributors();
-        }
-        updateTabTitle(Player.instance);
-    };
-
-    await handleRouteChange();
-
-    window.addEventListener('popstate', handleRouteChange);
-
-    document.body.addEventListener('click', (e) => {
-        const link = e.target.closest('a');
-
-        if (
-            link &&
-            link.origin === window.location.origin &&
-            link.target !== '_blank' &&
-            !link.hasAttribute('download')
-        ) {
-            e.preventDefault();
-            navigate(link.pathname);
-        }
-    });
 
     audioPlayer.addEventListener('play', () => {
         updateTabTitle(Player.instance);
