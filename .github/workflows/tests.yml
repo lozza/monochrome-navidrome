@@ -26,8 +26,5 @@ jobs:
             - name: Install dependencies
               run: npm install --no-audit --no-fund
 
-            - name: Install playwright dependencies
-              run: npm run install:playwright
-
-            - name: Run vitest
+            - name: Run Navidrome tests
               run: npm run test:navidrome

@@ -7,7 +7,7 @@
         "dev": "vite",
         "test": "vitest run --config=vite.config.ts",
         "test:headless": "HEADLESS=true vitest run --config=vite.config.ts",
-        "test:navidrome": "HEADLESS=true vitest run --config=vite.config.ts --exclude js/HiFi.test.ts --exclude js/api.test.ts --exclude js/tests/amazon-api.test.js --exclude js/tests/player.test.js",
+        "test:navidrome": "vitest run js/navidrome-api.test.ts --config=vite.config.ts --browser.enabled=false --environment=node",
         "test:watch": "vitest --config=vite.config.ts",
         "test:watch:headless": "HEADLESS=true vitest --config=vite.config.ts",
         "install:playwright": "playwright install chromium",
