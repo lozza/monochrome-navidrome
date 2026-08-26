@@ -27,6 +27,11 @@ vi.mock('../storage.js', () => ({
         isPreservePitchEnabled: vi.fn(() => true),
         setPreservePitch: vi.fn(),
     },
+    autoplaySettings: {
+        isEnabled: vi.fn(() => false),
+        isSmartRecsEnabled: vi.fn(() => false),
+        setEnabled: vi.fn(),
+    },
     radioSettings: { isEnabled: vi.fn(() => false) },
     crossfadeSettings: { isEnabled: vi.fn(() => true) },
     contentBlockingSettings: {
