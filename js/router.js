@@ -2,6 +2,8 @@
 import { getTrackArtists } from './utils.js';
 import { loadProfile } from './profile.js';
 import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
+import './navidrome-migration-compat.js';
+import './lyrics-component-bootstrap.js';
 
 export function navigate(path) {
     if (path === window.location.pathname) {
