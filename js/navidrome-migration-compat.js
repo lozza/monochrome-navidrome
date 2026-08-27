@@ -1,4 +1,6 @@
 import { NavidromeAPI } from './navidrome-api.js';
+import { audioContextManager } from './audio-context.js';
+import { isIos } from './platform-detection.js';
 
 function normalizeIsrcValue(value) {
     if (value === undefined || value === null || value === '') return '';
@@ -24,6 +26,24 @@ function normalizeTrackIsrc(track) {
     const source = track.isrc ?? track.mediaMetadata?.isrc ?? track.audioQuality?.isrc ?? '';
     track.isrc = normalizeIsrcValue(source);
     return track;
+}
+
+// iOS can glitch the playback clock when a MediaElementSource graph is
+// reconnected as the standalone PWA moves into the background. Player's
+// visibility handler calls audioContextManager.resume() while hidden, and that
+// method reconnects the graph even when the AudioContext is already running.
+// Keep the existing native interruption recovery, but do not rebuild the graph
+// simply because iOS has backgrounded the page. The normal foreground resume
+// path still runs when the app becomes visible again.
+if (isIos && typeof document !== 'undefined') {
+    const originalResumeAudioContext = audioContextManager.resume.bind(audioContextManager);
+
+    audioContextManager.resume = async function () {
+        if (document.visibilityState === 'hidden') {
+            return this.getAudioContext?.()?.state === 'running';
+        }
+        return originalResumeAudioContext();
+    };
 }
 
 // Navidrome/OpenSubsonic implementations can expose ISRC as a structured or
