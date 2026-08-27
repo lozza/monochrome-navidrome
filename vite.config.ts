@@ -91,7 +91,7 @@ export default defineConfig(({ mode }) => {
             blobAssetPlugin(),
             svgUse(),
             VitePWA({
-                registerType: 'prompt',
+                registerType: 'autoUpdate',
                 devOptions: {
                     enabled: true,
                     type: 'classic',
@@ -102,20 +102,29 @@ export default defineConfig(({ mode }) => {
                     importScripts: [`sw-decrypter.js?v=${decrypterVersion}`],
                     skipWaiting: true,
                     clientsClaim: true,
-                    globPatterns: ['index.html', 'manifest.json'],
+                    // Do not precache index.html. A cached document can bypass the
+                    // network request that Cloudflare Access needs to authenticate.
+                    globPatterns: ['manifest.json'],
+                    navigateFallback: null,
                     cleanupOutdatedCaches: true,
                     maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB limit
-                    // Define runtime caching strategies
                     runtimeCaching: [
+                        // Every top-level app launch must reach the network first so
+                        // Cloudflare Access can redirect to its login flow when needed.
+                        {
+                            urlPattern: ({ request }) => request.mode === 'navigate',
+                            handler: 'NetworkOnly',
+                        },
                         {
                             urlPattern: ({ request }) =>
                                 request.destination === 'script' || request.destination === 'worker',
-                            handler: isDev ? 'NetworkFirst' : 'CacheFirst',
+                            handler: isDev ? 'NetworkFirst' : 'NetworkFirst',
                             options: {
-                                cacheName: 'scripts',
+                                cacheName: 'scripts-v2',
+                                networkTimeoutSeconds: 4,
                                 expiration: {
                                     maxEntries: 200,
-                                    maxAgeSeconds: 60 * 24 * 60 * 60,
+                                    maxAgeSeconds: 7 * 24 * 60 * 60,
                                 },
                             },
                         },
