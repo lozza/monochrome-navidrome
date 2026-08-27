@@ -118,9 +118,9 @@ export default defineConfig(({ mode }) => {
                         {
                             urlPattern: ({ request }) =>
                                 request.destination === 'script' || request.destination === 'worker',
-                            handler: isDev ? 'NetworkFirst' : 'NetworkFirst',
+                            handler: 'NetworkFirst',
                             options: {
-                                cacheName: 'scripts-v2',
+                                cacheName: isDev ? 'scripts-dev' : 'scripts-v2',
                                 networkTimeoutSeconds: 4,
                                 expiration: {
                                     maxEntries: 200,
