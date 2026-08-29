@@ -136,8 +136,13 @@ function injectStyles() {
     document.head.appendChild(style);
 }
 
-function getCardTitle(card) {
-    return card.querySelector('.card-title')?.textContent?.trim() || '';
+function getItemTitle(item) {
+    return (
+        item.querySelector('.card-title')?.textContent?.trim() ||
+        item.querySelector('.track-item-details .title')?.textContent?.trim() ||
+        item.querySelector('.title')?.textContent?.trim() ||
+        ''
+    );
 }
 
 function getAlphaKey(title) {
@@ -168,7 +173,7 @@ function findNearestAvailableLetter(index, targets) {
     return null;
 }
 
-function setupMobileScrubbing(index, bubble, buttons, firstCardByLetter) {
+function setupMobileScrubbing(index, bubble, buttons, firstItemByLetter) {
     const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
     let activePointerId = null;
     let hideTimer = null;
@@ -176,7 +181,7 @@ function setupMobileScrubbing(index, bubble, buttons, firstCardByLetter) {
 
     const setActiveLetter = (letter, clientY, smooth = false) => {
         if (!letter) return;
-        const target = firstCardByLetter.get(letter);
+        const target = firstItemByLetter.get(letter);
         if (!target) return;
 
         if (lastLetter !== letter) {
@@ -196,7 +201,7 @@ function setupMobileScrubbing(index, bubble, buttons, firstCardByLetter) {
         const rect = index.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(0.9999, (clientY - rect.top) / rect.height));
         const alphabetIndex = Math.floor(ratio * ALPHABET.length);
-        return findNearestAvailableLetter(alphabetIndex, firstCardByLetter);
+        return findNearestAvailableLetter(alphabetIndex, firstItemByLetter);
     };
 
     const finish = () => {
@@ -237,12 +242,12 @@ export function enhanceSinglesAlphabetIndex() {
     singlesTab.querySelector('.singles-alpha-index')?.remove();
     singlesTab.querySelector('.singles-alpha-bubble')?.remove();
 
-    const cards = [...singlesContainer.querySelectorAll('.card')].filter((card) => getCardTitle(card));
-    if (!cards.length) return;
+    const items = [...singlesContainer.querySelectorAll('.card, .track-item')].filter((item) => getItemTitle(item));
+    if (!items.length) return;
 
-    cards.sort((a, b) => {
-        const titleA = getCardTitle(a);
-        const titleB = getCardTitle(b);
+    items.sort((a, b) => {
+        const titleA = getItemTitle(a);
+        const titleB = getItemTitle(b);
         const keyA = getAlphaKey(titleA);
         const keyB = getAlphaKey(titleB);
         const rankDifference = alphaRank(keyA) - alphaRank(keyB);
@@ -251,17 +256,17 @@ export function enhanceSinglesAlphabetIndex() {
         return titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
     });
 
-    for (const card of cards) {
-        singlesContainer.appendChild(card);
-        card.classList.remove('singles-alpha-anchor');
+    for (const item of items) {
+        singlesContainer.appendChild(item);
+        item.classList.remove('singles-alpha-anchor');
     }
 
-    const firstCardByLetter = new Map();
-    for (const card of cards) {
-        const key = getAlphaKey(getCardTitle(card));
-        if (!firstCardByLetter.has(key)) {
-            firstCardByLetter.set(key, card);
-            card.classList.add('singles-alpha-anchor');
+    const firstItemByLetter = new Map();
+    for (const item of items) {
+        const key = getAlphaKey(getItemTitle(item));
+        if (!firstItemByLetter.has(key)) {
+            firstItemByLetter.set(key, item);
+            item.classList.add('singles-alpha-anchor');
         }
     }
 
@@ -272,7 +277,7 @@ export function enhanceSinglesAlphabetIndex() {
     const buttons = [];
     for (const letter of ALPHABET) {
         const button = document.createElement('button');
-        const target = firstCardByLetter.get(letter);
+        const target = firstItemByLetter.get(letter);
         button.type = 'button';
         button.textContent = letter;
         button.disabled = !target;
@@ -295,5 +300,5 @@ export function enhanceSinglesAlphabetIndex() {
 
     singlesTab.appendChild(index);
     singlesTab.appendChild(bubble);
-    setupMobileScrubbing(index, bubble, buttons, firstCardByLetter);
+    setupMobileScrubbing(index, bubble, buttons, firstItemByLetter);
 }
