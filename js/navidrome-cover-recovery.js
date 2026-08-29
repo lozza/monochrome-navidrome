@@ -86,7 +86,11 @@ async function resolveAlbumCover(albumId) {
 
         try {
             const root = await api.request('getAlbum', { id: albumId });
-            const coverArt = root?.album?.coverArt;
+            const rawSongs = root?.album?.song;
+            const songs = Array.isArray(rawSongs) ? rawSongs : rawSongs ? [rawSongs] : [];
+            // Some Navidrome/OpenSubsonic responses omit album.coverArt even
+            // though the album's songs contain the correct coverArt id.
+            const coverArt = root?.album?.coverArt || songs.find((song) => song?.coverArt)?.coverArt;
             const resolved = coverArt ? String(coverArt) : '';
             resolvedAlbumCovers.set(albumId, resolved);
             return resolved;
@@ -125,6 +129,17 @@ async function recoverBrokenArtwork(image) {
         image.id === 'fullscreen-cover-image';
 
     if (!looksLikeMusicArtwork) return;
+
+    // A fresh auth token makes getCoverUrl() produce a different URL every
+    // time, even for the same cover id. Without an attempt cap a genuinely
+    // missing/broken cover can retry forever and remain hidden.
+    const attempts = Number(image.dataset.navichromeArtworkRecoveryAttempts || 0);
+    if (attempts >= 1) {
+        image.dataset.navichromeArtworkRecovery = 'failed';
+        usePlaceholder(image);
+        return;
+    }
+    image.dataset.navichromeArtworkRecoveryAttempts = String(attempts + 1);
 
     // Keep a failed request invisible while recovery happens. Without this the
     // browser can alternate between an empty card and its broken-image/alt-text
