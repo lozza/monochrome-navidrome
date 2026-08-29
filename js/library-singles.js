@@ -1,17 +1,55 @@
-import { createPlaceholder } from './utils.js';
+import { createPlaceholder, trackDataStore } from './utils.js';
 
-const SINGLES_CACHE_VERSION = 5;
+const SINGLES_CACHE_VERSION = 6;
 const SINGLES_CACHE_TTL = 24 * 60 * 60 * 1000;
 const SINGLES_CACHE_STALE_TTL = 7 * 24 * 60 * 60 * 1000;
-const TRACK_SCAN_PAGE_SIZE = 5000;
+const TRACK_SCAN_PAGE_SIZE = 2500;
+const INITIAL_RENDER_SIZE = 80;
+const RENDER_CHUNK_SIZE = 100;
 
 let refreshPromise = null;
+let activeRenderGeneration = 0;
+let favoriteTrackIdsPromise = null;
 
 function getSinglesCacheKey(ui) {
     const api = ui?.api?.getAPI?.();
     const server = encodeURIComponent(String(api?.baseUrl || 'navidrome'));
     const username = encodeURIComponent(String(api?.username || ''));
     return `navichrome-singles-v${SINGLES_CACHE_VERSION}:${server}:${username}`;
+}
+
+function compactTrackForCache(track) {
+    return {
+        id: String(track?.id || ''),
+        title: track?.title || 'Unknown Track',
+        artist: track?.artist || null,
+        artists: Array.isArray(track?.artists) ? track.artists : track?.artist ? [track.artist] : [],
+        album: track?.album || null,
+        duration: Number(track?.duration) || 0,
+        trackNumber: Number(track?.trackNumber) || 0,
+        volumeNumber: Number(track?.volumeNumber) || 1,
+        streamStartDate: track?.streamStartDate || null,
+        audioQuality: track?.audioQuality || null,
+        audioModes: Array.isArray(track?.audioModes) ? track.audioModes : ['STEREO'],
+        replayGain: track?.replayGain ?? 0,
+        peak: track?.peak ?? 1,
+        albumReplayGain: track?.albumReplayGain ?? 0,
+        albumPeakAmplitude: track?.albumPeakAmplitude ?? 1,
+        coverArt: track?.coverArt || null,
+        suffix: track?.suffix || null,
+        contentType: track?.contentType || null,
+        bitRate: track?.bitRate ?? null,
+        bitDepth: track?.bitDepth ?? null,
+        samplingRate: track?.samplingRate ?? null,
+        year: track?.year ?? null,
+        isrc: track?.isrc || '',
+        created: track?.created || null,
+        played: track?.played || null,
+        allowStreaming: true,
+        isUnavailable: false,
+        explicit: false,
+        type: 'track',
+    };
 }
 
 function readSinglesCache(ui) {
@@ -35,16 +73,26 @@ function readSinglesCache(ui) {
 }
 
 function writeSinglesCache(ui, tracks) {
-    try {
-        localStorage.setItem(
-            getSinglesCacheKey(ui),
-            JSON.stringify({
-                savedAt: Date.now(),
-                tracks,
-            })
-        );
-    } catch (error) {
-        console.warn('Could not cache Singles:', error);
+    const write = () => {
+        try {
+            localStorage.setItem(
+                getSinglesCacheKey(ui),
+                JSON.stringify({
+                    savedAt: Date.now(),
+                    tracks: tracks.map(compactTrackForCache),
+                })
+            );
+        } catch (error) {
+            console.warn('Could not cache Singles:', error);
+        }
+    };
+
+    // localStorage and JSON.stringify are synchronous. Do this away from the
+    // first render so a large library cannot freeze the page just to save cache.
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(write, { timeout: 2000 });
+    } else {
+        setTimeout(write, 100);
     }
 }
 
@@ -91,6 +139,10 @@ async function fetchAllTracks(ui, pageSize = TRACK_SCAN_PAGE_SIZE) {
 
         if (songs.length < pageSize) break;
         offset += songs.length;
+
+        // Give Safari/iOS a chance to paint and handle input between large
+        // Navidrome result pages.
+        await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
     return dedupeAndSortTracks(tracks);
@@ -132,64 +184,103 @@ function applyRenderedAlbumArtwork(tracks, artwork) {
     }
 }
 
-function installArtworkFallbacks(ui, container, tracks) {
+function getFavoriteTrackIds(ui) {
+    if (favoriteTrackIdsPromise) return favoriteTrackIdsPromise;
+
     const api = ui?.api?.getAPI?.();
-    if (!api?.getCoverUrl) return;
+    favoriteTrackIdsPromise = Promise.resolve(api?.loadFavorites?.())
+        .then((favorites) => favorites?.track || new Set())
+        .catch(() => new Set());
 
-    const tracksById = new Map(tracks.map((track) => [String(track.id), track]));
-    const albumRequests = new Map();
+    return favoriteTrackIdsPromise;
+}
 
-    const getAlbum = (albumId) => {
-        if (!albumRequests.has(albumId)) {
-            albumRequests.set(
-                albumId,
-                ui.api
-                    .getAlbum(albumId)
-                    .then((result) => result?.album || result)
-                    .catch(() => null)
-            );
-        }
-        return albumRequests.get(albumId);
+function scheduleLikeStateUpdate(ui, rows, rowTracks) {
+    if (!rows.length) return;
+
+    const update = async () => {
+        const favoriteIds = await getFavoriteTrackIds(ui);
+        rows.forEach((row, index) => {
+            const track = rowTracks[index];
+            const button = row.querySelector('.like-btn');
+            if (!track || !button) return;
+
+            const liked = favoriteIds.has(String(track.id));
+            button.innerHTML = ui.createHeartIcon(liked);
+            button.classList.toggle('active', liked);
+            button.title = liked ? 'Remove from Liked' : 'Add to Liked';
+        });
     };
 
-    container.querySelectorAll('.track-item[data-track-id]').forEach((row) => {
-        const track = tracksById.get(String(row.dataset.trackId || ''));
-        const image = row.querySelector('img.track-item-cover');
-        if (!track || !image) return;
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => void update(), { timeout: 1200 });
+    } else {
+        setTimeout(() => void update(), 0);
+    }
+}
 
-        const recover = async () => {
-            if (image.dataset.albumArtworkFallback === 'done') return;
-            image.dataset.albumArtworkFallback = 'done';
+function renderTrackChunk(ui, container, tracks, start, end, hasMultipleDiscs) {
+    const tempDiv = document.createElement('div');
+    const rowTracks = [];
+    const html = [];
 
-            const albumId = String(track.album?.id || '');
-            if (!albumId) {
-                image.src = '/images/navichrome_logo.svg';
-                return;
-            }
+    for (let index = start; index < end; index++) {
+        const track = tracks[index];
+        const rowHtml = ui.createTrackItemHTML(track, index, true, hasMultipleDiscs, false, false);
+        if (!rowHtml) continue;
+        html.push(rowHtml);
+        rowTracks.push(track);
+    }
 
-            const album = await getAlbum(albumId);
-            const cover = album?.cover;
-            const fallbackUrl = cover ? api.getCoverUrl(cover, '80') : '';
+    tempDiv.innerHTML = html.join('');
+    const rows = Array.from(tempDiv.children);
+    const fragment = document.createDocumentFragment();
 
-            if (fallbackUrl && fallbackUrl !== image.src) {
-                track.album.cover = cover;
-                image.src = fallbackUrl;
-                return;
-            }
+    rows.forEach((row, index) => {
+        const track = rowTracks[index];
+        if (track) trackDataStore.set(row, track);
+        fragment.appendChild(row);
+    });
 
-            image.src = '/images/navichrome_logo.svg';
-        };
+    container.appendChild(fragment);
+    scheduleLikeStateUpdate(ui, rows, rowTracks);
+}
 
-        image.addEventListener('error', recover, { once: true });
-        if (image.complete && image.naturalWidth === 0) recover();
+function yieldToBrowser() {
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => setTimeout(resolve, 0));
     });
 }
 
-async function renderTracks(ui, container, tracks) {
+function renderTracksProgressively(ui, container, tracks) {
+    const generation = ++activeRenderGeneration;
     const renderedArtwork = collectRenderedAlbumArtwork();
     applyRenderedAlbumArtwork(tracks, renderedArtwork);
-    await ui.renderListWithTracks(container, tracks, true);
-    installArtworkFallbacks(ui, container, tracks);
+
+    container.innerHTML = '';
+    const hasMultipleDiscs = tracks.some((track) => (track.volumeNumber || track.discNumber || 1) > 1);
+    let offset = Math.min(INITIAL_RENDER_SIZE, tracks.length);
+
+    renderTrackChunk(ui, container, tracks, 0, offset, hasMultipleDiscs);
+
+    const completionPromise = (async () => {
+        while (offset < tracks.length && generation === activeRenderGeneration) {
+            await yieldToBrowser();
+            if (generation !== activeRenderGeneration) return;
+
+            const end = Math.min(offset + RENDER_CHUNK_SIZE, tracks.length);
+            renderTrackChunk(ui, container, tracks, offset, end, hasMultipleDiscs);
+            offset = end;
+        }
+
+        if (generation !== activeRenderGeneration) return;
+
+        import('./singles-alpha-index.js')
+            .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
+            .catch(() => {});
+    })();
+
+    return completionPromise;
 }
 
 export async function prepareLibrarySingles(ui) {
@@ -239,22 +330,22 @@ export async function renderLibrarySingles(ui, prepared = null) {
     const tracks = Array.isArray(result?.tracks) ? result.tracks : [];
     if (!tracks.length) {
         container.innerHTML = createPlaceholder('No tracks found in Navidrome.');
-    } else {
-        await renderTracks(ui, container, tracks);
+        return;
     }
 
+    // Render enough rows to make the tab usable immediately, then finish the
+    // rest in small chunks without monopolising Safari's main thread.
+    renderTracksProgressively(ui, container, tracks);
+
     if (result?.completePromise) {
-        result.completePromise.then(async (completeTracks) => {
+        result.completePromise.then((completeTracks) => {
             if (!Array.isArray(completeTracks) || !completeTracks.length) return;
 
             const currentIds = tracks.map((track) => String(track.id)).join('|');
             const completeIds = completeTracks.map((track) => String(track.id)).join('|');
             if (currentIds === completeIds) return;
 
-            await renderTracks(ui, container, completeTracks);
-            import('./singles-alpha-index.js')
-                .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
-                .catch(() => {});
+            renderTracksProgressively(ui, container, completeTracks);
         });
     }
 }
