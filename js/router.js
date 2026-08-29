@@ -94,7 +94,10 @@ export function createRouter(ui) {
                     singlesContainer.setAttribute('aria-busy', 'true');
                 }
 
-                prepareNavidromePlaylistsLayout();
+                // Load My Playlists independently so the top of Library becomes
+                // interactive without waiting for the much heavier album/artist
+                // rendering and favourite-state work below.
+                prepareNavidromePlaylistsLayout(ui);
 
                 // Start the full-library Singles scan at the same time as the
                 // normal Library requests instead of waiting for one to finish
