@@ -18,19 +18,42 @@ function getSinglesCacheKey(ui) {
     return `navichrome-singles-v${SINGLES_CACHE_VERSION}:${server}:${username}`;
 }
 
+function compactArtist(artist) {
+    if (!artist) return null;
+    return {
+        id: String(artist.id || ''),
+        name: artist.name || 'Unknown Artist',
+        picture: artist.picture || null,
+        type: artist.type || 'ARTIST',
+    };
+}
+
 function compactTrackForCache(track) {
+    const artist = compactArtist(track?.artist);
+    const albumArtist = compactArtist(track?.album?.artist || track?.artist);
+    const album = track?.album
+        ? {
+              id: String(track.album.id || ''),
+              title: track.album.title || track.album.name || 'Unknown Album',
+              name: track.album.name || track.album.title || 'Unknown Album',
+              cover: track.album.cover || null,
+              releaseDate: track.album.releaseDate || null,
+              artist: albumArtist,
+          }
+        : null;
+
     return {
         id: String(track?.id || ''),
         title: track?.title || 'Unknown Track',
-        artist: track?.artist || null,
-        artists: Array.isArray(track?.artists) ? track.artists : track?.artist ? [track.artist] : [],
-        album: track?.album || null,
+        artist,
+        artists: artist ? [artist] : [],
+        album,
         duration: Number(track?.duration) || 0,
         trackNumber: Number(track?.trackNumber) || 0,
         volumeNumber: Number(track?.volumeNumber) || 1,
         streamStartDate: track?.streamStartDate || null,
         audioQuality: track?.audioQuality || null,
-        audioModes: Array.isArray(track?.audioModes) ? track.audioModes : ['STEREO'],
+        audioModes: Array.isArray(track?.audioModes) ? [...track.audioModes] : ['STEREO'],
         replayGain: track?.replayGain ?? 0,
         peak: track?.peak ?? 1,
         albumReplayGain: track?.albumReplayGain ?? 0,
@@ -73,13 +96,17 @@ function readSinglesCache(ui) {
 }
 
 function writeSinglesCache(ui, tracks) {
+    // Snapshot before rendering can replace cover IDs with authenticated image
+    // URLs. The cache should stay small and contain stable Navidrome metadata.
+    const cachedTracks = tracks.map(compactTrackForCache);
+
     const write = () => {
         try {
             localStorage.setItem(
                 getSinglesCacheKey(ui),
                 JSON.stringify({
                     savedAt: Date.now(),
-                    tracks: tracks.map(compactTrackForCache),
+                    tracks: cachedTracks,
                 })
             );
         } catch (error) {
