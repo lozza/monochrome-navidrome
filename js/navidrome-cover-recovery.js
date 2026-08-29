@@ -14,6 +14,44 @@ function getRequestedSize(image) {
     return '320';
 }
 
+function isNavidromeCoverRequest(image) {
+    if (!(image instanceof HTMLImageElement)) return false;
+    const src = String(image.currentSrc || image.src || image.getAttribute('src') || '');
+    return src.includes('/rest/getCoverArt.view');
+}
+
+function concealArtwork(image) {
+    if (!(image instanceof HTMLImageElement)) return;
+    if (!Object.prototype.hasOwnProperty.call(image.dataset, 'navichromeArtworkOriginalVisibility')) {
+        image.dataset.navichromeArtworkOriginalVisibility = image.style.visibility || '';
+    }
+    image.style.visibility = 'hidden';
+}
+
+function revealArtwork(image) {
+    if (!(image instanceof HTMLImageElement)) return;
+    const original = image.dataset.navichromeArtworkOriginalVisibility;
+    if (original) image.style.visibility = original;
+    else image.style.removeProperty('visibility');
+}
+
+function primeArtworkImage(image) {
+    if (!(image instanceof HTMLImageElement)) return;
+
+    if (image.dataset.navichromeArtworkLoadListener !== 'true') {
+        image.dataset.navichromeArtworkLoadListener = 'true';
+        image.addEventListener('load', () => revealArtwork(image));
+    }
+
+    if (!isNavidromeCoverRequest(image)) return;
+
+    // Do not let the browser briefly paint its broken-image icon/alt text while
+    // we resolve a better Navidrome cover ID. MutationObserver callbacks run
+    // before the next paint, so newly inserted artwork stays visually stable.
+    if (!(image.complete && image.naturalWidth > 0)) concealArtwork(image);
+    else revealArtwork(image);
+}
+
 async function getAlbumIdForImage(image) {
     const albumCard = image.closest?.('[data-album-id]');
     if (albumCard?.dataset?.albumId) return String(albumCard.dataset.albumId);
@@ -69,6 +107,7 @@ function usePlaceholder(image) {
     if (image.dataset.navichromeArtworkPlaceholder === 'true') return;
     image.dataset.navichromeArtworkPlaceholder = 'true';
     image.removeAttribute('srcset');
+    concealArtwork(image);
     image.src = '/images/navichrome_logo.svg';
 }
 
@@ -87,6 +126,10 @@ async function recoverBrokenArtwork(image) {
 
     if (!looksLikeMusicArtwork) return;
 
+    // Keep a failed request invisible while recovery happens. Without this the
+    // browser can alternate between an empty card and its broken-image/alt-text
+    // rendering, which looks like the artwork is flashing.
+    concealArtwork(image);
     image.dataset.navichromeArtworkRecovery = 'working';
     const albumId = await getAlbumIdForImage(image);
     const coverArt = await resolveAlbumCover(albumId);
@@ -109,6 +152,31 @@ async function recoverBrokenArtwork(image) {
 
 if (!window.__navichromeCoverRecoveryInstalled) {
     window.__navichromeCoverRecoveryInstalled = true;
+
+    document.querySelectorAll('img').forEach((image) => primeArtworkImage(image));
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && mutation.target instanceof HTMLImageElement) {
+                primeArtworkImage(mutation.target);
+                continue;
+            }
+
+            for (const node of mutation.addedNodes) {
+                if (!(node instanceof Element)) continue;
+                if (node instanceof HTMLImageElement) primeArtworkImage(node);
+                node.querySelectorAll?.('img').forEach((image) => primeArtworkImage(image));
+            }
+        }
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src', 'srcset'],
+    });
+
     document.addEventListener(
         'error',
         (event) => {
