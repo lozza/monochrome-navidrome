@@ -3,6 +3,7 @@ import { getTrackArtists } from './utils.js';
 import { loadProfile } from './profile.js';
 import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
 import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
+import { prepareNavidromePlaylistsLayout, promoteNavidromePlaylists } from './navidrome-library-playlists.js';
 import './navidrome-migration-compat.js';
 import './navidrome-starred-compat.js';
 import './navidrome-cover-recovery.js';
@@ -93,6 +94,8 @@ export function createRouter(ui) {
                     singlesContainer.setAttribute('aria-busy', 'true');
                 }
 
+                prepareNavidromePlaylistsLayout();
+
                 // Start the full-library Singles scan at the same time as the
                 // normal Library requests instead of waiting for one to finish
                 // before beginning the other.
@@ -100,6 +103,7 @@ export function createRouter(ui) {
 
                 try {
                     await ui.renderLibraryPage();
+                    promoteNavidromePlaylists();
                     const preparedSingles = await singlesPromise;
                     await renderLibrarySingles(ui, preparedSingles);
                     enhanceSinglesAlphabetIndex();
