@@ -2,7 +2,6 @@
 import { getTrackArtists } from './utils.js';
 import { loadProfile } from './profile.js';
 import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
-import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
 import { prepareNavidromePlaylistsLayout, promoteNavidromePlaylists } from './navidrome-library-playlists.js';
 import './navidrome-migration-compat.js';
 import './navidrome-starred-compat.js';
@@ -89,32 +88,71 @@ export function createRouter(ui) {
             }
             case 'library': {
                 const singlesContainer = document.getElementById('library-singles-container');
+                const singlesTabButton = document.querySelector('#page-library .search-tab[data-tab="singles"]');
+
                 if (singlesContainer) {
                     singlesContainer.style.visibility = 'hidden';
                     singlesContainer.setAttribute('aria-busy', 'true');
                 }
 
                 // Load My Playlists independently so the top of Library becomes
-                // interactive without waiting for the much heavier album/artist
-                // rendering and favourite-state work below.
+                // interactive without waiting for heavier library sections.
                 prepareNavidromePlaylistsLayout(ui);
 
-                // Start the full-library Singles scan at the same time as the
-                // normal Library requests instead of waiting for one to finish
-                // before beginning the other.
-                const singlesPromise = prepareLibrarySingles(ui);
+                await ui.renderLibraryPage();
+                promoteNavidromePlaylists();
 
-                try {
-                    await ui.renderLibraryPage();
-                    promoteNavidromePlaylists();
-                    const preparedSingles = await singlesPromise;
-                    await renderLibrarySingles(ui, preparedSingles);
-                    enhanceSinglesAlphabetIndex();
-                } finally {
-                    if (singlesContainer) {
-                        singlesContainer.style.removeProperty('visibility');
-                        singlesContainer.removeAttribute('aria-busy');
+                // The legacy library renderer still fills this container with
+                // release cards. Clear those immediately, but do not build the
+                // thousands-of-rows Singles DOM until the user actually opens it.
+                if (singlesContainer) {
+                    singlesContainer.classList.remove('card-grid');
+                    singlesContainer.classList.add('track-list');
+                    singlesContainer.innerHTML = '<div class="placeholder-text">Loading tracks…</div>';
+                    singlesContainer.style.removeProperty('visibility');
+                    singlesContainer.removeAttribute('aria-busy');
+                }
+
+                let singlesPromise = null;
+                let singlesRendered = false;
+                const prepareSingles = () => (singlesPromise ||= prepareLibrarySingles(ui));
+
+                const loadSingles = async () => {
+                    if (singlesRendered) return;
+                    singlesRendered = true;
+
+                    if (singlesContainer) singlesContainer.setAttribute('aria-busy', 'true');
+                    try {
+                        const preparedSingles = await prepareSingles();
+                        await renderLibrarySingles(ui, preparedSingles);
+                    } catch (error) {
+                        console.error('Could not render Singles:', error);
+                        singlesRendered = false;
+                    } finally {
+                        singlesContainer?.removeAttribute('aria-busy');
                     }
+                };
+
+                if (singlesTabButton) {
+                    if (singlesTabButton._navichromeSinglesHandler) {
+                        singlesTabButton.removeEventListener('click', singlesTabButton._navichromeSinglesHandler);
+                    }
+                    singlesTabButton._navichromeSinglesHandler = loadSingles;
+                    singlesTabButton.addEventListener('click', loadSingles);
+
+                    if (singlesTabButton.classList.contains('active')) {
+                        void loadSingles();
+                    }
+                }
+
+                // Warm the data cache only when the browser has spare time. This
+                // keeps normal Library navigation responsive while usually making
+                // the first Singles click much faster.
+                const warmSingles = () => void prepareSingles();
+                if (typeof requestIdleCallback === 'function') {
+                    requestIdleCallback(warmSingles, { timeout: 2500 });
+                } else {
+                    setTimeout(warmSingles, 1500);
                 }
                 break;
             }
