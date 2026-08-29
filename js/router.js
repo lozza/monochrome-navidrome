@@ -1,7 +1,7 @@
 //router.js
 import { getTrackArtists } from './utils.js';
 import { loadProfile } from './profile.js';
-import { renderLibrarySingles } from './library-singles.js';
+import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
 import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
 import './navidrome-migration-compat.js';
 import './lyrics-component-bootstrap.js';
@@ -91,9 +91,15 @@ export function createRouter(ui) {
                     singlesContainer.setAttribute('aria-busy', 'true');
                 }
 
+                // Start the full-library Singles scan at the same time as the
+                // normal Library requests instead of waiting for one to finish
+                // before beginning the other.
+                const singlesPromise = prepareLibrarySingles(ui);
+
                 try {
                     await ui.renderLibraryPage();
-                    await renderLibrarySingles(ui);
+                    const preparedSingles = await singlesPromise;
+                    await renderLibrarySingles(ui, preparedSingles);
                     enhanceSinglesAlphabetIndex();
                 } finally {
                     if (singlesContainer) {
