@@ -34,6 +34,19 @@ function getExplicitSingleState(track) {
     return null;
 }
 
+function preferAlbumArtwork(track) {
+    if (!track?.album) return track;
+
+    const currentCover = String(track.album.cover || '');
+    if (/^(?:al-|https?:|blob:|data:)/i.test(currentCover)) return track;
+
+    const albumId = String(track.album.id || '').trim();
+    if (!albumId) return track;
+
+    track.album.cover = `al-${albumId.replace(/^al-/i, '')}`;
+    return track;
+}
+
 async function fetchAllTracks(ui, pageSize = 500) {
     const api = ui?.api?.getAPI?.();
     if (!api?.request || !api?.mapTrack) {
@@ -54,7 +67,7 @@ async function fetchAllTracks(ui, pageSize = 500) {
 
         const rawSongs = root.searchResult3?.song;
         const songs = Array.isArray(rawSongs) ? rawSongs : rawSongs ? [rawSongs] : [];
-        tracks.push(...songs.map((song) => api.mapTrack(song)));
+        tracks.push(...songs.map((song) => preferAlbumArtwork(api.mapTrack(song))));
 
         if (songs.length < pageSize) break;
         offset += songs.length;
