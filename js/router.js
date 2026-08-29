@@ -1,6 +1,7 @@
 //router.js
 import { getTrackArtists } from './utils.js';
 import { loadProfile } from './profile.js';
+import { renderLibrarySingles } from './library-singles.js';
 import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
 import './navidrome-migration-compat.js';
 import './lyrics-component-bootstrap.js';
@@ -85,6 +86,7 @@ export function createRouter(ui) {
             }
             case 'library':
                 await ui.renderLibraryPage();
+                await renderLibrarySingles(ui);
                 enhanceSinglesAlphabetIndex();
                 break;
             case 'recent':
