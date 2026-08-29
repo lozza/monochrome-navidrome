@@ -1,9 +1,10 @@
 import { createPlaceholder } from './utils.js';
 
-const SINGLES_CACHE_VERSION = 3;
+const SINGLES_CACHE_VERSION = 4;
 const SINGLES_CACHE_TTL = 24 * 60 * 60 * 1000;
 const SINGLES_CACHE_STALE_TTL = 7 * 24 * 60 * 60 * 1000;
 const ALBUM_FETCH_CONCURRENCY = 12;
+const TRACK_SCAN_PAGE_SIZE = 5000;
 
 let refreshPromise = null;
 
@@ -67,6 +68,7 @@ function readSinglesCache(ui) {
 
         return {
             tracks: cached.tracks,
+            complete: cached.complete === true,
             fresh: age <= SINGLES_CACHE_TTL,
         };
     } catch {
@@ -74,12 +76,13 @@ function readSinglesCache(ui) {
     }
 }
 
-function writeSinglesCache(ui, tracks) {
+function writeSinglesCache(ui, tracks, complete = true) {
     try {
         localStorage.setItem(
             getSinglesCacheKey(ui),
             JSON.stringify({
                 savedAt: Date.now(),
+                complete,
                 tracks,
             })
         );
@@ -157,12 +160,75 @@ async function fetchSinglesFromAlbums(ui) {
     return dedupeAndSortSingles(albumTrackGroups.flat());
 }
 
+async function fetchAllTracks(ui, pageSize = TRACK_SCAN_PAGE_SIZE) {
+    const api = ui?.api?.getAPI?.();
+    if (!api?.request || !api?.mapTrack) {
+        throw new Error('Navidrome track API is unavailable.');
+    }
+
+    const tracks = [];
+    let offset = 0;
+
+    while (true) {
+        const root = await api.request('search3', {
+            query: '""',
+            artistCount: 0,
+            albumCount: 0,
+            songCount: pageSize,
+            songOffset: offset,
+        });
+
+        const rawSongs = root.searchResult3?.song;
+        const songs = Array.isArray(rawSongs) ? rawSongs : rawSongs ? [rawSongs] : [];
+        tracks.push(...songs.map((song) => api.mapTrack(song)));
+
+        if (songs.length < pageSize) break;
+        offset += songs.length;
+    }
+
+    return tracks;
+}
+
+function collectAlbumTrackCounts(tracks) {
+    const counts = new Map();
+    for (const track of tracks) {
+        const albumId = String(track?.album?.id || '');
+        if (!albumId) continue;
+        counts.set(albumId, (counts.get(albumId) || 0) + 1);
+    }
+    return counts;
+}
+
+function buildSinglesFromTracks(allTracks) {
+    const albumTrackCounts = collectAlbumTrackCounts(allTracks);
+
+    return dedupeAndSortSingles(
+        allTracks.filter((track) => {
+            const explicitState = getExplicitSingleState(track);
+            if (explicitState !== null) return explicitState;
+
+            const albumId = String(track?.album?.id || '');
+            return Boolean(albumId && albumTrackCounts.get(albumId) === 1);
+        })
+    );
+}
+
+async function fetchCompleteSingles(ui) {
+    try {
+        const allTracks = await fetchAllTracks(ui);
+        return buildSinglesFromTracks(allTracks);
+    } catch (error) {
+        console.warn('Full Singles metadata scan failed, falling back to album metadata:', error);
+        return fetchSinglesFromAlbums(ui);
+    }
+}
+
 async function refreshSingles(ui) {
     if (refreshPromise) return refreshPromise;
 
-    refreshPromise = fetchSinglesFromAlbums(ui)
+    refreshPromise = fetchCompleteSingles(ui)
         .then((tracks) => {
-            writeSinglesCache(ui, tracks);
+            writeSinglesCache(ui, tracks, true);
             return tracks;
         })
         .finally(() => {
@@ -249,32 +315,64 @@ function installArtworkFallbacks(ui, container, tracks) {
     });
 }
 
+async function renderTracks(ui, container, tracks) {
+    const renderedArtwork = collectRenderedAlbumArtwork();
+    applyRenderedAlbumArtwork(tracks, renderedArtwork);
+    await ui.renderListWithTracks(container, tracks, true);
+    installArtworkFallbacks(ui, container, tracks);
+}
+
 export async function prepareLibrarySingles(ui) {
     const cached = readSinglesCache(ui);
 
-    if (cached?.fresh) {
-        return { tracks: cached.tracks, fromCache: true, stale: false, error: null };
+    if (cached?.fresh && cached.complete) {
+        return { tracks: cached.tracks, fromCache: true, stale: false, partial: false, error: null };
     }
 
     if (cached?.tracks?.length) {
-        refreshSingles(ui).catch((error) => console.warn('Could not refresh Singles in background:', error));
-        return { tracks: cached.tracks, fromCache: true, stale: true, error: null };
+        const completePromise = refreshSingles(ui).catch((error) => {
+            console.warn('Could not refresh Singles in background:', error);
+            return cached.tracks;
+        });
+        return {
+            tracks: cached.tracks,
+            fromCache: true,
+            stale: !cached.fresh,
+            partial: !cached.complete,
+            completePromise,
+            error: null,
+        };
     }
 
     try {
-        const tracks = await refreshSingles(ui);
-        return { tracks, fromCache: false, stale: false, error: null };
+        // Give the UI a quick first result from album metadata, then complete
+        // it in the background using track-level release metadata. Navidrome
+        // does not always expose release type consistently on album listings.
+        const quickTracks = await fetchSinglesFromAlbums(ui);
+        writeSinglesCache(ui, quickTracks, false);
+
+        const completePromise = refreshSingles(ui).catch((error) => {
+            console.warn('Could not complete Singles metadata scan:', error);
+            return quickTracks;
+        });
+
+        return {
+            tracks: quickTracks,
+            fromCache: false,
+            stale: false,
+            partial: true,
+            completePromise,
+            error: null,
+        };
     } catch (error) {
         console.error('Failed to prepare Navidrome singles:', error);
-        return { tracks: [], fromCache: false, stale: false, error };
+        return { tracks: [], fromCache: false, stale: false, partial: false, error };
     }
 }
 
 export async function renderLibrarySingles(ui, prepared = null) {
     const container = document.getElementById('library-singles-container');
     if (!container) return;
-
-    const renderedArtwork = collectRenderedAlbumArtwork();
 
     container.classList.remove('card-grid');
     container.classList.add('track-list');
@@ -288,10 +386,22 @@ export async function renderLibrarySingles(ui, prepared = null) {
     const singles = Array.isArray(result?.tracks) ? result.tracks : [];
     if (!singles.length) {
         container.innerHTML = createPlaceholder('No singles found in Navidrome.');
-        return;
+    } else {
+        await renderTracks(ui, container, singles);
     }
 
-    applyRenderedAlbumArtwork(singles, renderedArtwork);
-    await ui.renderListWithTracks(container, singles, true);
-    installArtworkFallbacks(ui, container, singles);
+    if (result?.completePromise) {
+        result.completePromise.then(async (completeTracks) => {
+            if (!Array.isArray(completeTracks) || !completeTracks.length) return;
+
+            const currentIds = singles.map((track) => String(track.id)).join('|');
+            const completeIds = completeTracks.map((track) => String(track.id)).join('|');
+            if (currentIds === completeIds) return;
+
+            await renderTracks(ui, container, completeTracks);
+            import('./singles-alpha-index.js')
+                .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
+                .catch(() => {});
+        });
+    }
 }
