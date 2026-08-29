@@ -34,16 +34,23 @@ function getExplicitSingleState(track) {
     return null;
 }
 
-function preferAlbumArtwork(track) {
-    if (!track?.album) return track;
+async function getAlbumArtworkMap(ui) {
+    const albums = await ui.api.getAllAlbums().catch((error) => {
+        console.warn('Could not load album artwork map for Singles:', error);
+        return [];
+    });
 
-    const currentCover = String(track.album.cover || '');
-    if (/^(?:al-|https?:|blob:|data:)/i.test(currentCover)) return track;
+    return new Map(
+        albums
+            .filter((album) => album?.id && album?.cover)
+            .map((album) => [String(album.id), album.cover])
+    );
+}
 
-    const albumId = String(track.album.id || '').trim();
-    if (!albumId) return track;
-
-    track.album.cover = `al-${albumId.replace(/^al-/i, '')}`;
+function applyAlbumArtwork(track, albumArtwork) {
+    const albumId = String(track?.album?.id || '');
+    const cover = albumArtwork.get(albumId);
+    if (track?.album && cover) track.album.cover = cover;
     return track;
 }
 
@@ -53,6 +60,7 @@ async function fetchAllTracks(ui, pageSize = 500) {
         throw new Error('Navidrome track API is unavailable.');
     }
 
+    const albumArtwork = await getAlbumArtworkMap(ui);
     const tracks = [];
     let offset = 0;
 
@@ -67,7 +75,7 @@ async function fetchAllTracks(ui, pageSize = 500) {
 
         const rawSongs = root.searchResult3?.song;
         const songs = Array.isArray(rawSongs) ? rawSongs : rawSongs ? [rawSongs] : [];
-        tracks.push(...songs.map((song) => preferAlbumArtwork(api.mapTrack(song))));
+        tracks.push(...songs.map((song) => applyAlbumArtwork(api.mapTrack(song), albumArtwork)));
 
         if (songs.length < pageSize) break;
         offset += songs.length;
