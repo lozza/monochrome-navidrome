@@ -1,8 +1,11 @@
 import { createPlaceholder } from './utils.js';
 
-const SINGLES_CACHE_VERSION = 2;
-const SINGLES_CACHE_TTL = 5 * 60 * 1000;
-const SINGLES_PAGE_SIZE = 1000;
+const SINGLES_CACHE_VERSION = 3;
+const SINGLES_CACHE_TTL = 24 * 60 * 60 * 1000;
+const SINGLES_CACHE_STALE_TTL = 7 * 24 * 60 * 60 * 1000;
+const ALBUM_FETCH_CONCURRENCY = 12;
+
+let refreshPromise = null;
 
 function normalizeReleaseTypes(value) {
     const values = Array.isArray(value) ? value : value == null ? [] : [value];
@@ -18,12 +21,12 @@ function normalizeReleaseTypes(value) {
         .filter(Boolean);
 }
 
-function getExplicitSingleState(track) {
-    const albumType = String(track.albumType || track.releaseType || '').trim().toLowerCase();
+function getExplicitSingleState(item) {
+    const albumType = String(item?.albumType || item?.releaseType || '').trim().toLowerCase();
     if (albumType === 'single') return true;
     if (albumType === 'album' || albumType === 'ep') return false;
 
-    const releaseTypes = normalizeReleaseTypes(track.releaseTypes);
+    const releaseTypes = normalizeReleaseTypes(item?.releaseTypes);
     if (!releaseTypes.length) return null;
 
     const primary = releaseTypes[0];
@@ -36,6 +39,12 @@ function getExplicitSingleState(track) {
 
     if (releaseTypes.some((type) => type === 'album' || type === 'ep')) return false;
     return null;
+}
+
+function isSingleAlbum(album) {
+    const explicitState = getExplicitSingleState(album);
+    if (explicitState !== null) return explicitState;
+    return Number(album?.numberOfTracks) === 1;
 }
 
 function getSinglesCacheKey(ui) {
@@ -52,8 +61,14 @@ function readSinglesCache(ui) {
 
         const cached = JSON.parse(raw);
         if (!Array.isArray(cached?.tracks) || !Number.isFinite(cached?.savedAt)) return null;
-        if (Date.now() - cached.savedAt > SINGLES_CACHE_TTL) return null;
-        return cached.tracks;
+
+        const age = Date.now() - cached.savedAt;
+        if (age > SINGLES_CACHE_STALE_TTL) return null;
+
+        return {
+            tracks: cached.tracks,
+            fresh: age <= SINGLES_CACHE_TTL,
+        };
     } catch {
         return null;
     }
@@ -73,62 +88,45 @@ function writeSinglesCache(ui, tracks) {
     }
 }
 
-async function fetchAllTracks(ui, pageSize = SINGLES_PAGE_SIZE) {
-    const api = ui?.api?.getAPI?.();
-    if (!api?.request || !api?.mapTrack) {
-        throw new Error('Navidrome track API is unavailable.');
-    }
+async function mapWithConcurrency(items, concurrency, worker) {
+    const results = new Array(items.length);
+    let nextIndex = 0;
 
-    const tracks = [];
-    let offset = 0;
+    const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+        while (nextIndex < items.length) {
+            const index = nextIndex++;
+            results[index] = await worker(items[index], index);
+        }
+    });
 
-    while (true) {
-        const root = await api.request('search3', {
-            query: '""',
-            artistCount: 0,
-            albumCount: 0,
-            songCount: pageSize,
-            songOffset: offset,
-        });
-
-        const rawSongs = root.searchResult3?.song;
-        const songs = Array.isArray(rawSongs) ? rawSongs : rawSongs ? [rawSongs] : [];
-        tracks.push(...songs.map((song) => api.mapTrack(song)));
-
-        if (songs.length < pageSize) break;
-        offset += songs.length;
-    }
-
-    return tracks;
+    await Promise.all(runners);
+    return results;
 }
 
-function collectAlbumTrackCounts(tracks) {
-    const counts = new Map();
-    for (const track of tracks) {
-        const albumId = track.album?.id;
-        if (!albumId) continue;
-        counts.set(albumId, (counts.get(albumId) || 0) + 1);
+function normalizeAlbumTrack(track, album) {
+    if (!track) return null;
+
+    if (track.album) {
+        track.album.id = String(album?.id || track.album.id || '');
+        track.album.title = album?.title || album?.name || track.album.title;
+        if (album?.cover) track.album.cover = album.cover;
     }
-    return counts;
+
+    if (album?.releaseTypes && !track.releaseTypes) track.releaseTypes = album.releaseTypes;
+    if (album?.albumType && !track.albumType) track.albumType = album.albumType;
+    if (album?.releaseType && !track.releaseType) track.releaseType = album.releaseType;
+
+    return track;
 }
 
-function isSingleTrack(track, albumTrackCounts) {
-    const explicitState = getExplicitSingleState(track);
-    if (explicitState !== null) return explicitState;
-
-    const albumId = track.album?.id;
-    return Boolean(albumId && albumTrackCounts.get(albumId) === 1);
-}
-
-function buildSingles(allTracks) {
-    const albumTrackCounts = collectAlbumTrackCounts(allTracks);
+function dedupeAndSortSingles(tracks) {
     const seen = new Set();
-
-    return allTracks
-        .filter((track) => isSingleTrack(track, albumTrackCounts))
+    return tracks
+        .filter(Boolean)
         .filter((track) => {
-            if (!track?.id || seen.has(track.id)) return false;
-            seen.add(track.id);
+            const id = String(track?.id || '');
+            if (!id || seen.has(id)) return false;
+            seen.add(id);
             return true;
         })
         .sort((a, b) =>
@@ -137,6 +135,41 @@ function buildSingles(allTracks) {
                 numeric: true,
             })
         );
+}
+
+async function fetchSinglesFromAlbums(ui) {
+    const albums = await ui.api.getAllAlbums();
+    const candidates = albums.filter(isSingleAlbum);
+
+    if (!candidates.length) return [];
+
+    const albumTrackGroups = await mapWithConcurrency(candidates, ALBUM_FETCH_CONCURRENCY, async (album) => {
+        try {
+            const result = await ui.api.getAlbum(album.id);
+            const tracks = Array.isArray(result?.tracks) ? result.tracks : [];
+            return tracks.map((track) => normalizeAlbumTrack(track, album));
+        } catch (error) {
+            console.warn(`Could not load Singles album ${album.id}:`, error);
+            return [];
+        }
+    });
+
+    return dedupeAndSortSingles(albumTrackGroups.flat());
+}
+
+async function refreshSingles(ui) {
+    if (refreshPromise) return refreshPromise;
+
+    refreshPromise = fetchSinglesFromAlbums(ui)
+        .then((tracks) => {
+            writeSinglesCache(ui, tracks);
+            return tracks;
+        })
+        .finally(() => {
+            refreshPromise = null;
+        });
+
+    return refreshPromise;
 }
 
 function collectRenderedAlbumArtwork() {
@@ -217,19 +250,23 @@ function installArtworkFallbacks(ui, container, tracks) {
 }
 
 export async function prepareLibrarySingles(ui) {
-    const cachedTracks = readSinglesCache(ui);
-    if (cachedTracks) {
-        return { tracks: cachedTracks, fromCache: true, error: null };
+    const cached = readSinglesCache(ui);
+
+    if (cached?.fresh) {
+        return { tracks: cached.tracks, fromCache: true, stale: false, error: null };
+    }
+
+    if (cached?.tracks?.length) {
+        refreshSingles(ui).catch((error) => console.warn('Could not refresh Singles in background:', error));
+        return { tracks: cached.tracks, fromCache: true, stale: true, error: null };
     }
 
     try {
-        const allTracks = await fetchAllTracks(ui);
-        const tracks = buildSingles(allTracks);
-        writeSinglesCache(ui, tracks);
-        return { tracks, fromCache: false, error: null };
+        const tracks = await refreshSingles(ui);
+        return { tracks, fromCache: false, stale: false, error: null };
     } catch (error) {
         console.error('Failed to prepare Navidrome singles:', error);
-        return { tracks: [], fromCache: false, error };
+        return { tracks: [], fromCache: false, stale: false, error };
     }
 }
 
