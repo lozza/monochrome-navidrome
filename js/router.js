@@ -5,6 +5,7 @@ import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.j
 import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
 import './navidrome-migration-compat.js';
 import './navidrome-starred-compat.js';
+import './navidrome-cover-recovery.js';
 import './lyrics-component-bootstrap.js';
 
 export function navigate(path) {
