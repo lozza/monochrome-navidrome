@@ -84,11 +84,25 @@ export function createRouter(ui) {
                 await ui.renderTrackPage(id, provider);
                 break;
             }
-            case 'library':
-                await ui.renderLibraryPage();
-                await renderLibrarySingles(ui);
-                enhanceSinglesAlphabetIndex();
+            case 'library': {
+                const singlesContainer = document.getElementById('library-singles-container');
+                if (singlesContainer) {
+                    singlesContainer.style.visibility = 'hidden';
+                    singlesContainer.setAttribute('aria-busy', 'true');
+                }
+
+                try {
+                    await ui.renderLibraryPage();
+                    await renderLibrarySingles(ui);
+                    enhanceSinglesAlphabetIndex();
+                } finally {
+                    if (singlesContainer) {
+                        singlesContainer.style.removeProperty('visibility');
+                        singlesContainer.removeAttribute('aria-busy');
+                    }
+                }
                 break;
+            }
             case 'recent':
                 await ui.renderRecentPage();
                 break;
