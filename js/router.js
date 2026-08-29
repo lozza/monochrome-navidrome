@@ -4,6 +4,7 @@ import { loadProfile } from './profile.js';
 import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
 import { enhanceSinglesAlphabetIndex } from './singles-alpha-index.js';
 import './navidrome-migration-compat.js';
+import './navidrome-starred-compat.js';
 import './lyrics-component-bootstrap.js';
 
 export function navigate(path) {
