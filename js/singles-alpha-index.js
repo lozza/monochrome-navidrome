@@ -156,10 +156,6 @@ function getAlphaKey(title) {
     return /^[A-Z]$/.test(first) ? first : '#';
 }
 
-function alphaRank(key) {
-    return key === '#' ? 26 : key.charCodeAt(0) - 65;
-}
-
 function findNearestAvailableLetter(index, targets) {
     if (targets.has(ALPHABET[index])) return ALPHABET[index];
 
@@ -242,27 +238,15 @@ export function enhanceSinglesAlphabetIndex() {
     singlesTab.querySelector('.singles-alpha-index')?.remove();
     singlesTab.querySelector('.singles-alpha-bubble')?.remove();
 
+    // library-singles.js already sorts the track data before rendering. Do not
+    // sort and re-append thousands of DOM nodes here; that caused a second large
+    // main-thread stall just as Singles appeared to have finished loading.
     const items = [...singlesContainer.querySelectorAll('.card, .track-item')].filter((item) => getItemTitle(item));
     if (!items.length) return;
 
-    items.sort((a, b) => {
-        const titleA = getItemTitle(a);
-        const titleB = getItemTitle(b);
-        const keyA = getAlphaKey(titleA);
-        const keyB = getAlphaKey(titleB);
-        const rankDifference = alphaRank(keyA) - alphaRank(keyB);
-
-        if (rankDifference !== 0) return rankDifference;
-        return titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
-    });
-
-    for (const item of items) {
-        singlesContainer.appendChild(item);
-        item.classList.remove('singles-alpha-anchor');
-    }
-
     const firstItemByLetter = new Map();
     for (const item of items) {
+        item.classList.remove('singles-alpha-anchor');
         const key = getAlphaKey(getItemTitle(item));
         if (!firstItemByLetter.has(key)) {
             firstItemByLetter.set(key, item);
@@ -272,7 +256,7 @@ export function enhanceSinglesAlphabetIndex() {
 
     const index = document.createElement('nav');
     index.className = 'singles-alpha-index';
-    index.setAttribute('aria-label', 'Jump to single by title');
+    index.setAttribute('aria-label', 'Jump to track by title');
 
     const buttons = [];
     for (const letter of ALPHABET) {
@@ -281,7 +265,7 @@ export function enhanceSinglesAlphabetIndex() {
         button.type = 'button';
         button.textContent = letter;
         button.disabled = !target;
-        button.setAttribute('aria-label', target ? `Jump to ${letter}` : `No singles beginning with ${letter}`);
+        button.setAttribute('aria-label', target ? `Jump to ${letter}` : `No tracks beginning with ${letter}`);
 
         if (target) {
             button.addEventListener('click', () => {
