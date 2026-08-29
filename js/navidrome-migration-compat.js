@@ -1,5 +1,6 @@
 import { NavidromeAPI } from './navidrome-api.js';
 import { audioContextManager } from './audio-context.js';
+import { replayGainSettings } from './storage.js';
 import { isIos } from './platform-detection.js';
 
 function normalizeIsrcValue(value) {
@@ -26,6 +27,20 @@ function normalizeTrackIsrc(track) {
     const source = track.isrc ?? track.mediaMetadata?.isrc ?? track.audioQuality?.isrc ?? '';
     track.isrc = normalizeIsrcValue(source);
     return track;
+}
+
+// ReplayGain was inherited with a default mode of "track". Navidrome exposes
+// ReplayGain metadata from the user's own files, and FLAC files commonly carry
+// fairly large negative gain values. That can make iPhone playback sound very
+// quiet even with the device and in-app volume at maximum. Treat ReplayGain as
+// opt-in for Navichrome: preserve an explicit user choice, but default new/
+// untouched installs to off.
+try {
+    if (localStorage.getItem(replayGainSettings.STORAGE_KEY_MODE) === null) {
+        localStorage.setItem(replayGainSettings.STORAGE_KEY_MODE, 'off');
+    }
+} catch {
+    // Storage may be unavailable in restricted/private contexts.
 }
 
 // iOS can glitch the playback clock when a MediaElementSource graph is
