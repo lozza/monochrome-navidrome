@@ -1,4 +1,6 @@
-const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'];
+import { getSinglesAlphaKey, SINGLES_ALPHA_GROUPS } from './singles-alpha.js';
+
+const ALPHABET = SINGLES_ALPHA_GROUPS;
 
 function injectStyles() {
     if (document.getElementById('singles-alpha-index-styles')) return;
@@ -182,17 +184,6 @@ function getItemTitle(item) {
     );
 }
 
-function getAlphaKey(title) {
-    const normalized = String(title || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .replace(/^[^A-Za-z0-9]+/, '');
-
-    const first = normalized.charAt(0).toUpperCase();
-    return /^[A-Z]$/.test(first) ? first : '#';
-}
-
 function findNearestAvailableLetter(index, targets) {
     if (targets.has(ALPHABET[index])) return ALPHABET[index];
 
@@ -327,7 +318,7 @@ export function enhanceSinglesAlphabetIndex() {
     const firstItemByLetter = new Map();
     for (const item of items) {
         item.classList.remove('singles-alpha-anchor');
-        const key = getAlphaKey(getItemTitle(item));
+        const key = getSinglesAlphaKey(getItemTitle(item));
         if (!firstItemByLetter.has(key)) {
             firstItemByLetter.set(key, item);
             item.classList.add('singles-alpha-anchor');

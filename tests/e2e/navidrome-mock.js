@@ -166,21 +166,32 @@ export async function installNavidromeMock(page, options = {}) {
                 state.singlesPageRequests += 1;
                 const offset = Number(url.searchParams.get('songOffset') || 0);
                 const count = Number(url.searchParams.get('songCount') || 1000);
-                const total = alphabetSinglesCountPerLetter ? 26 * alphabetSinglesCountPerLetter : largeSinglesCount;
+                const total = alphabetSinglesCountPerLetter
+                    ? 26 * alphabetSinglesCountPerLetter + 2
+                    : largeSinglesCount;
                 const end = Math.min(offset + count, total);
                 const songs = [];
                 for (let index = offset; index < end; index += 1) {
-                    const letter = alphabetSinglesCountPerLetter
-                        ? String.fromCharCode(65 + Math.floor(index / alphabetSinglesCountPerLetter))
+                    const otherTitle = alphabetSinglesCountPerLetter
+                        ? ['!Prefixed Track', '2026 Track'][index] || null
                         : null;
-                    const title = letter
-                        ? `${letter} Track ${String(index % alphabetSinglesCountPerLetter).padStart(2, '0')}`
-                        : `Track ${String(index).padStart(5, '0')}`;
+                    const alphabetIndex = alphabetSinglesCountPerLetter ? index - 2 : -1;
+                    const letter =
+                        alphabetIndex >= 0
+                            ? String.fromCharCode(65 + Math.floor(alphabetIndex / alphabetSinglesCountPerLetter))
+                            : null;
+                    const title =
+                        otherTitle ||
+                        (letter
+                            ? `${letter} Track ${String(alphabetIndex % alphabetSinglesCountPerLetter).padStart(2, '0')}`
+                            : `Track ${String(index).padStart(5, '0')}`);
                     songs.push(
                         song(
-                            letter
-                                ? `alphabet-${letter}-${index % alphabetSinglesCountPerLetter}`
-                                : `catalogue-${index}`,
+                            otherTitle
+                                ? `alphabet-other-${index}`
+                                : letter
+                                  ? `alphabet-${letter}-${alphabetIndex % alphabetSinglesCountPerLetter}`
+                                  : `catalogue-${index}`,
                             title,
                             `album-${index % 200}`,
                             `Album ${index % 200}`,

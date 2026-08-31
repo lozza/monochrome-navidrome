@@ -184,7 +184,13 @@ test('Singles alphabet index jumps to exact letters and returns to the top', asy
     await page.locator('#page-library .search-tab[data-tab="singles"]').click();
 
     const rows = page.locator('#library-singles-container .track-item');
-    await expect(rows).toHaveCount(26 * 24);
+    await expect(rows).toHaveCount(26 * 24 + 2);
+
+    const prefixedRow = page.locator('#library-singles-container [data-track-id="alphabet-other-0"]');
+    await expect(rows.nth(0)).toHaveAttribute('data-track-id', 'alphabet-other-0');
+    await expect(rows.nth(2)).toHaveAttribute('data-track-id', 'alphabet-A-0');
+    await page.getByRole('button', { name: 'Jump to 0' }).click();
+    await expect.poll(() => prefixedRow.evaluate((row) => row.getBoundingClientRect().top)).toBeLessThan(180);
 
     const pRow = page.locator('#library-singles-container [data-track-id="alphabet-P-0"]');
     const qRow = page.locator('#library-singles-container [data-track-id="alphabet-Q-0"]');

@@ -1,4 +1,5 @@
 import { createPlaceholder, trackDataStore } from './utils.js';
+import { compareSinglesTitles } from './singles-alpha.js';
 
 const SINGLES_CACHE_VERSION = 7;
 const SINGLES_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -167,12 +168,7 @@ export function dedupeAndSortTracks(tracks) {
             seen.add(id);
             return true;
         })
-        .sort((a, b) =>
-            String(a.title || '').localeCompare(String(b.title || ''), undefined, {
-                sensitivity: 'base',
-                numeric: true,
-            })
-        );
+        .sort(compareSinglesTitles);
 }
 
 async function fetchAllTracks(ui, pageSize = TRACK_SCAN_PAGE_SIZE) {

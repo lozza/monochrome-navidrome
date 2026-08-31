@@ -16,7 +16,8 @@ All notable changes to Navichrome are documented here.
 
 - Singles loads a full Navidrome catalogue progressively in bounded batches, requests row artwork at an appropriate
   size, keeps the full sorted list only for the session, and persists a compact bounded cache
-- The Singles A–Z index now follows the letter pressed on touch devices and shows a back-to-top button after scrolling
+- The Singles 0–Z index keeps symbol/number-prefixed titles in the `0` group, follows the letter pressed on touch
+  devices, and shows a back-to-top button after scrolling
 - PWA navigation and media use network-safe strategies while versioned application caches are replaced on update
 - CI uses `npm ci`, read-only formatting/lint checks, deterministic browser tests, a production build, and the bundle
   audit

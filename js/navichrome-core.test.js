@@ -7,6 +7,7 @@ import {
 } from './library-singles.js';
 import { navidromeSettings } from './navidrome-settings.js';
 import { removeStalePwaRuntimeCaches } from './pwa-cache.js';
+import { getSinglesAlphaKey } from './singles-alpha.js';
 
 class MemoryStorage {
     constructor() {
@@ -52,6 +53,23 @@ describe('Navidrome credentials', () => {
 });
 
 describe('large Singles catalogue', () => {
+    test('groups symbol and number prefixes under 0 instead of the following letter', () => {
+        const sorted = dedupeAndSortTracks([
+            { id: 'p', title: 'Perfect' },
+            { id: 'symbol-p', title: '!Perfect' },
+            { id: 'number', title: '2026 Mix' },
+            { id: 'a', title: 'Alpha' },
+        ]);
+
+        expect(getSinglesAlphaKey('!Perfect')).toBe('0');
+        expect(getSinglesAlphaKey('(Perfect)')).toBe('0');
+        expect(getSinglesAlphaKey('2026 Mix')).toBe('0');
+        expect(getSinglesAlphaKey('Perfect')).toBe('P');
+        expect(getSinglesAlphaKey('Été')).toBe('E');
+        expect(sorted.slice(0, 2).map((track) => track.id)).toEqual(expect.arrayContaining(['symbol-p', 'number']));
+        expect(sorted.slice(2).map((track) => track.id)).toEqual(['a', 'p']);
+    });
+
     test('sorts all tracks once and creates a bounded compact persistent cache', () => {
         const tracks = Array.from({ length: 10_000 }, (_, index) => ({
             id: `track-${index}`,
