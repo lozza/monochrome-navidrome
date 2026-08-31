@@ -1,7 +1,6 @@
 //js/settings
 import {
     themeManager,
-    lastFMStorage,
     nowPlayingSettings,
     fullscreenCoverClickSettings,
     lyricsSettings,
@@ -21,9 +20,6 @@ import {
     visualizerSettings,
     playlistSettings,
     equalizerSettings,
-    listenBrainzSettings,
-    malojaSettings,
-    libreFmSettings,
     homePageSettings,
     sidebarSectionSettings,
     fontSettings,
@@ -33,21 +29,13 @@ import {
     settingsUiState,
     pwaUpdateSettings,
     contentBlockingSettings,
-    musicProviderSettings,
-    unifiedPlaybackSettings,
-    deezerFallbackSettings,
     gaplessPlaybackSettings,
-    analyticsSettings,
     modalSettings,
-    preferDolbyAtmosSettings,
-    nativeOsAtmosSettings,
     binauralDspSettings,
     fullscreenCoverNoRoundSettings,
     fullscreenCoverVanillaTiltSettings,
     fullscreenCoverTiltDistanceSettings,
     fullscreenCoverTiltSpeedSettings,
-    devModeSettings,
-    serverDisruptionSettings,
 } from './storage.js';
 import { navidromeSettings } from './navidrome-settings.js';
 import { NavidromeAPI } from './navidrome-api.js';
@@ -58,7 +46,6 @@ import { fetchAutoEqIndex, fetchHeadphoneData, searchHeadphones, POPULAR_HEADPHO
 import { db } from './db.js';
 import { containerFormats, customFormats } from './ffmpegFormats.ts';
 import { BulkDownloadMethod, modernSettings } from './ModernSettings.js';
-import { canBrowserStreamAtmosQuality } from './platform-detection.js';
 
 async function getButterchurnPresets(...args) {
     const butterchurnModule = await import('./visualizers/butterchurn.js');
@@ -70,7 +57,7 @@ let _autoeqIndex = [];
 let _graphAbortController = null;
 let _graphResizeObserver = null;
 
-export async function initializeSettings(scrobbler, player, api, ui) {
+export async function initializeSettings(_scrobbler, player, api, ui) {
     // Restore last active settings tab
     const savedTab = settingsUiState.getActiveTab();
     const settingsTab = document.querySelector(`.settings-tab[data-tab="${savedTab}"]`);
@@ -186,563 +173,7 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         }
     });
 
-    // ========================================
-    // Dev Mode
-    // ========================================
-    const devModeToggle = document.getElementById('dev-mode-toggle');
-    const devModeUrlSetting = document.getElementById('dev-mode-url-setting');
-    const devModeUrlInput = document.getElementById('dev-mode-url-input');
-
-    function updateDevModeUI() {
-        if (devModeToggle) devModeToggle.checked = devModeSettings.isEnabled();
-        if (devModeUrlSetting) devModeUrlSetting.style.display = devModeSettings.isEnabled() ? '' : 'none';
-        if (devModeUrlInput) devModeUrlInput.value = devModeSettings.getUrl();
-    }
-
-    updateDevModeUI();
-
-    if (devModeToggle) {
-        devModeToggle.addEventListener('change', (e) => {
-            devModeSettings.setEnabled(e.target.checked);
-            updateDevModeUI();
-        });
-    }
-
-    if (devModeUrlInput) {
-        devModeUrlInput.addEventListener('change', (e) => {
-            devModeSettings.setUrl(e.target.value.trim());
-        });
-    }
-
-    // ========================================
-    // Server Disruption Banner
-    // ========================================
-    const disruptionBanner = document.getElementById('server-disruption-banner');
-    const dismissDisruptionBtn = document.getElementById('dismiss-disruption-btn');
-
-    if (disruptionBanner && !serverDisruptionSettings.isDismissed()) {
-        disruptionBanner.style.display = 'flex';
-    }
-
-    if (dismissDisruptionBtn) {
-        dismissDisruptionBtn.addEventListener('click', () => {
-            serverDisruptionSettings.dismiss();
-            if (disruptionBanner) disruptionBanner.style.display = 'none';
-        });
-    }
-
-    const lastfmConnectBtn = document.getElementById('lastfm-connect-btn');
-    const lastfmStatus = document.getElementById('lastfm-status');
-    const lastfmToggle = document.getElementById('lastfm-toggle');
-    const lastfmToggleSetting = document.getElementById('lastfm-toggle-setting');
-    const lastfmLoveToggle = document.getElementById('lastfm-love-toggle');
-    const lastfmLoveSetting = document.getElementById('lastfm-love-setting');
-    const lastfmCustomCredsToggle = document.getElementById('lastfm-custom-creds-toggle');
-    const lastfmCustomCredsToggleSetting = document.getElementById('lastfm-custom-creds-toggle-setting');
-    const lastfmCustomCredsSetting = document.getElementById('lastfm-custom-creds-setting');
-    const lastfmCustomApiKey = document.getElementById('lastfm-custom-api-key');
-    const lastfmCustomApiSecret = document.getElementById('lastfm-custom-api-secret');
-    const lastfmSaveCustomCreds = document.getElementById('lastfm-save-custom-creds');
-    const lastfmClearCustomCreds = document.getElementById('lastfm-clear-custom-creds');
-    const lastfmCredentialAuth = document.getElementById('lastfm-credential-auth');
-    const lastfmCredentialForm = document.getElementById('lastfm-credential-form');
-    const lastfmUsernameInput = document.getElementById('lastfm-username');
-    const lastfmPasswordInput = document.getElementById('lastfm-password');
-    const lastfmLoginCredentialsBtn = document.getElementById('lastfm-login-credentials');
-    const lastfmUseOAuthBtn = document.getElementById('lastfm-use-oauth');
-
-    function updateLastFMUI() {
-        if (scrobbler.lastfm.isAuthenticated()) {
-            lastfmStatus.textContent = `Connected as ${scrobbler.lastfm.username}`;
-            lastfmConnectBtn.textContent = 'Disconnect';
-            lastfmConnectBtn.classList.add('danger');
-            lastfmToggleSetting.style.display = 'flex';
-            lastfmLoveSetting.style.display = 'flex';
-            lastfmToggle.checked = lastFMStorage.isEnabled();
-            lastfmLoveToggle.checked = lastFMStorage.shouldLoveOnLike();
-            lastfmCustomCredsToggleSetting.style.display = 'flex';
-            lastfmCustomCredsToggle.checked = lastFMStorage.useCustomCredentials();
-            updateCustomCredsUI();
-            hideCredentialAuth();
-        } else {
-            lastfmStatus.textContent = 'Connect your Last.fm account to scrobble tracks';
-            lastfmConnectBtn.textContent = 'Connect Last.fm';
-            lastfmConnectBtn.classList.remove('danger');
-            lastfmToggleSetting.style.display = 'none';
-            lastfmLoveSetting.style.display = 'none';
-            lastfmCustomCredsToggleSetting.style.display = 'none';
-            lastfmCustomCredsSetting.style.display = 'none';
-            // Hide credential auth by default - only show on OAuth failure
-            hideCredentialAuth();
-        }
-    }
-
-    function showCredentialAuth() {
-        if (lastfmCredentialAuth) lastfmCredentialAuth.style.display = 'block';
-        if (lastfmCredentialForm) lastfmCredentialForm.style.display = 'block';
-        // Focus on username field
-        if (lastfmUsernameInput) lastfmUsernameInput.focus();
-    }
-
-    function hideCredentialAuth() {
-        if (lastfmCredentialAuth) lastfmCredentialAuth.style.display = 'none';
-        if (lastfmCredentialForm) lastfmCredentialForm.style.display = 'none';
-        if (lastfmUsernameInput) lastfmUsernameInput.value = '';
-        if (lastfmPasswordInput) lastfmPasswordInput.value = '';
-    }
-
-    function updateCustomCredsUI() {
-        const useCustom = lastFMStorage.useCustomCredentials();
-        lastfmCustomCredsSetting.style.display = useCustom ? 'flex' : 'none';
-
-        if (useCustom) {
-            lastfmCustomApiKey.value = lastFMStorage.getCustomApiKey();
-            lastfmCustomApiSecret.value = lastFMStorage.getCustomApiSecret();
-
-            const hasCreds = lastFMStorage.getCustomApiKey() && lastFMStorage.getCustomApiSecret();
-            lastfmClearCustomCreds.style.display = hasCreds ? 'inline-block' : 'none';
-        }
-    }
-
-    updateLastFMUI();
-
-    lastfmConnectBtn?.addEventListener('click', async () => {
-        if (scrobbler.lastfm.isAuthenticated()) {
-            if (confirm('Disconnect from Last.fm?')) {
-                scrobbler.lastfm.disconnect();
-                updateLastFMUI();
-            }
-            return;
-        }
-
-        let authWindow = window.open('', '_blank');
-
-        lastfmConnectBtn.disabled = true;
-        lastfmConnectBtn.textContent = 'Opening Last.fm...';
-
-        try {
-            const { token, url } = await scrobbler.lastfm.getAuthUrl();
-
-            if (authWindow) {
-                authWindow.location.href = url;
-            } else {
-                alert('Popup blocked! Please allow popups.');
-                lastfmConnectBtn.textContent = 'Connect Last.fm';
-                lastfmConnectBtn.disabled = false;
-                return;
-            }
-
-            lastfmConnectBtn.textContent = 'Waiting for authorization...';
-
-            let attempts = 0;
-            const maxAttempts = 5;
-
-            const checkAuth = setInterval(async () => {
-                attempts++;
-
-                if (attempts > maxAttempts) {
-                    clearInterval(checkAuth);
-                    if (authWindow && !authWindow.closed) authWindow.close();
-                    lastfmConnectBtn.textContent = 'Connect Last.fm';
-                    lastfmConnectBtn.disabled = false;
-                    // Ask user if they want to use credentials instead
-                    if (
-                        confirm('Authorization timed out. Would you like to login with username and password instead?')
-                    ) {
-                        showCredentialAuth();
-                    }
-                    return;
-                }
-
-                try {
-                    const result = await scrobbler.lastfm.completeAuthentication(token);
-
-                    if (result.success) {
-                        clearInterval(checkAuth);
-                        if (authWindow && !authWindow.closed) authWindow.close();
-                        lastFMStorage.setEnabled(true);
-                        lastfmToggle.checked = true;
-                        updateLastFMUI();
-                        lastfmConnectBtn.disabled = false;
-                    }
-                } catch {
-                    // Still waiting
-                }
-            }, 2000);
-        } catch (error) {
-            console.error('Last.fm connection failed:', error);
-            if (authWindow && !authWindow.closed) authWindow.close();
-            lastfmConnectBtn.textContent = 'Connect Last.fm';
-            lastfmConnectBtn.disabled = false;
-            // Ask user if they want to use credentials instead
-            if (confirm('Failed to connect to Last.fm. Would you like to login with username and password instead?')) {
-                showCredentialAuth();
-            }
-        }
-    });
-
-    // Last.fm Toggles
-    if (lastfmToggle) {
-        lastfmToggle.addEventListener('change', (e) => {
-            lastFMStorage.setEnabled(e.target.checked);
-        });
-    }
-
-    if (lastfmLoveToggle) {
-        lastfmLoveToggle.addEventListener('change', (e) => {
-            lastFMStorage.setLoveOnLike(e.target.checked);
-        });
-    }
-
-    // Custom Credentials Toggle
-    if (lastfmCustomCredsToggle) {
-        lastfmCustomCredsToggle.addEventListener('change', (e) => {
-            lastFMStorage.setUseCustomCredentials(e.target.checked);
-            updateCustomCredsUI();
-
-            // Reload credentials in the scrobbler
-            scrobbler.lastfm.reloadCredentials();
-
-            // If credentials are being disabled, clear any existing session
-            if (!e.target.checked && scrobbler.lastfm.isAuthenticated()) {
-                scrobbler.lastfm.disconnect();
-                updateLastFMUI();
-                alert('Switched to default API credentials. Please reconnect to Last.fm.');
-            }
-        });
-    }
-
-    // Save Custom Credentials
-    if (lastfmSaveCustomCreds) {
-        lastfmSaveCustomCreds.addEventListener('click', () => {
-            const apiKey = lastfmCustomApiKey.value.trim();
-            const apiSecret = lastfmCustomApiSecret.value.trim();
-
-            if (!apiKey || !apiSecret) {
-                alert('Please enter both API Key and API Secret');
-                return;
-            }
-
-            lastFMStorage.setCustomApiKey(apiKey);
-            lastFMStorage.setCustomApiSecret(apiSecret);
-
-            // Reload credentials
-            scrobbler.lastfm.reloadCredentials();
-
-            updateCustomCredsUI();
-            alert('Custom API credentials saved! Please reconnect to Last.fm to use them.');
-
-            // Disconnect current session if authenticated
-            if (scrobbler.lastfm.isAuthenticated()) {
-                scrobbler.lastfm.disconnect();
-                updateLastFMUI();
-            }
-        });
-    }
-
-    // Clear Custom Credentials
-    if (lastfmClearCustomCreds) {
-        lastfmClearCustomCreds.addEventListener('click', () => {
-            if (confirm('Clear custom API credentials?')) {
-                lastFMStorage.clearCustomCredentials();
-                lastfmCustomApiKey.value = '';
-                lastfmCustomApiSecret.value = '';
-                lastfmCustomCredsToggle.checked = false;
-
-                // Reload credentials
-                scrobbler.lastfm.reloadCredentials();
-
-                updateCustomCredsUI();
-
-                // Disconnect current session if authenticated
-                if (scrobbler.lastfm.isAuthenticated()) {
-                    scrobbler.lastfm.disconnect();
-                    updateLastFMUI();
-                    alert(
-                        'Custom credentials cleared. Switched to default API credentials. Please reconnect to Last.fm.'
-                    );
-                }
-            }
-        });
-    }
-
-    // Last.fm Credential Auth - Login with credentials
-    if (lastfmLoginCredentialsBtn) {
-        lastfmLoginCredentialsBtn.addEventListener('click', async () => {
-            const username = lastfmUsernameInput?.value?.trim();
-            const password = lastfmPasswordInput?.value;
-
-            if (!username || !password) {
-                alert('Please enter both username and password.');
-                return;
-            }
-
-            lastfmLoginCredentialsBtn.disabled = true;
-            lastfmLoginCredentialsBtn.textContent = 'Logging in...';
-
-            try {
-                const result = await scrobbler.lastfm.authenticateWithCredentials(username, password);
-                if (result.success) {
-                    lastFMStorage.setEnabled(true);
-                    lastfmToggle.checked = true;
-                    updateLastFMUI();
-                    // Clear password for security
-                    if (lastfmPasswordInput) lastfmPasswordInput.value = '';
-                }
-            } catch (error) {
-                console.error('Last.fm credential login failed:', error);
-                alert('Failed to login: ' + error.message);
-            } finally {
-                lastfmLoginCredentialsBtn.disabled = false;
-                lastfmLoginCredentialsBtn.textContent = 'Login';
-            }
-        });
-    }
-
-    // Last.fm Credential Auth - Switch back to OAuth
-    if (lastfmUseOAuthBtn) {
-        lastfmUseOAuthBtn.addEventListener('click', () => {
-            hideCredentialAuth();
-        });
-    }
-
-    // ========================================
-    // Global Scrobble Settings
-    // ========================================
-    const scrobblePercentageSlider = document.getElementById('scrobble-percentage-slider');
-    const scrobblePercentageInput = document.getElementById('scrobble-percentage-input');
-
-    if (scrobblePercentageSlider && scrobblePercentageInput) {
-        const percentage = lastFMStorage.getScrobblePercentage();
-        scrobblePercentageSlider.value = percentage;
-        scrobblePercentageInput.value = percentage;
-
-        scrobblePercentageSlider.addEventListener('input', (e) => {
-            const newPercentage = parseInt(e.target.value, 10);
-            scrobblePercentageInput.value = newPercentage;
-            lastFMStorage.setScrobblePercentage(newPercentage);
-        });
-
-        scrobblePercentageInput.addEventListener('change', (e) => {
-            let newPercentage = parseInt(e.target.value, 10);
-            newPercentage = Math.max(1, Math.min(100, newPercentage || 75));
-            scrobblePercentageSlider.value = newPercentage;
-            scrobblePercentageInput.value = newPercentage;
-            lastFMStorage.setScrobblePercentage(newPercentage);
-        });
-
-        scrobblePercentageInput.addEventListener('input', (e) => {
-            let newPercentage = parseInt(e.target.value, 10);
-            if (!isNaN(newPercentage) && newPercentage >= 1 && newPercentage <= 100) {
-                scrobblePercentageSlider.value = newPercentage;
-                lastFMStorage.setScrobblePercentage(newPercentage);
-            }
-        });
-    }
-
-    // ========================================
-    // ListenBrainz Settings
-    // ========================================
-    const lbToggle = document.getElementById('listenbrainz-enabled-toggle');
-    const lbTokenSetting = document.getElementById('listenbrainz-token-setting');
-    const lbCustomUrlSetting = document.getElementById('listenbrainz-custom-url-setting');
-    const lbLoveSetting = document.getElementById('listenbrainz-love-setting');
-    const lbLoveToggle = document.getElementById('listenbrainz-love-toggle');
-    const lbTokenInput = document.getElementById('listenbrainz-token-input');
-    const lbCustomUrlInput = document.getElementById('listenbrainz-custom-url-input');
-
-    const updateListenBrainzUI = () => {
-        const isEnabled = listenBrainzSettings.isEnabled();
-        if (lbToggle) lbToggle.checked = isEnabled;
-        if (lbTokenSetting) lbTokenSetting.style.display = isEnabled ? 'flex' : 'none';
-        if (lbCustomUrlSetting) lbCustomUrlSetting.style.display = isEnabled ? 'flex' : 'none';
-        if (lbLoveSetting) lbLoveSetting.style.display = isEnabled ? 'flex' : 'none';
-        if (lbTokenInput) lbTokenInput.value = listenBrainzSettings.getToken();
-        if (lbCustomUrlInput) lbCustomUrlInput.value = listenBrainzSettings.getCustomUrl();
-        if (lbLoveToggle) lbLoveToggle.checked = listenBrainzSettings.shouldLoveOnLike();
-    };
-
-    updateListenBrainzUI();
-
-    if (lbToggle) {
-        lbToggle.addEventListener('change', (e) => {
-            const enabled = e.target.checked;
-            listenBrainzSettings.setEnabled(enabled);
-            updateListenBrainzUI();
-        });
-    }
-
-    if (lbTokenInput) {
-        lbTokenInput.addEventListener('change', (e) => {
-            listenBrainzSettings.setToken(e.target.value.trim());
-        });
-    }
-
-    if (lbCustomUrlInput) {
-        lbCustomUrlInput.addEventListener('change', (e) => {
-            listenBrainzSettings.setCustomUrl(e.target.value.trim());
-        });
-    }
-
-    if (lbLoveToggle) {
-        lbLoveToggle.addEventListener('change', (e) => {
-            listenBrainzSettings.setLoveOnLike(e.target.checked);
-        });
-    }
-
-    // ========================================
-    // Maloja Settings
-    // ========================================
-    const malojaToggle = document.getElementById('maloja-enabled-toggle');
-    const malojaTokenSetting = document.getElementById('maloja-token-setting');
-    const malojaCustomUrlSetting = document.getElementById('maloja-custom-url-setting');
-    const malojaTokenInput = document.getElementById('maloja-token-input');
-    const malojaCustomUrlInput = document.getElementById('maloja-custom-url-input');
-
-    const updateMalojaUI = () => {
-        const isEnabled = malojaSettings.isEnabled();
-        if (malojaToggle) malojaToggle.checked = isEnabled;
-        if (malojaTokenSetting) malojaTokenSetting.style.display = isEnabled ? 'flex' : 'none';
-        if (malojaCustomUrlSetting) malojaCustomUrlSetting.style.display = isEnabled ? 'flex' : 'none';
-        if (malojaTokenInput) malojaTokenInput.value = malojaSettings.getToken();
-        if (malojaCustomUrlInput) malojaCustomUrlInput.value = malojaSettings.getCustomUrl();
-    };
-
-    updateMalojaUI();
-
-    if (malojaToggle) {
-        malojaToggle.addEventListener('change', (e) => {
-            const enabled = e.target.checked;
-            malojaSettings.setEnabled(enabled);
-            updateMalojaUI();
-        });
-    }
-
-    if (malojaTokenInput) {
-        malojaTokenInput.addEventListener('change', (e) => {
-            malojaSettings.setToken(e.target.value.trim());
-        });
-    }
-
-    if (malojaCustomUrlInput) {
-        malojaCustomUrlInput.addEventListener('change', (e) => {
-            malojaSettings.setCustomUrl(e.target.value.trim());
-        });
-    }
-
-    // ========================================
-    // Libre.fm Settings
-    // ========================================
-    const librefmConnectBtn = document.getElementById('librefm-connect-btn');
-    const librefmStatus = document.getElementById('librefm-status');
-    const librefmToggle = document.getElementById('librefm-toggle');
-    const librefmToggleSetting = document.getElementById('librefm-toggle-setting');
-    const librefmLoveToggle = document.getElementById('librefm-love-toggle');
-    const librefmLoveSetting = document.getElementById('librefm-love-setting');
-
-    function updateLibreFmUI() {
-        if (scrobbler.librefm.isAuthenticated()) {
-            librefmStatus.textContent = `Connected as ${scrobbler.librefm.username}`;
-            librefmConnectBtn.textContent = 'Disconnect';
-            librefmConnectBtn.classList.add('danger');
-            librefmToggleSetting.style.display = 'flex';
-            librefmLoveSetting.style.display = 'flex';
-            librefmToggle.checked = libreFmSettings.isEnabled();
-            librefmLoveToggle.checked = libreFmSettings.shouldLoveOnLike();
-        } else {
-            librefmStatus.textContent = 'Connect your Libre.fm account to scrobble tracks';
-            librefmConnectBtn.textContent = 'Connect Libre.fm';
-            librefmConnectBtn.classList.remove('danger');
-            librefmToggleSetting.style.display = 'none';
-            librefmLoveSetting.style.display = 'none';
-        }
-    }
-
-    if (librefmConnectBtn) {
-        updateLibreFmUI();
-
-        librefmConnectBtn.addEventListener('click', async () => {
-            if (scrobbler.librefm.isAuthenticated()) {
-                if (confirm('Disconnect from Libre.fm?')) {
-                    scrobbler.librefm.disconnect();
-                    updateLibreFmUI();
-                }
-                return;
-            }
-
-            let authWindow = window.open('', '_blank');
-
-            librefmConnectBtn.disabled = true;
-            librefmConnectBtn.textContent = 'Opening Libre.fm...';
-
-            try {
-                const { token, url } = await scrobbler.librefm.getAuthUrl();
-
-                if (authWindow) {
-                    authWindow.location.href = url;
-                } else {
-                    alert('Popup blocked! Please allow popups.');
-                    librefmConnectBtn.textContent = 'Connect Libre.fm';
-                    librefmConnectBtn.disabled = false;
-                    return;
-                }
-
-                librefmConnectBtn.textContent = 'Waiting for authorization...';
-
-                let attempts = 0;
-                const maxAttempts = 30;
-
-                const checkAuth = setInterval(async () => {
-                    attempts++;
-
-                    if (attempts > maxAttempts) {
-                        clearInterval(checkAuth);
-                        librefmConnectBtn.textContent = 'Connect Libre.fm';
-                        librefmConnectBtn.disabled = false;
-                        if (authWindow && !authWindow.closed) authWindow.close();
-                        alert('Authorization timed out. Please try again.');
-                        return;
-                    }
-
-                    try {
-                        const result = await scrobbler.librefm.completeAuthentication(token);
-
-                        if (result.success) {
-                            clearInterval(checkAuth);
-                            if (authWindow && !authWindow.closed) authWindow.close();
-                            libreFmSettings.setEnabled(true);
-                            librefmToggle.checked = true;
-                            updateLibreFmUI();
-                            librefmConnectBtn.disabled = false;
-                            alert(`Successfully connected to Libre.fm as ${result.username}!`);
-                        }
-                    } catch {
-                        // Still waiting
-                    }
-                }, 2000);
-            } catch (error) {
-                console.error('Libre.fm connection failed:', error);
-                alert('Failed to connect to Libre.fm: ' + error.message);
-                librefmConnectBtn.textContent = 'Connect Libre.fm';
-                librefmConnectBtn.disabled = false;
-                if (authWindow && !authWindow.closed) authWindow.close();
-            }
-        });
-
-        // Libre.fm Toggles
-        if (librefmToggle) {
-            librefmToggle.addEventListener('change', (e) => {
-                libreFmSettings.setEnabled(e.target.checked);
-            });
-        }
-
-        if (librefmLoveToggle) {
-            librefmLoveToggle.addEventListener('change', (e) => {
-                libreFmSettings.setLoveOnLike(e.target.checked);
-            });
-        }
-    }
-
+    // Navidrome submits scrobbles directly to the configured server.
     // Theme picker
     const themePicker = document.getElementById('theme-picker');
     const currentTheme = themeManager.getTheme();
@@ -768,61 +199,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
             }
         });
     });
-
-    const communityThemeContainer = document.getElementById('applied-community-theme-container');
-    const communityThemeBtn = document.getElementById('applied-community-theme-btn');
-    const communityThemeDetails = document.getElementById('community-theme-details-panel');
-    const communityThemeUnapplyBtn = document.getElementById('ct-unapply-btn');
-    const appliedThemeName = document.getElementById('applied-theme-name');
-    const ctDetailsTitle = document.getElementById('ct-details-title');
-    const ctDetailsAuthor = document.getElementById('ct-details-author');
-
-    function updateCommunityThemeUI() {
-        const metadataStr = localStorage.getItem('community-theme');
-        if (metadataStr) {
-            try {
-                const metadata = JSON.parse(metadataStr);
-                if (communityThemeContainer) communityThemeContainer.style.display = 'block';
-                if (appliedThemeName) appliedThemeName.textContent = metadata.name;
-                if (ctDetailsTitle) ctDetailsTitle.textContent = metadata.name;
-                if (ctDetailsAuthor) ctDetailsAuthor.textContent = `by ${metadata.author}`;
-            } catch {
-                if (communityThemeContainer) communityThemeContainer.style.display = 'none';
-            }
-        } else {
-            if (communityThemeContainer) communityThemeContainer.style.display = 'none';
-            if (communityThemeDetails) communityThemeDetails.style.display = 'none';
-        }
-    }
-
-    updateCommunityThemeUI();
-    window.addEventListener('theme-changed', updateCommunityThemeUI);
-
-    if (communityThemeBtn) {
-        communityThemeBtn.addEventListener('click', () => {
-            const isVisible = communityThemeDetails.style.display === 'block';
-            communityThemeDetails.style.display = isVisible ? 'none' : 'block';
-        });
-    }
-
-    if (communityThemeUnapplyBtn) {
-        communityThemeUnapplyBtn.addEventListener('click', () => {
-            if (confirm('Unapply this community theme?')) {
-                localStorage.removeItem('custom_theme_css');
-                localStorage.removeItem('community-theme');
-                const styleEl = document.getElementById('custom-theme-style');
-                if (styleEl) styleEl.remove();
-                themeManager.setTheme('system');
-
-                const themePicker = document.getElementById('theme-picker');
-                if (themePicker) {
-                    themePicker.querySelectorAll('.theme-option').forEach((opt) => opt.classList.remove('active'));
-                    themePicker.querySelector('[data-theme="system"]')?.classList.add('active');
-                }
-                document.getElementById('custom-theme-editor').classList.remove('show');
-            }
-        });
-    }
 
     function renderCustomThemeEditor() {
         const grid = document.getElementById('theme-color-grid');
@@ -860,116 +236,16 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         renderCustomThemeEditor();
     });
 
-    // Music Provider setting
-    const musicProviderSetting = document.getElementById('music-provider-setting');
-    if (musicProviderSetting) {
-        musicProviderSetting.value = musicProviderSettings.getProvider();
-        musicProviderSetting.addEventListener('change', (e) => {
-            musicProviderSettings.setProvider(e.target.value);
-            // Reload page to apply changes
-            window.location.reload();
-        });
-    }
-
-    const unifiedPlaybackToggle = document.getElementById('unified-playback-toggle');
-    if (unifiedPlaybackToggle) {
-        unifiedPlaybackToggle.checked = unifiedPlaybackSettings.isEnabled();
-        unifiedPlaybackToggle.addEventListener('change', (e) => {
-            unifiedPlaybackSettings.setEnabled(e.target.checked);
-            api?.clearUnifiedTurnstileJwt?.();
-            api?.clearCache?.();
-            if (e.target.checked && unifiedPlaybackSettings.getApiToken().trim()) {
-                api?.getUnifiedTurnstileJwt?.().catch(() => null);
-            }
-        });
-    }
-
-    const unifiedApiBaseUrlInput = document.getElementById('unified-playback-api-base-url');
-    if (unifiedApiBaseUrlInput) {
-        unifiedApiBaseUrlInput.value = unifiedPlaybackSettings.getApiBaseUrl();
-        unifiedApiBaseUrlInput.addEventListener('change', (e) => {
-            unifiedPlaybackSettings.setApiBaseUrl(e.target.value.trim());
-            api?.clearUnifiedTurnstileJwt?.();
-            api?.clearCache?.();
-        });
-    }
-
-    const unifiedApiTokenInput = document.getElementById('unified-playback-api-token');
-    if (unifiedApiTokenInput) {
-        unifiedApiTokenInput.value = unifiedPlaybackSettings.getApiToken();
-        unifiedApiTokenInput.addEventListener('change', (e) => {
-            unifiedPlaybackSettings.setApiToken(e.target.value.trim());
-            api?.clearUnifiedTurnstileJwt?.();
-            api?.clearCache?.();
-            if (e.target.value.trim() && unifiedPlaybackSettings.isEnabled()) {
-                api?.getUnifiedTurnstileJwt?.().catch(() => null);
-            }
-        });
-    }
-
-    const deezerFallbackToggle = document.getElementById('deezer-fallback-toggle');
-    if (deezerFallbackToggle) {
-        deezerFallbackToggle.checked = deezerFallbackSettings.isEnabled();
-        deezerFallbackToggle.addEventListener('change', (e) => {
-            deezerFallbackSettings.setEnabled(e.target.checked);
-        });
-    }
-
-    const deezerApiBaseUrlInput = document.getElementById('deezer-fallback-api-base-url');
-    if (deezerApiBaseUrlInput) {
-        deezerApiBaseUrlInput.value = deezerFallbackSettings.getApiBaseUrl();
-        deezerApiBaseUrlInput.addEventListener('change', (e) => {
-            deezerFallbackSettings.setApiBaseUrl(e.target.value.trim());
-        });
-    }
-
     // Streaming Quality setting
     const streamingQualitySetting = document.getElementById('streaming-quality-setting');
     if (streamingQualitySetting) {
-        const storedAdaptiveQuality = localStorage.getItem('adaptive-playback-quality') || 'auto';
-        const savedAdaptiveQuality =
-            storedAdaptiveQuality === 'DOLBY_ATMOS' ? 'DOLBY_ATMOS_EAC3_HIGH' : storedAdaptiveQuality;
-        if (storedAdaptiveQuality !== savedAdaptiveQuality) {
-            localStorage.setItem('adaptive-playback-quality', savedAdaptiveQuality);
-            localStorage.setItem('playback-quality', savedAdaptiveQuality);
-        }
+        const storedQuality = localStorage.getItem('adaptive-playback-quality') || 'auto';
+        const optionExists = Array.from(streamingQualitySetting.options).some((opt) => opt.value === storedQuality);
+        streamingQualitySetting.value = optionExists ? storedQuality : 'auto';
 
-        // Map the stored auto state to the dropdown, or if it doesn't match an option, use the playback-quality value
-        const optionExists = Array.from(streamingQualitySetting.options).some(
-            (opt) => opt.value === savedAdaptiveQuality
-        );
-        streamingQualitySetting.value = optionExists
-            ? savedAdaptiveQuality
-            : localStorage.getItem('playback-quality') || 'auto';
-
-        // Apply initially
         if (player.forceQuality) player.forceQuality(streamingQualitySetting.value);
         const apiQuality = streamingQualitySetting.value === 'auto' ? 'HI_RES_LOSSLESS' : streamingQualitySetting.value;
-        player.setQuality(localStorage.getItem('playback-quality') || apiQuality);
-
-        const sourcesDescription = document.getElementById('streaming-quality-sources');
-        const atmosWarning = document.getElementById('atmos-streaming-warning');
-        const atmosWarningText = document.getElementById('atmos-streaming-warning-text');
-        const updateStreamingQualityDetails = () => {
-            const option = streamingQualitySetting.selectedOptions?.[0];
-            if (sourcesDescription) {
-                sourcesDescription.textContent = option?.dataset.sources
-                    ? `Supported sources: ${option.dataset.sources}`
-                    : 'Default playback quality for streams';
-            }
-
-            const isAc4 = streamingQualitySetting.value.startsWith('DOLBY_ATMOS_AC4_');
-            const isEac3 = streamingQualitySetting.value.startsWith('DOLBY_ATMOS_EAC3_');
-            const supported = canBrowserStreamAtmosQuality(streamingQualitySetting.value);
-            const showWarning = isAc4 || (isEac3 && !supported);
-            if (atmosWarning) atmosWarning.style.display = showWarning ? '' : 'none';
-            if (showWarning && atmosWarningText) {
-                atmosWarningText.textContent = supported
-                    ? 'AC-4 streaming support is experimental and may still fail in this browser. AC-4 downloads remain available.'
-                    : `This browser does not report ${isAc4 ? 'AC-4' : 'E-AC-3'} playback support, so this quality cannot be streamed here. You can still use it for downloads.`;
-            }
-        };
-        updateStreamingQualityDetails();
+        player.setQuality(apiQuality);
 
         streamingQualitySetting.addEventListener('change', (e) => {
             const val = e.target.value;
@@ -982,23 +258,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
             const newApiQuality = val === 'auto' ? 'HI_RES_LOSSLESS' : val;
             player.setQuality(newApiQuality);
             localStorage.setItem('playback-quality', newApiQuality);
-            updateStreamingQualityDetails();
-        });
-    }
-
-    const preferDolbyAtmosToggle = document.getElementById('prefer-dolby-atmos-toggle');
-    if (preferDolbyAtmosToggle) {
-        preferDolbyAtmosToggle.checked = preferDolbyAtmosSettings.isEnabled();
-        preferDolbyAtmosToggle.addEventListener('change', (e) => {
-            preferDolbyAtmosSettings.setEnabled(e.target.checked);
-        });
-    }
-
-    const nativeOsAtmosToggle = document.getElementById('native-os-atmos-toggle');
-    if (nativeOsAtmosToggle) {
-        nativeOsAtmosToggle.checked = nativeOsAtmosSettings.isEnabled();
-        nativeOsAtmosToggle.addEventListener('change', (e) => {
-            nativeOsAtmosSettings.setEnabled(e.target.checked);
         });
     }
 
@@ -1007,14 +266,7 @@ export async function initializeSettings(scrobbler, player, api, ui) {
     if (downloadQualitySetting) {
         // Assign categories to the static (native) options already in the HTML
         const staticCategories = {
-            DOLBY_ATMOS_EAC3_HIGH: 'Immersive',
-            DOLBY_ATMOS_EAC3_LOW: 'Immersive',
-            DOLBY_ATMOS_AC4_HIGH: 'Immersive',
-            DOLBY_ATMOS_AC4_LOW: 'Immersive',
             HI_RES_LOSSLESS: 'Lossless',
-            LOSSLESS: 'Lossless',
-            HIGH: 'AAC',
-            LOW: 'AAC',
         };
 
         // Collect static options first (preserving their original order)
@@ -1045,9 +297,9 @@ export async function initializeSettings(scrobbler, player, api, ui) {
             const m = text.match(/(\d+)\s*kbps/i);
             return m ? parseInt(m[1], 10) : Infinity;
         };
-        const categoryOrder = ['Immersive', 'Lossless', 'AAC', 'MP3', 'OGG', 'Opus'];
+        const categoryOrder = ['Lossless', 'MP3', 'OGG', 'Opus'];
         allOptions.sort((a, b) => {
-            if (a.category === b.category && (a.category === 'Immersive' || a.category === 'Lossless')) return 0;
+            if (a.category === b.category && a.category === 'Lossless') return 0;
             const ai = categoryOrder.indexOf(a.category);
             const bi = categoryOrder.indexOf(b.category);
             const categoryDiff = (ai === -1 ? categoryOrder.length : ai) - (bi === -1 ? categoryOrder.length : bi);
@@ -1078,21 +330,9 @@ export async function initializeSettings(scrobbler, player, api, ui) {
 
         downloadQualitySetting.value = downloadQualitySettings.getQuality();
 
-        const sourcesDescription = document.getElementById('download-quality-sources');
-        const updateDownloadQualityDetails = () => {
-            const sources = downloadQualitySetting.selectedOptions?.[0]?.dataset.sources;
-            if (sourcesDescription) {
-                sourcesDescription.textContent = sources
-                    ? `Supported sources: ${sources}`
-                    : 'Quality for track downloads';
-            }
-        };
-        updateDownloadQualityDetails();
-
         downloadQualitySetting.addEventListener('change', (e) => {
             downloadQualitySettings.setQuality(e.target.value);
             updateLosslessContainerVisibility();
-            updateDownloadQualityDetails();
         });
     }
 
@@ -3382,13 +2622,14 @@ export async function initializeSettings(scrobbler, player, api, ui) {
     const autoeqDatabaseCollapse = document.getElementById('autoeq-database-collapse');
     const autoeqDatabaseBody = document.getElementById('autoeq-database-body');
     if (autoeqDatabaseToggle) {
-        autoeqDatabaseToggle.addEventListener('click', () => {
+        autoeqDatabaseToggle.addEventListener('click', async () => {
             if (autoeqDatabaseCollapse) autoeqDatabaseCollapse.classList.toggle('collapsed');
             if (autoeqDatabaseBody)
                 autoeqDatabaseBody.style.display = autoeqDatabaseBody.style.display === 'none' ? '' : 'none';
             if (autoeqDatabaseCollapse) {
                 const isExpanded = !autoeqDatabaseCollapse.classList.contains('collapsed');
                 autoeqDatabaseCollapse.setAttribute('aria-expanded', String(isExpanded));
+                if (isExpanded && _autoeqIndex.length === 0) await loadFullDatabase();
             }
         });
     }
@@ -5721,10 +4962,8 @@ export async function initializeSettings(scrobbler, player, api, ui) {
     if (initPresetRow) initPresetRow.style.display = 'none';
     if (initParaProfiles) initParaProfiles.style.display = 'none';
 
-    // Auto-load headphone database
-    await loadFullDatabase();
-
-    // Auto-load default popular headphone if no saved profile is active
+    // Restore only local AutoEQ state on startup. The third-party measurement
+    // database is loaded after the user explicitly opens it.
     const activeProfileId = equalizerSettings.getActiveAutoEQProfile();
     if (!activeProfileId) {
         // Try restoring last selected headphone (persisted measurement + entry)
@@ -5744,8 +4983,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
             }
             if (autoeqRunBtn) autoeqRunBtn.disabled = false;
             requestAnimationFrame(drawAutoEQGraph);
-        } else if (POPULAR_HEADPHONES.length > 0) {
-            await loadHeadphoneEntry(POPULAR_HEADPHONES[0]);
         }
     }
 
@@ -6329,50 +5566,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
-    const showEditorsPicksToggle = document.getElementById('show-editors-picks-toggle');
-    if (showEditorsPicksToggle) {
-        showEditorsPicksToggle.checked = homePageSettings.shouldShowEditorsPicks();
-        showEditorsPicksToggle.addEventListener('change', (e) => {
-            homePageSettings.setShowEditorsPicks(e.target.checked);
-        });
-    }
-
-    const shuffleEditorsPicksToggle = document.getElementById('shuffle-editors-picks-toggle');
-    if (shuffleEditorsPicksToggle) {
-        shuffleEditorsPicksToggle.checked = homePageSettings.shouldShuffleEditorsPicks();
-        shuffleEditorsPicksToggle.addEventListener('change', (e) => {
-            homePageSettings.setShuffleEditorsPicks(e.target.checked);
-        });
-    }
-
-    const editorsPicksSourceSelect = document.getElementById('editors-picks-source-select');
-    if (editorsPicksSourceSelect) {
-        async function populateEditorsPicksSource() {
-            try {
-                const response = await fetch('/editors-picks-old/index.json');
-                if (response.ok) {
-                    const oldPicks = await response.json();
-                    oldPicks.forEach((pick) => {
-                        const option = document.createElement('option');
-                        option.value = pick.file;
-                        option.textContent = pick.label;
-                        editorsPicksSourceSelect.appendChild(option);
-                    });
-                }
-            } catch (e) {
-                console.warn('Could not load editors-picks-old index:', e);
-            }
-            const currentSource = homePageSettings.getEditorsPicksSource();
-            editorsPicksSourceSelect.value = currentSource;
-        }
-        await populateEditorsPicksSource();
-
-        editorsPicksSourceSelect.addEventListener('change', (e) => {
-            homePageSettings.setEditorsPicksSource(e.target.value);
-            window.dispatchEvent(new CustomEvent('refresh-home-editors-picks'));
-        });
-    }
-
     // Sidebar Section Toggles
     const sidebarShowHomeToggle = document.getElementById('sidebar-show-home-toggle');
     if (sidebarShowHomeToggle) {
@@ -6613,75 +5806,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
-    // API settings
-    document.getElementById('refresh-speed-test-btn')?.addEventListener('click', async () => {
-        const btn = document.getElementById('refresh-speed-test-btn');
-        const originalText = btn.textContent;
-        btn.textContent = 'Testing...';
-        btn.disabled = true;
-
-        try {
-            await api.settings.refreshInstances();
-            ui.renderApiSettings();
-            btn.textContent = 'Done!';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }, 1500);
-        } catch (error) {
-            console.error('Failed to refresh speed tests:', error);
-            btn.textContent = 'Error';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }, 1500);
-        }
-    });
-
-    document.getElementById('api-instance-list')?.addEventListener('click', async (e) => {
-        const button = e.target.closest('button');
-        if (!button) return;
-
-        const li = button.closest('li');
-        const type = button.dataset.type || li?.dataset.type || 'api';
-
-        if (button.classList.contains('add-instance')) {
-            const url = prompt(`Enter custom ${type.toUpperCase()} instance URL (e.g. https://my-instance.com):`);
-            if (url && url.trim()) {
-                let formattedUrl = url.trim();
-                if (!formattedUrl.startsWith('http')) {
-                    formattedUrl = 'https://' + formattedUrl;
-                }
-                api.settings.addUserInstance(type, formattedUrl);
-                ui.renderApiSettings();
-            }
-            return;
-        }
-
-        if (button.classList.contains('delete-instance')) {
-            const url = li.dataset.url;
-            if (url && confirm(`Delete custom instance ${url}?`)) {
-                api.settings.removeUserInstance(type, url);
-                ui.renderApiSettings();
-            }
-            return;
-        }
-
-        const index = parseInt(li?.dataset.index, 10);
-        if (isNaN(index)) return;
-
-        const instances = await api.settings.getInstances(type);
-
-        if (button.classList.contains('move-up') && index > 0) {
-            [instances[index], instances[index - 1]] = [instances[index - 1], instances[index]];
-        } else if (button.classList.contains('move-down') && index < instances.length - 1) {
-            [instances[index], instances[index + 1]] = [instances[index + 1], instances[index]];
-        }
-
-        api.settings.saveInstances(instances, type);
-        ui.renderApiSettings();
-    });
-
     document.getElementById('clear-cache-btn')?.addEventListener('click', async () => {
         const btn = document.getElementById('clear-cache-btn');
         const originalText = btn.textContent;
@@ -6694,9 +5818,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
             setTimeout(() => {
                 btn.textContent = originalText;
                 btn.disabled = false;
-                if (window.location.hash.includes('settings')) {
-                    ui.renderApiSettings();
-                }
             }, 1500);
         } catch (error) {
             console.error('Failed to clear cache:', error);
@@ -6765,7 +5886,7 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `monochrome-settings-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `navichrome-settings-${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
     });
@@ -6799,95 +5920,6 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         reader.readAsText(file);
     });
 
-    const customDbBtn = document.getElementById('custom-db-btn');
-    const customDbModal = document.getElementById('custom-db-modal');
-    const customPbUrlInput = document.getElementById('custom-pb-url');
-    const customAppwriteEndpointInput = document.getElementById('custom-appwrite-endpoint');
-    const customAppwriteProjectInput = document.getElementById('custom-appwrite-project');
-    const customDbSaveBtn = document.getElementById('custom-db-save');
-    const customDbResetBtn = document.getElementById('custom-db-reset');
-    const customDbCancelBtn = document.getElementById('custom-db-cancel');
-
-    if (customDbBtn && customDbModal) {
-        const appwriteFromEnv = !!(window.__APPWRITE_ENDPOINT__ || window.__APPWRITE_PROJECT_ID__);
-        const pbFromEnv = !!window.__POCKETBASE_URL__;
-
-        // Hide entire setting if both are server-configured
-        if (appwriteFromEnv && pbFromEnv) {
-            const settingItem = customDbBtn.closest('.setting-item');
-            if (settingItem) settingItem.style.display = 'none';
-        }
-
-        // Hide individual fields in the modal
-        if (pbFromEnv && customPbUrlInput) customPbUrlInput.closest('div[style]').style.display = 'none';
-        if (appwriteFromEnv) {
-            if (customAppwriteEndpointInput) customAppwriteEndpointInput.closest('div[style]').style.display = 'none';
-            if (customAppwriteProjectInput) customAppwriteProjectInput.closest('div[style]').style.display = 'none';
-        }
-
-        customDbBtn.addEventListener('click', () => {
-            const pbUrl = localStorage.getItem('monochrome-pocketbase-url') || '';
-            const appwriteEndpoint = localStorage.getItem('monochrome-appwrite-endpoint') || '';
-            const appwriteProject = localStorage.getItem('monochrome-appwrite-project') || '';
-
-            if (!pbFromEnv && customPbUrlInput) customPbUrlInput.value = pbUrl;
-            if (!appwriteFromEnv) {
-                if (customAppwriteEndpointInput) customAppwriteEndpointInput.value = appwriteEndpoint;
-                if (customAppwriteProjectInput) customAppwriteProjectInput.value = appwriteProject;
-            }
-
-            customDbModal.classList.add('active');
-        });
-
-        const closeCustomDbModal = () => {
-            customDbModal.classList.remove('active');
-        };
-
-        customDbCancelBtn.addEventListener('click', closeCustomDbModal);
-        customDbModal.querySelector('.modal-overlay').addEventListener('click', closeCustomDbModal);
-
-        customDbSaveBtn.addEventListener('click', () => {
-            if (!pbFromEnv && customPbUrlInput) {
-                const pbUrl = customPbUrlInput.value.trim();
-                if (pbUrl) {
-                    localStorage.setItem('monochrome-pocketbase-url', pbUrl);
-                } else {
-                    localStorage.removeItem('monochrome-pocketbase-url');
-                }
-            }
-
-            if (!appwriteFromEnv) {
-                const endpoint = customAppwriteEndpointInput?.value.trim();
-                const project = customAppwriteProjectInput?.value.trim();
-
-                if (endpoint) {
-                    localStorage.setItem('monochrome-appwrite-endpoint', endpoint);
-                } else {
-                    localStorage.removeItem('monochrome-appwrite-endpoint');
-                }
-
-                if (project) {
-                    localStorage.setItem('monochrome-appwrite-project', project);
-                } else {
-                    localStorage.removeItem('monochrome-appwrite-project');
-                }
-            }
-
-            alert('Settings saved. Reloading...');
-            window.location.reload();
-        });
-
-        customDbResetBtn.addEventListener('click', () => {
-            if (confirm('Reset custom database settings to default?')) {
-                localStorage.removeItem('monochrome-pocketbase-url');
-                localStorage.removeItem('monochrome-appwrite-endpoint');
-                localStorage.removeItem('monochrome-appwrite-project');
-                alert('Settings reset. Reloading...');
-                window.location.reload();
-            }
-        });
-    }
-
     // PWA Auto-Update Toggle
     const pwaAutoUpdateToggle = document.getElementById('pwa-auto-update-toggle');
     if (pwaAutoUpdateToggle) {
@@ -6897,22 +5929,13 @@ export async function initializeSettings(scrobbler, player, api, ui) {
         });
     }
 
-    // Analytics Toggle
-    const analyticsToggle = document.getElementById('analytics-toggle');
-    if (analyticsToggle) {
-        analyticsToggle.checked = analyticsSettings.isEnabled();
-        analyticsToggle.addEventListener('change', (e) => {
-            analyticsSettings.setEnabled(e.target.checked);
-        });
-    }
-
     // Reset Local Data Button
     const resetLocalDataBtn = document.getElementById('reset-local-data-btn');
     if (resetLocalDataBtn) {
         resetLocalDataBtn.addEventListener('click', async () => {
             if (
                 confirm(
-                    'WARNING: This will clear all local data including settings, cache, and library.\n\nAre you sure you want to continue?\n\n(Cloud-synced data will not be affected)'
+                    "WARNING: This clears this device's Navichrome settings, cached artwork, queue and stored Navidrome credentials.\n\nAre you sure you want to continue?"
                 )
             ) {
                 try {

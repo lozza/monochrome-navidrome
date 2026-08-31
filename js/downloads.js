@@ -1094,9 +1094,6 @@ export async function downloadTrackWithMetadata(
         return;
     }
 
-    /** @type {LosslessAPI} */
-    const tidalAPI = api.tidalAPI || api;
-
     const downloadKey = `track-${track.id}`;
     if (ongoingDownloads.has(downloadKey)) {
         showNotification('This track is already being downloaded');
@@ -1110,7 +1107,7 @@ export async function downloadTrackWithMetadata(
 
     let enriched;
     try {
-        enriched = await tidalAPI.enrichTrack(track, { downloadQuality: quality });
+        enriched = await api.enrichTrack(track, { downloadQuality: quality });
     } catch (error) {
         ongoingDownloads.delete(downloadKey);
         const title = track?.title || track?.name || 'this track';

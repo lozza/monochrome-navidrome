@@ -412,8 +412,8 @@ class CommandPalette {
                 id: 'theme-black',
                 group: 'Theme',
                 icon: 'moon',
-                label: 'Theme: Monochrome',
-                keywords: ['theme', 'monochrome', 'black', 'dark', 'amoled'],
+                label: 'Theme: Black',
+                keywords: ['theme', 'black', 'dark', 'amoled'],
                 action: () => this.setTheme('monochrome'),
             },
             {
@@ -488,17 +488,6 @@ class CommandPalette {
                 keywords: ['theme', 'latte', 'catppuccin', 'light'],
                 action: () => this.setTheme('latte'),
             },
-            {
-                id: 'theme-store',
-                group: 'Theme',
-                icon: 'store',
-                label: 'Open Theme Store',
-                keywords: ['theme', 'store', 'browse', 'community', 'custom'],
-                action: () => {
-                    document.getElementById('open-theme-store')?.click();
-                },
-            },
-
             {
                 id: 'quality-auto',
                 group: 'Audio',
@@ -1206,7 +1195,7 @@ class CommandPalette {
         }
 
         const { handleTrackAction } = await import('./events.js');
-        const scrobbler = window.monochromeScrobbler;
+        const scrobbler = window.navichromeScrobbler;
 
         let likedCount = 0;
         await this.notify('Liking all tracks in queue...');

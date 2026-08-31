@@ -1,15 +1,26 @@
 import { createPlaceholder, trackDataStore } from './utils.js';
 
-const SINGLES_CACHE_VERSION = 6;
+const SINGLES_CACHE_VERSION = 7;
 const SINGLES_CACHE_TTL = 24 * 60 * 60 * 1000;
 const SINGLES_CACHE_STALE_TTL = 7 * 24 * 60 * 60 * 1000;
-const TRACK_SCAN_PAGE_SIZE = 2500;
+const TRACK_SCAN_PAGE_SIZE = 1000;
 const INITIAL_RENDER_SIZE = 80;
-const RENDER_CHUNK_SIZE = 100;
+const RENDER_CHUNK_SIZE = 200;
+const PERSISTED_CACHE_TRACK_LIMIT = 1500;
+const PERSISTED_CACHE_CHARACTER_LIMIT = 1_500_000;
+
+export const SINGLES_PERFORMANCE_LIMITS = Object.freeze({
+    scanPageSize: TRACK_SCAN_PAGE_SIZE,
+    initialRenderSize: INITIAL_RENDER_SIZE,
+    renderChunkSize: RENDER_CHUNK_SIZE,
+    persistedTrackLimit: PERSISTED_CACHE_TRACK_LIMIT,
+    persistedCharacterLimit: PERSISTED_CACHE_CHARACTER_LIMIT,
+});
 
 let refreshPromise = null;
 let activeRenderGeneration = 0;
 let favoriteTrackIdsPromise = null;
+let sessionCatalogue = null;
 
 function getSinglesCacheKey(ui) {
     const api = ui?.api?.getAPI?.();
@@ -28,7 +39,14 @@ function compactArtist(artist) {
     };
 }
 
-function compactTrackForCache(track) {
+function compactArtworkReference(value) {
+    const artwork = String(value || '');
+    if (!artwork) return null;
+    if (/^(?:https?:)?\/\//i.test(artwork) || /[?&](?:p|t|s|u|password|token|credential)=/i.test(artwork)) return null;
+    return artwork;
+}
+
+export function compactTrackForCache(track) {
     const artist = compactArtist(track?.artist);
     const albumArtist = compactArtist(track?.album?.artist || track?.artist);
     const album = track?.album
@@ -36,7 +54,7 @@ function compactTrackForCache(track) {
               id: String(track.album.id || ''),
               title: track.album.title || track.album.name || 'Unknown Album',
               name: track.album.name || track.album.title || 'Unknown Album',
-              cover: track.album.cover || null,
+              cover: compactArtworkReference(track.album.cover),
               releaseDate: track.album.releaseDate || null,
               artist: albumArtist,
           }
@@ -89,26 +107,41 @@ function readSinglesCache(ui) {
         return {
             tracks: cached.tracks,
             fresh: age <= SINGLES_CACHE_TTL,
+            complete: cached.complete === true && cached.totalTracks === cached.tracks.length,
+            totalTracks: Number(cached.totalTracks) || cached.tracks.length,
         };
     } catch {
         return null;
     }
 }
 
-function writeSinglesCache(ui, tracks) {
-    // Snapshot before rendering can replace cover IDs with authenticated image
-    // URLs. The cache should stay small and contain stable Navidrome metadata.
-    const cachedTracks = tracks.map(compactTrackForCache);
+export function createPersistedSinglesCache(tracks, savedAt = Date.now()) {
+    let cachedTracks = tracks.slice(0, PERSISTED_CACHE_TRACK_LIMIT).map(compactTrackForCache);
+    let payload = {
+        savedAt,
+        totalTracks: tracks.length,
+        complete: cachedTracks.length === tracks.length,
+        tracks: cachedTracks,
+    };
+    let serialized = JSON.stringify(payload);
 
+    while (serialized.length > PERSISTED_CACHE_CHARACTER_LIMIT && cachedTracks.length > 100) {
+        cachedTracks = cachedTracks.slice(0, Math.max(100, Math.floor(cachedTracks.length * 0.8)));
+        payload = { ...payload, complete: false, tracks: cachedTracks };
+        serialized = JSON.stringify(payload);
+    }
+
+    return { payload, serialized };
+}
+
+function writeSinglesCache(ui, tracks) {
     const write = () => {
         try {
-            localStorage.setItem(
-                getSinglesCacheKey(ui),
-                JSON.stringify({
-                    savedAt: Date.now(),
-                    tracks: cachedTracks,
-                })
-            );
+            // Snapshot during idle time so a large catalogue cannot delay the
+            // first visible rows. Persist only a bounded alphabetical prefix;
+            // the complete sorted catalogue remains in session memory.
+            const { serialized } = createPersistedSinglesCache(tracks);
+            localStorage.setItem(getSinglesCacheKey(ui), serialized);
         } catch (error) {
             console.warn('Could not cache Singles:', error);
         }
@@ -123,7 +156,7 @@ function writeSinglesCache(ui, tracks) {
     }
 }
 
-function dedupeAndSortTracks(tracks) {
+export function dedupeAndSortTracks(tracks) {
     const seen = new Set();
 
     return tracks
@@ -167,9 +200,10 @@ async function fetchAllTracks(ui, pageSize = TRACK_SCAN_PAGE_SIZE) {
         if (songs.length < pageSize) break;
         offset += songs.length;
 
-        // Give Safari/iOS a chance to paint and handle input between large
-        // Navidrome result pages.
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        // Give Safari/iOS a full frame to paint and handle input between large
+        // Navidrome result pages. A zero-delay timer alone can still starve
+        // rendering when a local server returns pages immediately.
+        await yieldToBrowser();
     }
 
     return dedupeAndSortTracks(tracks);
@@ -180,6 +214,7 @@ async function refreshSingles(ui) {
 
     refreshPromise = fetchAllTracks(ui)
         .then((tracks) => {
+            sessionCatalogue = { key: getSinglesCacheKey(ui), tracks };
             writeSinglesCache(ui, tracks);
             return tracks;
         })
@@ -311,9 +346,15 @@ function renderTracksProgressively(ui, container, tracks) {
 }
 
 export async function prepareLibrarySingles(ui) {
+    const cacheKey = getSinglesCacheKey(ui);
+    if (sessionCatalogue?.key === cacheKey) {
+        return { tracks: sessionCatalogue.tracks, fromCache: true, stale: false, error: null };
+    }
+
     const cached = readSinglesCache(ui);
 
-    if (cached?.fresh) {
+    if (cached?.fresh && cached.complete) {
+        sessionCatalogue = { key: cacheKey, tracks: cached.tracks };
         return { tracks: cached.tracks, fromCache: true, stale: false, error: null };
     }
 
@@ -362,17 +403,21 @@ export async function renderLibrarySingles(ui, prepared = null) {
 
     // Render enough rows to make the tab usable immediately, then finish the
     // rest in small chunks without monopolising Safari's main thread.
-    renderTracksProgressively(ui, container, tracks);
+    void renderTracksProgressively(ui, container, tracks);
 
     if (result?.completePromise) {
-        result.completePromise.then((completeTracks) => {
-            if (!Array.isArray(completeTracks) || !completeTracks.length) return;
+        void result.completePromise
+            .then((completeTracks) => {
+                if (!Array.isArray(completeTracks) || !completeTracks.length) return;
 
-            const currentIds = tracks.map((track) => String(track.id)).join('|');
-            const completeIds = completeTracks.map((track) => String(track.id)).join('|');
-            if (currentIds === completeIds) return;
+                const currentIds = tracks.map((track) => String(track.id)).join('|');
+                const completeIds = completeTracks.map((track) => String(track.id)).join('|');
+                if (currentIds === completeIds) return;
 
-            renderTracksProgressively(ui, container, completeTracks);
-        });
+                void renderTracksProgressively(ui, container, completeTracks);
+            })
+            .catch((error) => {
+                console.warn('Could not finish loading the Singles catalogue:', error);
+            });
     }
 }

@@ -4,6 +4,24 @@ server {
 
     root /usr/share/nginx/html;
     index index.html;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    # Revalidate the app shell and service worker so stale PWA code cannot
+    # survive a deployment. Fingerprinted assets remain cacheable.
+    location = /index.html {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+        try_files $uri =404;
+    }
+
+    location = /sw.js {
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+        try_files $uri =404;
+    }
 
     # Same-origin bridge to Navidrome. This avoids browser CORS restrictions
     # and keeps large audio responses streaming instead of buffering in nginx.
@@ -23,6 +41,8 @@ server {
     }
 
     location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
         try_files $uri $uri/ /index.html;
     }
 }

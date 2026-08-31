@@ -71,13 +71,8 @@ export function prepareNavidromePlaylistsLayout(ui) {
 }
 
 export function promoteNavidromePlaylists() {
-    const {
-        navidromeTab,
-        navidromeTabContent,
-        navidromeContainer,
-        myPlaylistsContainer,
-        myFoldersContainer,
-    } = getLibraryPlaylistElements();
+    const { navidromeTab, navidromeTabContent, navidromeContainer, myPlaylistsContainer, myFoldersContainer } =
+        getLibraryPlaylistElements();
 
     navidromeTab?.remove();
     if (myFoldersContainer) {

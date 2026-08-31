@@ -125,8 +125,8 @@ export async function addMetadataWithTagLib(
                                 worker.onmessageerror = reject;
 
                                 const transferables: Transferable[] = [];
-                                if ((audioData as Uint8Array)?.buffer instanceof ArrayBuffer) {
-                                    transferables.push((audioData as Uint8Array).buffer);
+                                if (audioData?.buffer instanceof ArrayBuffer) {
+                                    transferables.push(audioData.buffer);
                                 }
 
                                 if (data.cover?.data?.buffer instanceof ArrayBuffer) {

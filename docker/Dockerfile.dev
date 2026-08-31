@@ -5,10 +5,10 @@ FROM node:lts-alpine
 WORKDIR /app
 
 # Copy package files first for caching
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --no-audit --no-fund
 
 # Expose Vite dev server port
 EXPOSE 5173

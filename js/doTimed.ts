@@ -40,7 +40,7 @@ export function doTimedAsync<T, R = T extends Promise<T> ? Promise<T> : T>(
                             reject(new Error(String(err)));
                         }
                     } else {
-                        resolve(undefined as R);
+                        resolve(undefined);
                     }
                 } finally {
                     console.timeEnd(message + hiddenId);

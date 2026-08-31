@@ -1,8 +1,6 @@
 // js/music-api.js
 
 import { NavidromeAPI } from './navidrome-api.js';
-import { PodcastsAPI } from './podcasts-api.js';
-import { getCommunityPlaylist } from './community-playlists.js';
 
 /**
  * MusicAPI - Singleton class that provides a unified interface for accessing music streaming services.
@@ -31,7 +29,6 @@ import { getCommunityPlaylist } from './community-playlists.js';
  * const streamUrl = await api.getStreamUrl('track-id', 'HIGH');
  *
  * @property {NavidromeAPI} navidromeAPI - The Navidrome API instance
- * @property {PodcastsAPI} podcastsAPI - The Podcasts API instance
  * @property {Object} _settings - Configuration settings
  * @property {Map} videoArtworkCache - Cache for video artwork data
  *
@@ -53,10 +50,6 @@ export class MusicAPI {
     /** @private */
     constructor(settings) {
         this.navidromeAPI = new NavidromeAPI();
-        // Temporary compatibility alias for the few older UI call sites that
-        // still use the historical property name.
-        this.tidalAPI = this.navidromeAPI;
-        this.podcastsAPI = new PodcastsAPI();
         this._settings = settings;
         this.videoArtworkCache = new Map();
     }
@@ -94,8 +87,23 @@ export class MusicAPI {
         return this.getAPI().scrobble(id, submission);
     }
 
+    async getLyrics(id) {
+        return this.getAPI().getLyricsBySongId?.(this.stripProviderPrefix(id));
+    }
+
     async getArtists() {
         return this.getAPI().getArtists();
+    }
+
+    async enrichArtistsWithPicture(artists) {
+        return this.getAPI().enrichArtistsWithPicture?.(artists) || artists;
+    }
+
+    async enrichTrack(track) {
+        const detailed = await this.getAPI()
+            .getTrackMetadata(this.stripProviderPrefix(track.id))
+            .catch(() => null);
+        return { enrichedTrack: detailed ? { ...track, ...detailed } : track };
     }
 
     async getPlaylists() {
@@ -152,22 +160,6 @@ export class MusicAPI {
         return this.getAPI().searchVideos(query, options);
     }
 
-    async searchPodcasts(query, options = {}) {
-        return this.podcastsAPI.searchPodcasts(query, options);
-    }
-
-    async getPodcast(id, options = {}) {
-        return this.podcastsAPI.getPodcastById(id, options);
-    }
-
-    async getPodcastEpisodes(id, options = {}) {
-        return this.podcastsAPI.getPodcastEpisodes(id, options);
-    }
-
-    async getTrendingPodcasts(options = {}) {
-        return this.podcastsAPI.getTrendingPodcasts(options);
-    }
-
     // Get methods
     async getTrack(id, quality) {
         const api = this.getAPI();
@@ -221,10 +213,6 @@ export class MusicAPI {
     }
 
     async getPlaylist(id, _provider = null) {
-        if (id?.startsWith('VL')) {
-            return getCommunityPlaylist(id);
-        }
-
         return this.getAPI().getPlaylist(id);
     }
 
@@ -260,10 +248,6 @@ export class MusicAPI {
         return this.getAPI().usesSingleUsePlaybackUrls?.() === true;
     }
 
-    clearMonochromePlaybackSession() {
-        this.getAPI().clearMonochromePlaybackSession?.();
-    }
-
     // Cover/artwork methods
     getCoverUrl(id, size = '320') {
         if (typeof id === 'string' && id.startsWith('blob:')) {
@@ -290,29 +274,9 @@ export class MusicAPI {
     }
 
     async getVideoArtwork(title, artist) {
-        const cacheKey = `${title}-${artist}`.toLowerCase();
-        if (this.videoArtworkCache.has(cacheKey)) {
-            return this.videoArtworkCache.get(cacheKey);
-        }
-        // artwork.boidu.dev developer asked us to disable his API for the time being due to rate limits.
-        /* 
-        try {
-            const url = `https://artwork.boidu.dev/?s=${encodeURIComponent(title)}&a=${encodeURIComponent(artist)}`;
-            const response = await fetch(url);
-            if (!response.ok) return null;
-            const data = await response.json();
-            const result = {
-                videoUrl: data.videoUrl || null,
-                hlsUrl: data.animated || null,
-            };
-            this.videoArtworkCache.set(cacheKey, result);
-            return result;
-        
-        } catch (error) {
-            console.warn('Failed to fetch video artwork:', error);
-            return null;
-        }
-        */
+        void title;
+        void artist;
+        return null;
     }
 
     getArtistPictureUrl(id, size = '320') {
@@ -334,18 +298,11 @@ export class MusicAPI {
 
     // Helper methods
     getProviderFromId(id) {
-        if (typeof id === 'string') {
-            if (id.startsWith('t:')) return 'tidal';
-        }
+        void id;
         return null;
     }
 
     stripProviderPrefix(id) {
-        if (typeof id === 'string') {
-            if (id.startsWith('q:') || id.startsWith('t:')) {
-                return id.slice(2);
-            }
-        }
         return id;
     }
 
