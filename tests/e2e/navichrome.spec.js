@@ -77,7 +77,10 @@ test('playback starts and next/previous move through the server-backed queue', a
     await waitForReady(page);
     const firstTrack = page.locator('#playlist-detail-tracklist [data-track-id="track-1"]');
     await expect(firstTrack).toBeVisible();
-    await firstTrack.locator('.track-item-details .title').click();
+    const playPlaylist = page.locator('#play-playlist-btn');
+    await expect(playPlaylist).toBeVisible();
+    await expect(playPlaylist).toBeEnabled();
+    await playPlaylist.click();
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
 
     await page.locator('#next-btn').click();
