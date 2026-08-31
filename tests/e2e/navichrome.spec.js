@@ -31,13 +31,30 @@ test('login succeeds, bad credentials fail, and sign-out removes stored credenti
     await expect.poll(() => page.evaluate(() => localStorage.getItem('navidrome-username'))).toBeNull();
 });
 
-test('home, library, albums, artists, starred tracks, playlists and search render server data', async ({ page }) => {
+test('home, library, albums, artists, starred tracks, playlists and search render server data', async ({
+    page,
+}, testInfo) => {
     await installNavidromeMock(page);
     await page.goto('/');
     await waitForReady(page);
 
     await expect(page.locator('#page-home')).toHaveClass(/active/);
     await expect(page.locator('#page-home [data-album-id="album-1"]')).toBeVisible();
+
+    if (testInfo.project.name === 'mobile-chromium') {
+        const radioButton = page.locator('#home-start-infinite-radio-btn');
+        const recommendedTracks = page.locator('#home-recommended-songs');
+        await expect(radioButton).toBeVisible();
+        await expect(recommendedTracks).toBeVisible();
+        const spacing = await page.evaluate(() => {
+            const button = document.getElementById('home-start-infinite-radio-btn')?.getBoundingClientRect();
+            const trackList = document.getElementById('home-recommended-songs')?.getBoundingClientRect();
+            return button && trackList ? { buttonHeight: button.height, gap: trackList.top - button.bottom } : null;
+        });
+        expect(spacing).not.toBeNull();
+        expect(spacing.buttonHeight).toBeLessThanOrEqual(32);
+        expect(spacing.gap).toBeGreaterThanOrEqual(12);
+    }
 
     await page.goto('/library');
     await waitForReady(page);
@@ -191,7 +208,7 @@ test('large Singles remains progressive, bounded and stable when reopened', asyn
     await expect(page.locator('.singles-alpha-index')).toBeVisible();
 });
 
-test('Singles alphabet index jumps to exact letters and returns to the top', async ({ page }) => {
+test('Singles alphabet index jumps to exact letters and returns to the top', async ({ page }, testInfo) => {
     await installNavidromeMock(page, { alphabetSinglesCountPerLetter: 24 });
     await page.goto('/library');
     await waitForReady(page);
@@ -203,6 +220,10 @@ test('Singles alphabet index jumps to exact letters and returns to the top', asy
     const prefixedRow = page.locator('#library-singles-container [data-track-id="alphabet-other-0"]');
     await expect(rows.nth(0)).toHaveAttribute('data-track-id', 'alphabet-other-0');
     await expect(rows.nth(2)).toHaveAttribute('data-track-id', 'alphabet-A-0');
+    if (testInfo.project.name === 'mobile-chromium') {
+        const touchLane = await page.locator('.singles-alpha-index').boundingBox();
+        expect(touchLane?.width).toBeGreaterThanOrEqual(32);
+    }
     await page.getByRole('button', { name: 'Jump to 0' }).click();
     await expect.poll(() => prefixedRow.evaluate((row) => row.getBoundingClientRect().top)).toBeLessThan(180);
 

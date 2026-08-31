@@ -20,6 +20,8 @@ All notable changes to Navichrome are documented here.
   devices, and shows a back-to-top button after scrolling. The index waits for the complete catalogue instead of
   briefly showing letters from the compact cache, and title sorting reuses one natural-sort collator to avoid the
   initial performance regression
+- Tightened the Start Infinite Radio button on mobile and restored clear spacing before the first recommended track
+- Widened the Singles alphabet touch lane on mobile and kept scrubbing responsive across unavailable letters
 - PWA navigation and media use network-safe strategies while versioned application caches are replaced on update
 - CI uses `npm ci`, read-only formatting/lint checks, deterministic browser tests, a production build, and the bundle
   audit

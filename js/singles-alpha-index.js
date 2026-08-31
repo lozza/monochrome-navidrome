@@ -58,7 +58,7 @@ function injectStyles() {
             outline: none;
         }
 
-        .singles-alpha-index button:disabled {
+        .singles-alpha-index button.is-unavailable {
             color: var(--text-secondary, #777);
             opacity: 0.25;
             cursor: default;
@@ -93,13 +93,13 @@ function injectStyles() {
 
         @media (max-width: 768px) {
             #library-tab-singles {
-                padding-right: 22px;
+                padding-right: 36px;
             }
 
             .singles-alpha-index {
                 top: 50%;
                 right: max(1px, env(safe-area-inset-right));
-                width: 20px;
+                width: 36px;
                 height: min(78dvh, 610px);
                 max-height: calc(100dvh - 132px);
                 padding: 3px 0;
@@ -134,7 +134,7 @@ function injectStyles() {
                 transform: scale(1.22);
             }
 
-            .singles-alpha-letters button:disabled {
+            .singles-alpha-letters button.is-unavailable {
                 opacity: 0.18;
             }
 
@@ -349,7 +349,9 @@ export function enhanceSinglesAlphabetIndex() {
         button.type = 'button';
         button.textContent = letter;
         button.dataset.letter = letter;
-        button.disabled = !target;
+        button.classList.toggle('is-unavailable', !target);
+        button.setAttribute('aria-disabled', String(!target));
+        if (!target) button.tabIndex = -1;
         button.setAttribute('aria-label', target ? `Jump to ${letter}` : `No tracks beginning with ${letter}`);
 
         if (target) {
