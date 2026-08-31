@@ -1,5 +1,10 @@
 export const SINGLES_ALPHA_GROUPS = ['0', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
+const singlesTitleCollator = new Intl.Collator(undefined, {
+    sensitivity: 'base',
+    numeric: true,
+});
+
 export function getSinglesAlphaKey(title) {
     const normalized = String(title || '')
         .normalize('NFD')
@@ -21,8 +26,5 @@ export function compareSinglesTitles(left, right) {
         return leftGroup.localeCompare(rightGroup);
     }
 
-    return leftTitle.localeCompare(rightTitle, undefined, {
-        sensitivity: 'base',
-        numeric: true,
-    });
+    return singlesTitleCollator.compare(leftTitle, rightTitle);
 }

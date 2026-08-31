@@ -310,11 +310,19 @@ function yieldToBrowser() {
     });
 }
 
-function renderTracksProgressively(ui, container, tracks) {
+function clearSinglesAlphabetIndex() {
+    const singlesTab = document.getElementById('library-tab-singles');
+    singlesTab?._navichromeAlphabetController?.abort();
+    singlesTab?.querySelector('.singles-alpha-index')?.remove();
+    singlesTab?.querySelector('.singles-alpha-bubble')?.remove();
+}
+
+function renderTracksProgressively(ui, container, tracks, showAlphabetIndex = true) {
     const generation = ++activeRenderGeneration;
     const renderedArtwork = collectRenderedAlbumArtwork();
     applyRenderedAlbumArtwork(tracks, renderedArtwork);
 
+    clearSinglesAlphabetIndex();
     container.innerHTML = '';
     const hasMultipleDiscs = tracks.some((track) => (track.volumeNumber || track.discNumber || 1) > 1);
     let offset = Math.min(INITIAL_RENDER_SIZE, tracks.length);
@@ -333,9 +341,11 @@ function renderTracksProgressively(ui, container, tracks) {
 
         if (generation !== activeRenderGeneration) return;
 
-        import('./singles-alpha-index.js')
-            .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
-            .catch(() => {});
+        if (showAlphabetIndex) {
+            import('./singles-alpha-index.js')
+                .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
+                .catch(() => {});
+        }
     })();
 
     return completionPromise;
@@ -399,7 +409,7 @@ export async function renderLibrarySingles(ui, prepared = null) {
 
     // Render enough rows to make the tab usable immediately, then finish the
     // rest in small chunks without monopolising Safari's main thread.
-    void renderTracksProgressively(ui, container, tracks);
+    const initialRender = renderTracksProgressively(ui, container, tracks, !result?.completePromise);
 
     if (result?.completePromise) {
         void result.completePromise
@@ -408,7 +418,14 @@ export async function renderLibrarySingles(ui, prepared = null) {
 
                 const currentIds = tracks.map((track) => String(track.id)).join('|');
                 const completeIds = completeTracks.map((track) => String(track.id)).join('|');
-                if (currentIds === completeIds) return;
+                if (currentIds === completeIds) {
+                    void initialRender.then(() => {
+                        import('./singles-alpha-index.js')
+                            .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
+                            .catch(() => {});
+                    });
+                    return;
+                }
 
                 void renderTracksProgressively(ui, container, completeTracks);
             })

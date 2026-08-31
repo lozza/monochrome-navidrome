@@ -178,6 +178,17 @@ test('large Singles remains progressive, bounded and stable when reopened', asyn
     await page.locator('#page-library .search-tab[data-tab="singles"]').click();
     await expect(rows).toHaveCount(10_000);
     expect(state.singlesPageRequests).toBe(requestsBeforeReopen);
+
+    state.singlesRequestDelayMs = 3_000;
+    await page.reload();
+    await waitForReady(page);
+    await page.locator('#page-library .search-tab[data-tab="singles"]').click();
+    await expect(rows).toHaveCount(1500);
+    await expect(page.locator('.singles-alpha-index')).toHaveCount(0);
+
+    state.singlesRequestDelayMs = 0;
+    await expect(rows).toHaveCount(10_000, { timeout: 45_000 });
+    await expect(page.locator('.singles-alpha-index')).toBeVisible();
 });
 
 test('Singles alphabet index jumps to exact letters and returns to the top', async ({ page }) => {

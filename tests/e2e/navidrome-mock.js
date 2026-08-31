@@ -66,7 +66,13 @@ function silentWav(seconds = 8) {
 }
 
 export async function installNavidromeMock(page, options = {}) {
-    const state = { singlesPageRequests: 0, scrobbles: [], rejectLogin: false, optionalRequests: [] };
+    const state = {
+        singlesPageRequests: 0,
+        singlesRequestDelayMs: 0,
+        scrobbles: [],
+        rejectLogin: false,
+        optionalRequests: [],
+    };
     const largeSinglesCount = options.largeSinglesCount || 0;
     const alphabetSinglesCountPerLetter = options.alphabetSinglesCountPerLetter || 0;
 
@@ -164,6 +170,9 @@ export async function installNavidromeMock(page, options = {}) {
             const query = url.searchParams.get('query');
             if (query === '""' && (largeSinglesCount || alphabetSinglesCountPerLetter)) {
                 state.singlesPageRequests += 1;
+                if (state.singlesRequestDelayMs > 0) {
+                    await new Promise((resolve) => setTimeout(resolve, state.singlesRequestDelayMs));
+                }
                 const offset = Number(url.searchParams.get('songOffset') || 0);
                 const count = Number(url.searchParams.get('songCount') || 1000);
                 const total = alphabetSinglesCountPerLetter
