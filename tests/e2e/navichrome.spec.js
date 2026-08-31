@@ -176,3 +176,35 @@ test('large Singles remains progressive, bounded and stable when reopened', asyn
     await expect(rows).toHaveCount(10_000);
     expect(state.singlesPageRequests).toBe(requestsBeforeReopen);
 });
+
+test('Singles alphabet index jumps to exact letters and returns to the top', async ({ page }) => {
+    await installNavidromeMock(page, { alphabetSinglesCountPerLetter: 24 });
+    await page.goto('/library');
+    await waitForReady(page);
+    await page.locator('#page-library .search-tab[data-tab="singles"]').click();
+
+    const rows = page.locator('#library-singles-container .track-item');
+    await expect(rows).toHaveCount(26 * 24);
+
+    const pRow = page.locator('#library-singles-container [data-track-id="alphabet-P-0"]');
+    const qRow = page.locator('#library-singles-container [data-track-id="alphabet-Q-0"]');
+    await page.getByRole('button', { name: 'Jump to P' }).click();
+    await expect.poll(() => pRow.evaluate((row) => row.getBoundingClientRect().top)).toBeLessThan(180);
+    await expect
+        .poll(() =>
+            page.evaluate(() => Math.max(window.scrollY || 0, document.querySelector('.main-content')?.scrollTop || 0))
+        )
+        .toBeGreaterThan(500);
+
+    await page.getByRole('button', { name: 'Jump to Q' }).click();
+    await expect.poll(() => qRow.evaluate((row) => row.getBoundingClientRect().top)).toBeLessThan(180);
+
+    const backToTop = page.getByRole('button', { name: 'Back to top' });
+    await expect(backToTop).toBeVisible();
+    await backToTop.click();
+    await expect
+        .poll(() =>
+            page.evaluate(() => Math.max(window.scrollY || 0, document.querySelector('.main-content')?.scrollTop || 0))
+        )
+        .toBeLessThan(10);
+});
