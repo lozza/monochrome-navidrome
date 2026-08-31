@@ -2,10 +2,13 @@ name: Run Tests
 
 on:
     push:
-        branches: ['*']
+        branches: [main]
     pull_request:
-        branches: ['*']
+        branches: [main]
     workflow_dispatch:
+
+permissions:
+    contents: read
 
 jobs:
     test:
@@ -21,10 +24,72 @@ jobs:
               uses: actions/setup-node@v6
               with:
                   node-version: '24'
-                  package-manager-cache: false
+                  cache: npm
 
             - name: Install dependencies
-              run: npm install --no-audit --no-fund
+              run: npm ci --no-audit --no-fund
 
             - name: Run Navidrome tests
               run: npm run test:navidrome
+
+            - name: Run core unit tests
+              run: npm run test:unit
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            - name: Build production application
+              run: npm run build
+
+            - name: Audit production bundle
+              run: npm run audit:bundle
+
+            - name: Run browser smoke tests
+              run: npx playwright test
+
+    docker-smoke:
+        runs-on: ubuntu-latest
+        env:
+            BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+            MONOCHROME_PORT: '3002'
+            NAVIDROME_URL: http://host.docker.internal:4533
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v6
+
+            - name: Validate the public Compose contract
+              run: |
+                  docker compose -f docker-compose.yml config --quiet
+                  docker compose -f docker-compose.yml config --format json > /tmp/navichrome-compose.json
+                  jq -e '.services["monochrome-navidrome"].image == "ghcr.io/lozza/monochrome-navidrome:latest"' /tmp/navichrome-compose.json
+                  jq -e '.services["monochrome-navidrome"].ports[0].published == "3002"' /tmp/navichrome-compose.json
+                  jq -e '.services["monochrome-navidrome"].ports[0].target == 4173' /tmp/navichrome-compose.json
+                  jq -e '.services["monochrome-navidrome"].environment.NAVIDROME_URL == "http://host.docker.internal:4533"' /tmp/navichrome-compose.json
+                  jq -e '.services["monochrome-navidrome"].extra_hosts[] == "host.docker.internal=host-gateway"' /tmp/navichrome-compose.json
+
+            - name: Build and start the production container
+              run: docker compose -f docker/docker-compose.yml up -d --build monochrome
+
+            - name: Verify health and the Navidrome proxy
+              run: |
+                  status='starting'
+                  for attempt in {1..30}; do
+                      status="$(docker inspect --format '{{.State.Health.Status}}' monochrome)"
+                      if [ "$status" = 'healthy' ]; then
+                          break
+                      fi
+                      if [ "$status" = 'unhealthy' ]; then
+                          docker compose -f docker/docker-compose.yml logs monochrome
+                          exit 1
+                      fi
+                      sleep 2
+                  done
+                  test "$status" = 'healthy'
+                  curl --fail --silent --show-error http://localhost:3002/ > /dev/null
+                  docker exec monochrome nginx -T 2>&1 | grep -F 'location ^~ /navidrome/'
+                  docker exec monochrome nginx -T 2>&1 | grep -F 'proxy_pass http://host.docker.internal:4533/;'
+
+            - name: Stop the production container
+              if: always()
+              run: docker compose -f docker/docker-compose.yml down --volumes

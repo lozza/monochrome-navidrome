@@ -16,31 +16,24 @@ jobs:
         steps:
             - name: Checkout code
               uses: actions/checkout@v6
-              with:
-                  fetch-depth: 1
-                  repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-                  ref: ${{ github.head_ref || github.ref }}
 
             - name: Setup Node
               uses: actions/setup-node@v6
               with:
                   node-version: '24'
-                  package-manager-cache: false
+                  cache: npm
 
             - name: Install dependencies
-              run: npm install --no-audit --no-fund
+              run: npm ci --no-audit --no-fund
+
+            - name: Check formatting
+              run: npm run format:check
 
             - name: Run JS Lint
-              run: npm run lint:js -- --fix
-              continue-on-error: true
+              run: npm run lint:js
 
             - name: Run CSS Lint
-              run: npm run lint:css -- --fix
-              continue-on-error: true
-
-            - name: Format with Prettier
-              run: npm run format
-              continue-on-error: true
+              run: npm run lint:css
 
             - name: Run HTML Lint
               run: npm run lint:html
