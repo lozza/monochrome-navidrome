@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a focused Navichrome improvement.
+title: '[FEATURE] '
+labels: ['enhancement']
+body:
+    - type: markdown
+      attributes:
+          value: |
+              The first beta prioritizes stability. Do not include credentials, tokens, personal hostnames, or private library data.
+    - type: textarea
+      id: problem
+      attributes:
+          label: Problem to solve
+          description: Describe the user need, not only a proposed implementation.
+      validations:
+          required: true
+    - type: textarea
+      id: proposal
+      attributes:
+          label: Proposed behavior
+      validations:
+          required: true
+    - type: textarea
+      id: compatibility
+      attributes:
+          label: Compatibility and privacy impact
+          description: Note Navidrome/OpenSubsonic support, outbound services, credentials, Docker, mobile, and PWA implications.
+      validations:
+          required: true
+    - type: textarea
+      id: alternatives
+      attributes:
+          label: Alternatives considered
+      validations:
+          required: false

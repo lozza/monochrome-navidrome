@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+    - name: Security vulnerability
+      url: https://github.com/lozza/monochrome-navidrome/security/advisories/new
+      about: Report sensitive security issues privately. Never put credentials or tokens in a public issue.

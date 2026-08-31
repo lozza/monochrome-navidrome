@@ -1,62 +1,76 @@
-name: 'Bug Report'
-description: Create a bug report.
-title: '[BUG] <title>'
-labels: ['bug']
+name: Beta bug report
+description: Report a reproducible Navichrome problem.
+title: '[BUG] '
+labels: ['bug', 'needs-info']
 body:
-    - type: textarea
+    - type: markdown
       attributes:
-          label: 'Description'
-          description: Please enter an explicit description of your issue
-          placeholder: Short and explicit description of your bug...
+          value: |
+              Do not include passwords, API/tunnel tokens, cookies, signed URLs, personal hostnames, or private library data.
+    - type: input
+      id: build
+      attributes:
+          label: Navichrome version and build
+          description: Copy both values from Settings > About.
+          placeholder: 0.1.0-beta.1 / abcdef123456
+      validations:
+          required: true
+    - type: input
+      id: navidrome
+      attributes:
+          label: Navidrome/OpenSubsonic version
+          placeholder: Navidrome 0.x.y
       validations:
           required: true
     - type: textarea
+      id: environment
       attributes:
-          label: 'Reproduction steps'
-          description: Please enter steps to reproduce your issue.
-          placeholder: |
-              1. Go to '...'
-              2. Click on '....'
-              3. Scroll down to '....'
-              4. See error
-          render: bash
+          label: Environment
+          description: Browser/version, device/OS, desktop or mobile viewport, Docker/Portainer, direct/reverse-proxy/Cloudflare.
       validations:
           required: true
-    - type: textarea
+    - type: input
+      id: library
       attributes:
-          label: Expected Behavior
-          description: Write what you expected to happen.
-          placeholder: |
-              The app should do this when I do that...
-      validations:
-          required: true
-    - type: textarea
-      id: screenshot
-      attributes:
-          label: 'Screenshots'
-          description: If applicable, add screenshots to help explain your problem.
-          placeholder: Paste screenshot here.
+          label: Approximate library size
+          description: Especially important for browsing, Singles, search, artwork, and performance reports.
+          placeholder: About 10,000 tracks / 800 albums
       validations:
           required: false
     - type: textarea
+      id: reproduction
       attributes:
-          label: 'Logs (Desktop only)'
-          description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-          placeholder: Accessible via F12, select only Errors and Warnings, then right-click the Console and select "save to file"
-          render: bash
+          label: Reproduction steps
+          placeholder: |
+              1. Open ...
+              2. Select ...
+              3. Observe ...
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected behavior
+      validations:
+          required: true
+    - type: textarea
+      id: actual
+      attributes:
+          label: Actual behavior
+      validations:
+          required: true
+    - type: textarea
+      id: diagnostics
+      attributes:
+          label: Redacted diagnostics
+          description: Console errors, HTTP status codes, image tag/digest, relevant non-secret Compose fields, screenshots, and timing.
+          render: shell
       validations:
           required: false
-    - type: textarea
+    - type: checkboxes
+      id: safety
       attributes:
-          label: 'Browser'
-          description: What browser are you seeing the problem on ?
-          placeholder: Firefox 149.0
-      validations:
-          required: true
-    - type: textarea
-      attributes:
-          label: 'Device'
-          description: What device are you seeing the problem on ?
-          placeholder: PC Running Windows 11
-      validations:
-          required: true
+          label: Safety check
+          options:
+              - label: I removed credentials, tokens, cookies, signed URLs, personal hostnames, and unwanted library details.
+                required: true
