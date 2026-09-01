@@ -99,6 +99,8 @@ unchanged. The displayed product/version is Navichrome `0.1.0-beta.1`, with a re
 
 The recorded starting commit was reproduced with a deterministic 10,000-track library. Full rendering completed in
 9.93 seconds, but track artwork had no explicit row dimensions and no persistent Singles cache appeared within a
-60-second wait. The issue remains open. The beta branch's regression test proves bounded progressive rendering,
-`40x40` dimensions with size-`80` artwork requests, a maximum 1,500-track/1.5-million-character persistent cache, and
-no additional full server scan when Singles is reopened.
+60-second wait. The beta branch now uses a bounded virtual list and stores the complete compact catalogue in
+IndexedDB. Its regression test proves a maximum 80-row DOM, `40x40` dimensions with size-`80` artwork requests,
+complete catalogue access, exact A-Z navigation and no additional full server scan when Singles is reopened. The same
+candidate passed a real-library check for smooth reopening, instant accurate index jumps, full-catalogue next/previous
+and correctly sized artwork. Issue #2 was closed with that evidence on 1 September 2026.
