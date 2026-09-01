@@ -22,6 +22,7 @@ import { MusicAPI } from './music-api.js';
 import { LyricsManager } from './lyrics.js';
 import { Player } from './player.js';
 import { UIRenderer } from './ui.js';
+import { getSinglesVirtualController } from './library-singles.js';
 
 let currentTrackIdForWaveform = null;
 let copiedTracks = [];
@@ -2282,8 +2283,12 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
                 }
             } else {
                 const parentList = trackItem.closest('.track-list');
-                const allTrackElements = Array.from(parentList.querySelectorAll('.track-item'));
-                const trackList = allTrackElements.map((el) => trackDataStore.get(el)).filter(Boolean);
+                const singlesContainer = trackItem.closest('#library-singles-container');
+                const virtualSingles = singlesContainer ? getSinglesVirtualController(singlesContainer) : null;
+                const allTrackElements = parentList ? Array.from(parentList.querySelectorAll('.track-item')) : [];
+                const trackList = virtualSingles
+                    ? virtualSingles.getTracks()
+                    : allTrackElements.map((el) => trackDataStore.get(el)).filter(Boolean);
 
                 if (trackList.length > 0) {
                     const startIndex = trackList.findIndex((t) => t.id == clickedTrackId);

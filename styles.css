@@ -2278,6 +2278,29 @@ input[type='search']::-webkit-search-cancel-button {
     position: relative;
 }
 
+/* Singles uses a fixed-height virtual surface so large libraries keep a
+   compact DOM while still retaining the complete catalogue in memory. */
+#library-singles-container.singles-virtual-list {
+    position: relative;
+    display: block;
+    min-height: 0;
+}
+
+#library-singles-container .singles-virtual-spacer {
+    position: relative;
+    width: 100%;
+}
+
+#library-singles-container .singles-virtual-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 64px;
+    min-height: 64px;
+    box-sizing: border-box;
+    contain: layout paint;
+}
+
 .track-item.no-duration {
     grid-template-columns: 40px 1fr auto;
 }

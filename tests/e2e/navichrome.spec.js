@@ -148,7 +148,7 @@ test('missing artwork falls back safely and a failed optional service cannot bre
     await expect(page.locator('#page-library')).toHaveClass(/active/);
 });
 
-test('large Singles remains progressive, bounded and stable when reopened', async ({ page }, testInfo) => {
+test('large Singles remains responsive with a bounded virtual list and complete cache', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(testInfo.project.name !== 'desktop-chromium', 'The 10,000-track stress journey runs once on desktop.');
     const state = await installNavidromeMock(page, { largeSinglesCount: 10_000 });
@@ -171,9 +171,19 @@ test('large Singles remains progressive, bounded and stable when reopened', asyn
     await expect.poll(() => page.evaluate(() => window.__singlesResponsiveness), { timeout: 2_000 }).toBe(true);
 
     const rows = page.locator('#library-singles-container .track-item');
-    await expect.poll(() => rows.count(), { timeout: 45_000 }).toBe(10_000);
+    await expect.poll(() => rows.count(), { timeout: 45_000 }).toBeLessThanOrEqual(80);
+    await expect
+        .poll(
+            () =>
+                page.evaluate(
+                    () =>
+                        document.querySelector('#library-singles-container')?._singlesVirtualController?.getTracks()
+                            .length || 0
+                ),
+            { timeout: 45_000 }
+        )
+        .toBe(10_000);
     await expect(rows.first()).toHaveAttribute('data-track-id', 'catalogue-0');
-    await expect(rows.last()).toHaveAttribute('data-track-id', 'catalogue-9999');
 
     const firstImage = rows.first().locator('img.track-item-cover');
     await expect(firstImage).toHaveAttribute('width', '40');
@@ -181,43 +191,84 @@ test('large Singles remains progressive, bounded and stable when reopened', asyn
     await expect(firstImage).not.toHaveAttribute('src', '');
     await expect.poll(() => singlesArtworkSizes.includes('80')).toBe(true);
 
-    const cache = await expect
+    await page.evaluate(() =>
+        document.querySelector('#library-singles-container')?._singlesVirtualController?.scrollToIndex(9_999, false)
+    );
+    await expect.poll(() => rows.count()).toBeLessThanOrEqual(80);
+    await expect(page.locator('#library-singles-container [data-track-id="catalogue-9999"]')).toBeVisible();
+
+    await expect
         .poll(
             () =>
-                page.evaluate(() => {
-                    const key = Object.keys(localStorage).find((name) => name.startsWith('navichrome-singles-v'));
-                    const serialized = key ? localStorage.getItem(key) : null;
-                    return serialized ? { length: serialized.length, value: JSON.parse(serialized) } : null;
-                }),
+                page.evaluate(
+                    async () =>
+                        new Promise((resolve) => {
+                            const request = indexedDB.open('navichrome-singles-cache');
+                            request.onerror = () => resolve(null);
+                            request.onsuccess = () => {
+                                const db = request.result;
+                                const key = [...db.objectStoreNames][0];
+                                if (!key) return resolve(null);
+                                const get = db.transaction(key, 'readonly').objectStore(key).getAll();
+                                get.onsuccess = () => {
+                                    db.close();
+                                    resolve(get.result[0] || null);
+                                };
+                                get.onerror = () => {
+                                    db.close();
+                                    resolve(null);
+                                };
+                            };
+                        })
+                ),
             { timeout: 12_000 }
         )
         .not.toBeNull();
-    void cache;
-    const persisted = await page.evaluate(() => {
-        const key = Object.keys(localStorage).find((name) => name.startsWith('navichrome-singles-v'));
-        const serialized = localStorage.getItem(key);
-        return { length: serialized.length, value: JSON.parse(serialized) };
-    });
-    expect(persisted.length).toBeLessThanOrEqual(1_500_000);
-    expect(persisted.value.tracks.length).toBeLessThanOrEqual(1500);
-    expect(persisted.value.totalTracks).toBe(10_000);
+    const persisted = await page.evaluate(
+        async () =>
+            new Promise((resolve) => {
+                const request = indexedDB.open('navichrome-singles-cache');
+                request.onerror = () => resolve(null);
+                request.onsuccess = () => {
+                    const db = request.result;
+                    const key = [...db.objectStoreNames][0];
+                    if (!key) return resolve(null);
+                    const get = db.transaction(key, 'readonly').objectStore(key).getAll();
+                    get.onsuccess = () => {
+                        db.close();
+                        resolve(get.result[0] || null);
+                    };
+                    get.onerror = () => {
+                        db.close();
+                        resolve(null);
+                    };
+                };
+            })
+    );
+    expect(persisted.complete).toBe(true);
+    expect(persisted.tracks.length).toBe(10_000);
 
     const requestsBeforeReopen = state.singlesPageRequests;
     await page.locator('#page-library .search-tab[data-tab="albums"]').click();
     await page.locator('#page-library .search-tab[data-tab="singles"]').click();
-    await expect(rows).toHaveCount(10_000);
+    expect(await rows.count()).toBeLessThanOrEqual(80);
     expect(state.singlesPageRequests).toBe(requestsBeforeReopen);
 
     state.singlesRequestDelayMs = 3_000;
     await page.reload();
     await waitForReady(page);
     await page.locator('#page-library .search-tab[data-tab="singles"]').click();
-    await expect(rows).toHaveCount(1500);
-    await expect(page.locator('.singles-alpha-index')).toHaveCount(0);
-
-    state.singlesRequestDelayMs = 0;
-    await expect(rows).toHaveCount(10_000, { timeout: 45_000 });
-    await expect(page.locator('.singles-alpha-index')).toBeVisible();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () =>
+                    document.querySelector('#library-singles-container')?._singlesVirtualController?.getTracks()
+                        .length || 0
+            )
+        )
+        .toBe(10_000);
+    expect(await rows.count()).toBeLessThanOrEqual(80);
+    expect(state.singlesPageRequests).toBe(requestsBeforeReopen);
 });
 
 test('Singles alphabet index jumps to exact letters and returns to the top', async ({ page }, testInfo) => {
@@ -227,11 +278,20 @@ test('Singles alphabet index jumps to exact letters and returns to the top', asy
     await page.locator('#page-library .search-tab[data-tab="singles"]').click();
 
     const rows = page.locator('#library-singles-container .track-item');
-    await expect(rows).toHaveCount(26 * 24 + 2);
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () =>
+                    document.querySelector('#library-singles-container')?._singlesVirtualController?.getTracks()
+                        .length || 0
+            )
+        )
+        .toBe(26 * 24 + 2);
+    await expect.poll(() => rows.count()).toBeLessThanOrEqual(80);
 
     const prefixedRow = page.locator('#library-singles-container [data-track-id="alphabet-other-0"]');
     await expect(rows.nth(0)).toHaveAttribute('data-track-id', 'alphabet-other-0');
-    await expect(rows.nth(2)).toHaveAttribute('data-track-id', 'alphabet-A-0');
+    await expect(page.locator('#library-singles-container [data-track-id="alphabet-A-0"]')).toBeVisible();
     if (testInfo.project.name === 'mobile-chromium') {
         const touchLane = await page.locator('.singles-alpha-index').boundingBox();
         expect(touchLane?.width).toBeGreaterThanOrEqual(32);

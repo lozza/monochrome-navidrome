@@ -99,8 +99,10 @@ describe('large Singles catalogue', () => {
         expect(serialized).not.toContain('must-not-be-cached');
         expect(SINGLES_PERFORMANCE_LIMITS).toMatchObject({
             scanPageSize: 1000,
-            initialRenderSize: 80,
-            renderChunkSize: 200,
+            rowHeight: 64,
+            virtualOverscan: 12,
+            maxRenderedRows: 80,
+            cacheStorage: 'indexeddb',
         });
     });
 });

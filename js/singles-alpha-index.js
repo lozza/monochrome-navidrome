@@ -197,7 +197,7 @@ function findNearestAvailableLetter(index, targets) {
     return null;
 }
 
-function setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLetter, signal) {
+function setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLetter, scrollToTarget, signal) {
     const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
     let activePointerId = null;
     let hideTimer = null;
@@ -206,10 +206,10 @@ function setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLett
     const setActiveLetter = (letter, clientY, smooth = false) => {
         if (!letter) return;
         const target = firstItemByLetter.get(letter);
-        if (!target) return;
+        if (target === undefined || target === null) return;
 
         if (lastLetter !== letter) {
-            target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+            scrollToTarget(target, smooth);
             lastLetter = letter;
         }
 
@@ -309,21 +309,30 @@ export function enhanceSinglesAlphabetIndex() {
     singlesTab.querySelector('.singles-alpha-index')?.remove();
     singlesTab.querySelector('.singles-alpha-bubble')?.remove();
 
-    // library-singles.js already sorts the track data before rendering. Do not
-    // sort and re-append thousands of DOM nodes here; that caused a second large
-    // main-thread stall just as Singles appeared to have finished loading.
-    const items = [...singlesContainer.querySelectorAll('.card, .track-item')].filter((item) => getItemTitle(item));
-    if (!items.length) return;
-
     const firstItemByLetter = new Map();
-    for (const item of items) {
-        item.classList.remove('singles-alpha-anchor');
-        const key = getSinglesAlphaKey(getItemTitle(item));
-        if (!firstItemByLetter.has(key)) {
-            firstItemByLetter.set(key, item);
-            item.classList.add('singles-alpha-anchor');
+    const virtualController = singlesContainer._singlesVirtualController;
+    if (virtualController) {
+        virtualController.getTracks().forEach((track, index) => {
+            const key = getSinglesAlphaKey(track?.title);
+            if (!firstItemByLetter.has(key)) firstItemByLetter.set(key, index);
+        });
+    } else {
+        const items = [...singlesContainer.querySelectorAll('.card, .track-item')].filter((item) => getItemTitle(item));
+        if (!items.length) return;
+        for (const item of items) {
+            item.classList.remove('singles-alpha-anchor');
+            const key = getSinglesAlphaKey(getItemTitle(item));
+            if (!firstItemByLetter.has(key)) {
+                firstItemByLetter.set(key, item);
+                item.classList.add('singles-alpha-anchor');
+            }
         }
     }
+
+    const scrollToTarget = (target, smooth = true) => {
+        if (virtualController) virtualController.scrollToIndex(target, smooth);
+        else target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    };
 
     const index = document.createElement('nav');
     index.className = 'singles-alpha-index';
@@ -349,15 +358,15 @@ export function enhanceSinglesAlphabetIndex() {
         button.type = 'button';
         button.textContent = letter;
         button.dataset.letter = letter;
-        button.classList.toggle('is-unavailable', !target);
-        button.setAttribute('aria-disabled', String(!target));
-        if (!target) button.tabIndex = -1;
-        button.setAttribute('aria-label', target ? `Jump to ${letter}` : `No tracks beginning with ${letter}`);
+        const hasTarget = target !== undefined && target !== null;
+        button.classList.toggle('is-unavailable', !hasTarget);
+        button.setAttribute('aria-disabled', String(!hasTarget));
+        if (!hasTarget) button.tabIndex = -1;
+        button.setAttribute('aria-label', hasTarget ? `Jump to ${letter}` : `No tracks beginning with ${letter}`);
 
-        if (target) {
+        if (hasTarget) {
             button.addEventListener('click', () => {
-                if (window.matchMedia('(max-width: 768px)').matches) return;
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                scrollToTarget(target, true);
             });
         }
 
@@ -371,6 +380,6 @@ export function enhanceSinglesAlphabetIndex() {
 
     singlesTab.appendChild(index);
     singlesTab.appendChild(bubble);
-    setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLetter, controller.signal);
+    setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLetter, scrollToTarget, controller.signal);
     setupBackToTop(backToTop, controller.signal);
 }
