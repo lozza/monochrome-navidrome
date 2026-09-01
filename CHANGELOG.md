@@ -22,6 +22,8 @@ All notable changes to Navichrome are documented here.
   initial performance regression
 - Tightened the Start Infinite Radio button on mobile and restored clear spacing before the first recommended track
 - Widened the Singles alphabet touch lane on mobile and kept scrubbing responsive across unavailable letters
+- Corrected the shared optical baseline used by navigation, track rows, player details and buttons, including centred
+  text inside AAC, FLAC and explicit badges
 - PWA navigation and media use network-safe strategies while versioned application caches are replaced on update
 - CI uses `npm ci`, read-only formatting/lint checks, deterministic browser tests, a production build, and the bundle
   audit
