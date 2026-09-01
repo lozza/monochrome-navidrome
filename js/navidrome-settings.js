@@ -16,7 +16,12 @@ export const navidromeSettings = {
     },
 
     setCredentials({ url, username, password }) {
-        localStorage.setItem(this.URL_KEY, String(url || '').trim().replace(/\/+$/, ''));
+        localStorage.setItem(
+            this.URL_KEY,
+            String(url || '')
+                .trim()
+                .replace(/\/+$/, '')
+        );
         localStorage.setItem(this.USERNAME_KEY, String(username || '').trim());
         if (password !== undefined) localStorage.setItem(this.PASSWORD_KEY, String(password));
     },

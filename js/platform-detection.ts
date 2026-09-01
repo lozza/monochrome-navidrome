@@ -26,72 +26,6 @@ export const isFirefox = lowerCaseOriginalUserAgent.includes('firefox') && !isCh
 /** If the browser is Microsoft Edge. */
 export const isEdge = lowerCaseOriginalUserAgent.includes('edg/') || lowerCaseOriginalUserAgent.includes('edge/');
 
-type AmazonDecrypterBrowser = {
-    isFirefox: boolean;
-    isSafari: boolean;
-};
-
-type NavigatorWithUserAgentData = Navigator & {
-    userAgentData?: {
-        brands?: Array<{ brand: string }>;
-    };
-};
-
-/**
- * Choose the container emitted by the service-worker Amazon decrypter.
- *
- * Firefox cannot reliably consume the progressively rewritten fragmented MP4:
- * after enough playback it may request a sample past the bytes it has buffered
- * and abort with MediaResult/SampleIterator decoding errors. Segmented HLS
- * avoids that progressive-resource path while retaining seekable time ranges.
- */
-export function getAmazonDecrypterCodec(
-    quality: string,
-    browser: AmazonDecrypterBrowser = { isFirefox, isSafari }
-): 'opus' | 'mp4a' | 'eac3' | 'ac4' | 'flac-hls' | 'flac-raw' | 'flac' {
-    const normalizedQuality = quality.toUpperCase();
-    if (normalizedQuality.startsWith('DOLBY_ATMOS_AC4_')) return 'ac4';
-    if (normalizedQuality.startsWith('DOLBY_ATMOS_EAC3_') || normalizedQuality === 'DOLBY_ATMOS') return 'eac3';
-    const isOpusQuality =
-        normalizedQuality === 'HIGH' ||
-        normalizedQuality === 'NORMAL' ||
-        normalizedQuality === 'LOW' ||
-        normalizedQuality.startsWith('SD_');
-    if (isOpusQuality) return 'opus';
-    if (browser.isSafari) return 'flac-hls';
-    if (browser.isFirefox) return 'flac-hls';
-    return 'flac';
-}
-
-/** Check whether the runtime reports native support for an immersive MP4 codec. */
-export function canBrowserStreamAtmosQuality(quality: string, mediaElement: HTMLMediaElement | null = null): boolean {
-    const normalizedQuality = quality.toUpperCase();
-    const isAc4 = normalizedQuality.startsWith('DOLBY_ATMOS_AC4_');
-    const isEac3 = normalizedQuality.startsWith('DOLBY_ATMOS_EAC3_') || normalizedQuality === 'DOLBY_ATMOS';
-    if (!isAc4 && !isEac3) return true;
-
-    const probe = mediaElement || (typeof document !== 'undefined' ? document.createElement('audio') : null);
-    if (!probe?.canPlayType) return false;
-
-    const mimeTypes = isAc4
-        ? ['audio/mp4; codecs="ac-4"', 'audio/mp4; codecs="ac-4.02.01.01"']
-        : ['audio/mp4; codecs="ec-3"', 'audio/mp4; codecs="eac3"'];
-    return mimeTypes.some(
-        (mimeType) =>
-            probe.canPlayType(mimeType) !== '' ||
-            (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported?.(mimeType) === true)
-    );
-}
-
-const chromiumBrandPattern = /chromium|chrome|edge|opera|brave/i;
-const userAgentBrands = (navigator as NavigatorWithUserAgentData).userAgentData?.brands ?? [];
-
-/** If this browser has Chromium's native ClearKey/CENC behavior we rely on for Amazon streams. */
-export const canUseNativeAmazonCenc =
-    !isIos &&
-    !isSafari &&
-    (userAgentBrands.some((brand) => chromiumBrandPattern.test(brand.brand)) || 'chrome' in globalThis);
-
 export function getLocalFilesSupportInfo(): { supported: boolean; message: string | null } {
     const isFileSystemAccessSupported = 'showDirectoryPicker' in window;
 
@@ -114,13 +48,13 @@ export function getLocalFilesSupportInfo(): { supported: boolean; message: strin
         return {
             supported: false,
             message:
-                'Local Files is only available on Chromium-based browsers because Firefox and Safari explicitly do not support the File System Access API. We recommend <a href="https://helium.computer/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline">Helium</a>.',
+                'Local Files is only available on Chromium-based browsers because Firefox and Safari do not support the File System Access API.',
         };
     }
 
     return {
         supported: false,
         message:
-            'Your browser doesn\'t support the File System Access API, which is required for Local Files. We recommend <a href="https://helium.computer/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline">Helium</a>.',
+            "Your browser doesn't support the File System Access API required for Local Files. Use a Chromium-based browser if you need this feature.",
     };
 }

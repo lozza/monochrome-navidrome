@@ -4,34 +4,53 @@
 
 # Navichrome
 
-A self-hosted web player for [Navidrome](https://www.navidrome.org/) and compatible OpenSubsonic servers.
+> **Beta:** Navichrome `0.1.0-beta.1` is the first controlled beta of this self-hosted Navidrome/OpenSubsonic web
+> player. Back up anything important, expect rough edges, and report reproducible problems.
 
-Navichrome is a Navidrome-focused fork of Monochrome. It uses your own Navidrome server for authentication, library data,
-playback, favourites, playlists and listening history.
+Navichrome connects directly to a server you control. It does not require a Navichrome, Monochrome, or Samidy
+account.
 
-## Features
+## Beta scope
 
-- Sign in with your Navidrome username and password
-- Cross-device recently played history stored by Navidrome
-- Full album, single and artist browsing
-- Navidrome playlists and starred tracks
-- Search, playback, artwork, lyrics and downloads
-- Responsive desktop and mobile web interface
-- Prebuilt Docker image for Portainer and Docker Compose
+Confirmed beta journeys include:
 
-## Screenshots
+- Navidrome/OpenSubsonic sign-in, sign-out, and invalid-server handling
+- Home and server-backed recently played content
+- albums, artists, album details, search, starred tracks, and read-only Navidrome playlists shown as **My Playlists**
+- **Singles**, with every library track alphabetized one per row and progressively rendered for large libraries
+- playback, queue next/previous, seeking, shuffle, repeat, and Navidrome scrobbling
+- artwork recovery and missing-artwork placeholders
+- Navidrome lyrics with an optional LRCLIB fallback
+- working track, album, and bulk music downloads
+- installable PWA behavior with versioned cache cleanup
+- Docker/Portainer deployment, the `/navidrome` reverse proxy, and Cloudflare Tunnel compatibility
 
-<p align="center">
-  <img src="docs/screenshots/album.jpg" alt="Album view" width="49%">
-  <img src="docs/screenshots/home.jpg" alt="Home recommendations" width="49%">
-</p>
+Desktop Chromium and a mobile-sized Chromium browser are covered by automated smoke tests. Firefox and Safari remain
+important manual beta targets.
 
-<p align="center">
-  <img src="docs/screenshots/library.jpg" alt="Navidrome library and Singles view" width="49%">
-  <img src="docs/screenshots/settings.jpg" alt="Navidrome connection settings" width="49%">
-</p>
+### Known limitations
 
-## Docker Compose
+- This is beta software. Do not treat it as the only copy of playlists or library metadata.
+- Playlist editing and complete cross-device settings/queue sync are not claimed.
+- Each device must sign in separately. Recently played history follows the same Navidrome account because it is
+  submitted to and read from Navidrome; browser preferences remain device-local.
+- Local Files requires the File System Access API and is therefore limited to compatible Chromium-based browsers.
+- PWA navigation is network-first. Previously cached app code is removed during upgrades, but music is not promised
+  for offline playback.
+- Lighthouse is informational. Functional, lint, build, and bundle-audit checks are release gates.
+
+See [Beta testing](docs/BETA_TESTING.md) for the test matrix and [Beta audit](docs/BETA_AUDIT.md) for the security,
+dependency, and inherited-code inventory.
+
+## Supported installation
+
+The supported beta installation is the existing container image:
+
+`ghcr.io/lozza/monochrome-navidrome:latest`
+
+The repository and image names are retained for compatibility; the displayed product name is **Navichrome**.
+
+### Portainer or Docker Compose
 
 ```yaml
 services:
@@ -54,41 +73,98 @@ services:
             start_period: 15s
 ```
 
-In Portainer, open **Stacks > Add stack > Web editor**, paste the Compose file, and deploy it.
+In Portainer:
 
-The example expects Navidrome on port `4533` of the same Docker host. Change `NAVIDROME_URL` if yours is elsewhere.
-If the containers share a Docker network, you can use the Navidrome service name, such as
-`http://navidrome:4533`.
+1. Open **Stacks > Add stack > Web editor**.
+2. Paste the Compose file and deploy it.
+3. Open `http://YOUR-SERVER-IP:3002`.
+4. In Navichrome, enter server URL `/navidrome` and your normal Navidrome username and password.
 
-Open `http://YOUR-SERVER-IP:3002` and sign in using:
+The example expects Navidrome on port `4533` of the Docker host. If both applications share a Docker network,
+`NAVIDROME_URL` may instead use the Navidrome service name, such as `http://navidrome:4533`.
 
-- Server URL: `/navidrome`
-- Your Navidrome username
-- Your Navidrome password
+The root [docker-compose.yml](docker-compose.yml) preserves the same image, ports, proxy path, environment variable,
+and host-gateway mapping. More deployment detail is in [DOCKER.md](DOCKER.md).
 
-For Cloudflare Tunnel, point your public hostname at `http://host.docker.internal:3002` from a separate cloudflared
-container, or at `http://monochrome-navidrome:4173` when both containers share a Docker network.
+### Updating
 
-## Updating
+In Portainer, open the stack, choose **Update the stack**, enable **Re-pull image**, and deploy again. With Docker
+Compose, run:
 
-In Portainer, open the stack, choose **Update the stack**, enable **Re-pull image**, and deploy it again.
+```bash
+docker compose pull
+docker compose up -d
+```
+
+After an update, reload each installed PWA once while online so the new app shell activates and stale caches are
+removed.
+
+### Cloudflare Tunnel
+
+Do not place tunnel tokens in Compose files, this repository, screenshots, or bug reports. Keep the token in
+Cloudflare's supported secret/configuration mechanism and rotate any token that has been exposed.
+
+- A separate cloudflared container can target `http://host.docker.internal:3002`.
+- When cloudflared shares the application network, target `http://monochrome-navidrome:4173`.
+- Preserve HTTPS at the public hostname. Navidrome credentials are device-local browser data and should not traverse
+  an untrusted plaintext network.
+
+No personal hostname or tunnel token is required by Navichrome.
+
+## Credentials, history, and privacy
+
+The server URL, username, and password are stored in that browser's `localStorage`. They are removed on sign-out.
+OpenSubsonic requests use a new random salt and a password-derived token; Navichrome does not intentionally log the
+password. Anyone with access to the browser profile can potentially read its local storage, so use a trusted device,
+HTTPS, and the browser/OS account protections.
+
+Playback submissions and recently played history are sent to the configured Navidrome server. That is why history can
+follow the same Navidrome account across devices. Interface preferences, caches, queue state, and optional local
+listening statistics stay on the device.
+
+The production app has this fixed outbound allowlist:
+
+| Destination                         | When used                                                                    | Required            |
+| ----------------------------------- | ---------------------------------------------------------------------------- | ------------------- |
+| Same origin, including `/navidrome` | Authentication, library, artwork, audio, lyrics, downloads, scrobbling       | Yes                 |
+| `https://lrclib.net`                | Lyrics fallback after Navidrome has no lyrics                                | Optional            |
+| `https://api.github.com`            | Fetch the AutoEq headphone profile index after the user opens/imports AutoEq | Optional            |
+| `https://raw.githubusercontent.com` | Fetch a selected AutoEq profile                                              | Optional            |
+| `https://cdn.jsdelivr.net`          | Fallback delivery for a selected AutoEq profile                              | Optional            |
+| `https://github.com`                | User-clicked source/issue links; no background application data              | Optional navigation |
+
+Optional integrations are disabled by non-use, need no embedded credential, and fail without stopping navigation.
+`schema.org` appearing in page metadata is an identifier namespace, not a network request.
+
+## Reporting a beta bug
+
+Use the [bug report form](https://github.com/lozza/monochrome-navidrome/issues/new/choose). Include:
+
+- Navichrome version and build commit from **About**
+- browser name/version, device/OS, viewport or mobile/desktop mode
+- Navidrome version and whether it is direct, reverse-proxied, or behind Cloudflare
+- deployment method, image tag or digest, and relevant non-secret Compose settings
+- exact reproduction steps, expected/actual behavior, console errors, and network status codes
+- approximate library size for browsing/performance reports
+
+Redact usernames, passwords, tokens, signed URLs, cookies, personal domains, and music/library details that you do not
+want public. Feature requests belong in the separate feature-request form.
 
 ## Local development
 
 ```bash
 git clone https://github.com/lozza/monochrome-navidrome.git
 cd monochrome-navidrome
-npm install
+npm ci
 npm run dev
 ```
 
-For local development, use a Navidrome URL that permits browser requests or place both applications behind the same
-reverse proxy. Production Docker deployments should normally use `/navidrome`.
+Before a pull request, run `npm run format:check`, `npm run lint`, `npm test`, and `npm run audit:bundle`.
 
-## Repository
+## Project links
 
 - [Source code](https://github.com/lozza/monochrome-navidrome)
 - [Issues](https://github.com/lozza/monochrome-navidrome/issues)
 - Container image: `ghcr.io/lozza/monochrome-navidrome:latest`
 
-Based on the original [Monochrome project](https://github.com/monochrome-music/monochrome).
+Navichrome retains attribution to the original Monochrome project under the repository's Apache-2.0 license.

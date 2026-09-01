@@ -2,7 +2,7 @@ import md5 from './md5.js';
 import { navidromeSettings } from './navidrome-settings.js';
 
 const API_VERSION = '1.16.1';
-const CLIENT_NAME = 'monochrome-navidrome';
+const CLIENT_NAME = 'navichrome';
 
 const emptyResult = () => ({ items: [], limit: 0, offset: 0, totalNumberOfItems: 0 });
 
@@ -343,6 +343,11 @@ export class NavidromeAPI {
         });
     }
 
+    async getLyricsBySongId(id) {
+        const root = await this.request('getLyricsBySongId', { id });
+        return root.lyricsList || null;
+    }
+
     async getArtists() {
         const root = await this.request('getArtists');
         return asArray(root.artists?.index)
@@ -413,7 +418,7 @@ export class NavidromeAPI {
 
     async getArtistBiography(id) {
         const info = await this.getArtistInfo(id).catch(() => null);
-        return info?.biography ? { text: info.biography, source: 'Navidrome / Last.fm' } : null;
+        return info?.biography ? { text: info.biography, source: 'Navidrome metadata' } : null;
     }
 
     async getSimilarArtists(id) {

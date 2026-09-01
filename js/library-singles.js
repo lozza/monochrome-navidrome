@@ -1,15 +1,32 @@
 import { createPlaceholder, trackDataStore } from './utils.js';
+import { compareSinglesTitles, getSinglesAlphaKey } from './singles-alpha.js';
 
-const SINGLES_CACHE_VERSION = 6;
+const SINGLES_CACHE_VERSION = 8;
 const SINGLES_CACHE_TTL = 24 * 60 * 60 * 1000;
 const SINGLES_CACHE_STALE_TTL = 7 * 24 * 60 * 60 * 1000;
-const TRACK_SCAN_PAGE_SIZE = 2500;
-const INITIAL_RENDER_SIZE = 80;
-const RENDER_CHUNK_SIZE = 100;
+const TRACK_SCAN_PAGE_SIZE = 1000;
+const VIRTUAL_ROW_HEIGHT = 64;
+const VIRTUAL_OVERSCAN = 12;
+const MAX_RENDERED_ROWS = 80;
+const PERSISTED_CACHE_TRACK_LIMIT = 1500;
+const PERSISTED_CACHE_CHARACTER_LIMIT = 1_500_000;
+const SINGLES_DB_NAME = 'navichrome-singles-cache';
+const SINGLES_DB_VERSION = 1;
+const SINGLES_STORE_NAME = 'catalogues';
+
+export const SINGLES_PERFORMANCE_LIMITS = Object.freeze({
+    scanPageSize: TRACK_SCAN_PAGE_SIZE,
+    rowHeight: VIRTUAL_ROW_HEIGHT,
+    virtualOverscan: VIRTUAL_OVERSCAN,
+    maxRenderedRows: MAX_RENDERED_ROWS,
+    persistedTrackLimit: PERSISTED_CACHE_TRACK_LIMIT,
+    persistedCharacterLimit: PERSISTED_CACHE_CHARACTER_LIMIT,
+    cacheStorage: 'indexeddb',
+});
 
 let refreshPromise = null;
-let activeRenderGeneration = 0;
 let favoriteTrackIdsPromise = null;
+let sessionCatalogue = null;
 
 function getSinglesCacheKey(ui) {
     const api = ui?.api?.getAPI?.();
@@ -28,7 +45,14 @@ function compactArtist(artist) {
     };
 }
 
-function compactTrackForCache(track) {
+function compactArtworkReference(value) {
+    const artwork = String(value || '');
+    if (!artwork) return null;
+    if (/^(?:https?:)?\/\//i.test(artwork) || /[?&](?:p|t|s|u|password|token|credential)=/i.test(artwork)) return null;
+    return artwork;
+}
+
+export function compactTrackForCache(track) {
     const artist = compactArtist(track?.artist);
     const albumArtist = compactArtist(track?.album?.artist || track?.artist);
     const album = track?.album
@@ -36,12 +60,11 @@ function compactTrackForCache(track) {
               id: String(track.album.id || ''),
               title: track.album.title || track.album.name || 'Unknown Album',
               name: track.album.name || track.album.title || 'Unknown Album',
-              cover: track.album.cover || null,
+              cover: compactArtworkReference(track.album.cover),
               releaseDate: track.album.releaseDate || null,
               artist: albumArtist,
           }
         : null;
-
     return {
         id: String(track?.id || ''),
         title: track?.title || 'Unknown Track',
@@ -58,7 +81,7 @@ function compactTrackForCache(track) {
         peak: track?.peak ?? 1,
         albumReplayGain: track?.albumReplayGain ?? 0,
         albumPeakAmplitude: track?.albumPeakAmplitude ?? 1,
-        coverArt: track?.coverArt || null,
+        coverArt: compactArtworkReference(track?.coverArt),
         suffix: track?.suffix || null,
         contentType: track?.contentType || null,
         bitRate: track?.bitRate ?? null,
@@ -75,57 +98,155 @@ function compactTrackForCache(track) {
     };
 }
 
-function readSinglesCache(ui) {
-    try {
-        const raw = localStorage.getItem(getSinglesCacheKey(ui));
-        if (!raw) return null;
-
-        const cached = JSON.parse(raw);
-        if (!Array.isArray(cached?.tracks) || !Number.isFinite(cached?.savedAt)) return null;
-
-        const age = Date.now() - cached.savedAt;
-        if (age > SINGLES_CACHE_STALE_TTL) return null;
-
-        return {
-            tracks: cached.tracks,
-            fresh: age <= SINGLES_CACHE_TTL,
+function openSinglesDb() {
+    if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+    return new Promise((resolve) => {
+        let settled = false;
+        const finish = (value) => {
+            if (!settled) {
+                settled = true;
+                resolve(value);
+            }
         };
+        try {
+            const request = indexedDB.open(SINGLES_DB_NAME, SINGLES_DB_VERSION);
+            request.onupgradeneeded = () => {
+                if (!request.result.objectStoreNames.contains(SINGLES_STORE_NAME))
+                    request.result.createObjectStore(SINGLES_STORE_NAME, { keyPath: 'key' });
+            };
+            request.onsuccess = () => finish(request.result);
+            request.onerror = () => finish(null);
+            request.onblocked = () => finish(null);
+        } catch {
+            finish(null);
+        }
+    });
+}
+
+function readIndexedDb(key) {
+    return openSinglesDb().then(
+        (database) =>
+            new Promise((resolve) => {
+                if (!database) return resolve(null);
+                try {
+                    const request = database
+                        .transaction(SINGLES_STORE_NAME, 'readonly')
+                        .objectStore(SINGLES_STORE_NAME)
+                        .get(key);
+                    request.onsuccess = () => {
+                        const value = request.result;
+                        database.close();
+                        resolve(value || null);
+                    };
+                    request.onerror = () => {
+                        database.close();
+                        resolve(null);
+                    };
+                } catch {
+                    database.close();
+                    resolve(null);
+                }
+            })
+    );
+}
+
+function writeIndexedDb(key, tracks) {
+    return openSinglesDb().then(
+        (database) =>
+            new Promise((resolve, reject) => {
+                if (!database) return reject(new Error('IndexedDB unavailable'));
+                try {
+                    const transaction = database.transaction(SINGLES_STORE_NAME, 'readwrite');
+                    transaction.objectStore(SINGLES_STORE_NAME).put({
+                        key,
+                        savedAt: Date.now(),
+                        totalTracks: tracks.length,
+                        complete: true,
+                        tracks: tracks.map(compactTrackForCache),
+                    });
+                    transaction.oncomplete = () => {
+                        database.close();
+                        resolve();
+                    };
+                    transaction.onerror = () => {
+                        database.close();
+                        reject(transaction.error || new Error('IndexedDB write failed'));
+                    };
+                    transaction.onabort = () => {
+                        database.close();
+                        reject(transaction.error || new Error('IndexedDB write aborted'));
+                    };
+                } catch (error) {
+                    database.close();
+                    reject(error);
+                }
+            })
+    );
+}
+
+function parseCachedValue(cached) {
+    if (!Array.isArray(cached?.tracks) || !Number.isFinite(cached?.savedAt)) return null;
+    const age = Math.max(0, Date.now() - cached.savedAt);
+    if (age > SINGLES_CACHE_STALE_TTL) return null;
+    return {
+        tracks: cached.tracks,
+        fresh: age <= SINGLES_CACHE_TTL,
+        complete: cached.complete === true && cached.totalTracks === cached.tracks.length,
+        totalTracks: Number(cached.totalTracks) || cached.tracks.length,
+    };
+}
+
+async function readSinglesCache(ui) {
+    const key = getSinglesCacheKey(ui);
+    const indexed = parseCachedValue(await readIndexedDb(key));
+    if (indexed) return indexed;
+    try {
+        const legacy = parseCachedValue(JSON.parse(localStorage.getItem(key) || 'null'));
+        if (legacy) return legacy;
     } catch {
-        return null;
+        /* unavailable legacy storage */
     }
+    return null;
+}
+
+export function createPersistedSinglesCache(tracks, savedAt = Date.now()) {
+    let cachedTracks = tracks.slice(0, PERSISTED_CACHE_TRACK_LIMIT).map(compactTrackForCache);
+    let payload = {
+        savedAt,
+        totalTracks: tracks.length,
+        complete: cachedTracks.length === tracks.length,
+        tracks: cachedTracks,
+    };
+    let serialized = JSON.stringify(payload);
+    while (serialized.length > PERSISTED_CACHE_CHARACTER_LIMIT && cachedTracks.length > 100) {
+        cachedTracks = cachedTracks.slice(0, Math.max(100, Math.floor(cachedTracks.length * 0.8)));
+        payload = { ...payload, complete: false, tracks: cachedTracks };
+        serialized = JSON.stringify(payload);
+    }
+    return { payload, serialized };
 }
 
 function writeSinglesCache(ui, tracks) {
-    // Snapshot before rendering can replace cover IDs with authenticated image
-    // URLs. The cache should stay small and contain stable Navidrome metadata.
-    const cachedTracks = tracks.map(compactTrackForCache);
-
-    const write = () => {
+    const key = getSinglesCacheKey(ui);
+    const write = async () => {
         try {
-            localStorage.setItem(
-                getSinglesCacheKey(ui),
-                JSON.stringify({
-                    savedAt: Date.now(),
-                    tracks: cachedTracks,
-                })
-            );
+            await writeIndexedDb(key, tracks);
+            return;
+        } catch {
+            /* use bounded fallback */
+        }
+        try {
+            localStorage.setItem(key, createPersistedSinglesCache(tracks).serialized);
         } catch (error) {
             console.warn('Could not cache Singles:', error);
         }
     };
-
-    // localStorage and JSON.stringify are synchronous. Do this away from the
-    // first render so a large library cannot freeze the page just to save cache.
-    if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(write, { timeout: 2000 });
-    } else {
-        setTimeout(write, 100);
-    }
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => void write(), { timeout: 2000 });
+    else setTimeout(() => void write(), 100);
 }
 
-function dedupeAndSortTracks(tracks) {
+export function dedupeAndSortTracks(tracks) {
     const seen = new Set();
-
     return tracks
         .filter(Boolean)
         .filter((track) => {
@@ -134,23 +255,14 @@ function dedupeAndSortTracks(tracks) {
             seen.add(id);
             return true;
         })
-        .sort((a, b) =>
-            String(a.title || '').localeCompare(String(b.title || ''), undefined, {
-                sensitivity: 'base',
-                numeric: true,
-            })
-        );
+        .sort(compareSinglesTitles);
 }
 
 async function fetchAllTracks(ui, pageSize = TRACK_SCAN_PAGE_SIZE) {
     const api = ui?.api?.getAPI?.();
-    if (!api?.request || !api?.mapTrack) {
-        throw new Error('Navidrome track API is unavailable.');
-    }
-
+    if (!api?.request || !api?.mapTrack) throw new Error('Navidrome track API is unavailable.');
     const tracks = [];
     let offset = 0;
-
     while (true) {
         const root = await api.request('search3', {
             query: '""',
@@ -159,47 +271,38 @@ async function fetchAllTracks(ui, pageSize = TRACK_SCAN_PAGE_SIZE) {
             songCount: pageSize,
             songOffset: offset,
         });
-
         const rawSongs = root.searchResult3?.song;
         const songs = Array.isArray(rawSongs) ? rawSongs : rawSongs ? [rawSongs] : [];
         tracks.push(...songs.map((song) => api.mapTrack(song)));
-
         if (songs.length < pageSize) break;
         offset += songs.length;
-
-        // Give Safari/iOS a chance to paint and handle input between large
-        // Navidrome result pages.
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await yieldToBrowser();
     }
-
     return dedupeAndSortTracks(tracks);
 }
 
 async function refreshSingles(ui) {
     if (refreshPromise) return refreshPromise;
-
     refreshPromise = fetchAllTracks(ui)
         .then((tracks) => {
+            sessionCatalogue = { key: getSinglesCacheKey(ui), tracks };
             writeSinglesCache(ui, tracks);
             return tracks;
         })
         .finally(() => {
             refreshPromise = null;
         });
-
     return refreshPromise;
 }
 
 function collectRenderedAlbumArtwork() {
     const artwork = new Map();
-
     document.querySelectorAll('#library-albums-container .card[data-album-id]').forEach((card) => {
         const albumId = String(card.dataset.albumId || '');
         const image = card.querySelector('img.card-image');
         const url = image?.currentSrc || image?.src || image?.getAttribute('src');
         if (albumId && url) artwork.set(albumId, url);
     });
-
     return artwork;
 }
 
@@ -213,64 +316,24 @@ function applyRenderedAlbumArtwork(tracks, artwork) {
 
 function getFavoriteTrackIds(ui) {
     if (favoriteTrackIdsPromise) return favoriteTrackIdsPromise;
-
-    const api = ui?.api?.getAPI?.();
-    favoriteTrackIdsPromise = Promise.resolve(api?.loadFavorites?.())
+    favoriteTrackIdsPromise = Promise.resolve(ui?.api?.getAPI?.()?.loadFavorites?.())
         .then((favorites) => favorites?.track || new Set())
         .catch(() => new Set());
-
     return favoriteTrackIdsPromise;
 }
 
-function scheduleLikeStateUpdate(ui, rows, rowTracks) {
-    if (!rows.length) return;
-
+function scheduleLikeStateUpdate(ui, row, track) {
     const update = async () => {
         const favoriteIds = await getFavoriteTrackIds(ui);
-        rows.forEach((row, index) => {
-            const track = rowTracks[index];
-            const button = row.querySelector('.like-btn');
-            if (!track || !button) return;
-
-            const liked = favoriteIds.has(String(track.id));
-            button.innerHTML = ui.createHeartIcon(liked);
-            button.classList.toggle('active', liked);
-            button.title = liked ? 'Remove from Liked' : 'Add to Liked';
-        });
+        const button = row.querySelector('.like-btn');
+        if (!track || !button || track.id !== row.dataset.trackId) return;
+        const liked = favoriteIds.has(String(track.id));
+        button.innerHTML = ui.createHeartIcon(liked);
+        button.classList.toggle('active', liked);
+        button.title = liked ? 'Remove from Liked' : 'Add to Liked';
     };
-
-    if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(() => void update(), { timeout: 1200 });
-    } else {
-        setTimeout(() => void update(), 0);
-    }
-}
-
-function renderTrackChunk(ui, container, tracks, start, end, hasMultipleDiscs) {
-    const tempDiv = document.createElement('div');
-    const rowTracks = [];
-    const html = [];
-
-    for (let index = start; index < end; index++) {
-        const track = tracks[index];
-        const rowHtml = ui.createTrackItemHTML(track, index, true, hasMultipleDiscs, false, false);
-        if (!rowHtml) continue;
-        html.push(rowHtml);
-        rowTracks.push(track);
-    }
-
-    tempDiv.innerHTML = html.join('');
-    const rows = Array.from(tempDiv.children);
-    const fragment = document.createDocumentFragment();
-
-    rows.forEach((row, index) => {
-        const track = rowTracks[index];
-        if (track) trackDataStore.set(row, track);
-        fragment.appendChild(row);
-    });
-
-    container.appendChild(fragment);
-    scheduleLikeStateUpdate(ui, rows, rowTracks);
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => void update(), { timeout: 1200 });
+    else setTimeout(() => void update(), 0);
 }
 
 function yieldToBrowser() {
@@ -279,59 +342,150 @@ function yieldToBrowser() {
     });
 }
 
-function renderTracksProgressively(ui, container, tracks) {
-    const generation = ++activeRenderGeneration;
+function clearSinglesAlphabetIndex() {
+    const singlesTab = document.getElementById('library-tab-singles');
+    singlesTab?._navichromeAlphabetController?.abort();
+    singlesTab?.querySelector('.singles-alpha-index')?.remove();
+    singlesTab?.querySelector('.singles-alpha-bubble')?.remove();
+}
+
+function getScrollElement() {
+    return document.querySelector('.main-content') || window;
+}
+
+class SinglesVirtualController {
+    constructor(ui, container, tracks) {
+        this.ui = ui;
+        this.container = container;
+        this.tracks = tracks;
+        this.hasMultipleDiscs = tracks.some((track) => (track.volumeNumber || track.discNumber || 1) > 1);
+        this.rendered = new Map();
+        this.raf = 0;
+        this.destroyed = false;
+        this.spacer = document.createElement('div');
+        this.spacer.className = 'singles-virtual-spacer';
+        this.container.appendChild(this.spacer);
+        this.onScroll = () => this.scheduleRender();
+        this.scrollElement = getScrollElement();
+        this.scrollElement.addEventListener('scroll', this.onScroll, { passive: true });
+        window.addEventListener('resize', this.onScroll, { passive: true });
+        this.scheduleRender();
+    }
+    getTracks() {
+        return this.tracks;
+    }
+    setTracks(tracks) {
+        if (this.destroyed) return;
+        this.tracks = tracks;
+        this.hasMultipleDiscs = tracks.some((track) => (track.volumeNumber || track.discNumber || 1) > 1);
+        this.scheduleRender();
+    }
+    getScrollTop() {
+        return this.scrollElement === window ? window.scrollY || 0 : this.scrollElement.scrollTop || 0;
+    }
+    getViewportHeight() {
+        return this.scrollElement === window
+            ? window.innerHeight
+            : this.scrollElement.clientHeight || window.innerHeight;
+    }
+    scheduleRender() {
+        if (this.raf || this.destroyed) return;
+        this.raf = requestAnimationFrame(() => {
+            this.raf = 0;
+            this.renderWindow();
+        });
+    }
+    renderWindow() {
+        if (this.destroyed) return;
+        const containerRect = this.container.getBoundingClientRect();
+        const scrollRect = this.scrollElement === window ? { top: 0 } : this.scrollElement.getBoundingClientRect();
+        const viewportTop = Math.max(0, scrollRect.top - containerRect.top);
+        const start = Math.max(0, Math.floor(viewportTop / VIRTUAL_ROW_HEIGHT) - VIRTUAL_OVERSCAN);
+        const end = Math.min(
+            this.tracks.length,
+            Math.ceil((viewportTop + this.getViewportHeight()) / VIRTUAL_ROW_HEIGHT) + VIRTUAL_OVERSCAN
+        );
+        const wanted = new Set();
+        for (let index = start; index < end; index++) {
+            wanted.add(index);
+            if (!this.rendered.has(index)) this.mountRow(index);
+        }
+        for (const [index, row] of this.rendered) {
+            if (!wanted.has(index)) {
+                row.remove();
+                this.rendered.delete(index);
+            }
+        }
+        this.spacer.style.height = `${this.tracks.length * VIRTUAL_ROW_HEIGHT}px`;
+    }
+    mountRow(index) {
+        const track = this.tracks[index];
+        if (!track) return;
+        const holder = document.createElement('div');
+        holder.innerHTML = this.ui.createTrackItemHTML(track, index, true, this.hasMultipleDiscs, false, false).trim();
+        const row = holder.firstElementChild;
+        if (!row) return;
+        row.classList.add('singles-virtual-row');
+        row.dataset.index = String(index);
+        row.style.top = `${index * VIRTUAL_ROW_HEIGHT}px`;
+        trackDataStore.set(row, track);
+        this.spacer.appendChild(row);
+        this.rendered.set(index, row);
+        scheduleLikeStateUpdate(this.ui, row, track);
+    }
+    scrollToIndex(index, smooth = true) {
+        const bounded = Math.max(0, Math.min(this.tracks.length - 1, index));
+        const containerRect = this.container.getBoundingClientRect();
+        const scrollRect = this.scrollElement === window ? { top: 0 } : this.scrollElement.getBoundingClientRect();
+        const targetTop = this.getScrollTop() + containerRect.top - scrollRect.top + bounded * VIRTUAL_ROW_HEIGHT - 16;
+        const behavior = smooth ? 'smooth' : 'auto';
+        if (this.scrollElement === window) {
+            window.scrollTo({ top: targetTop, behavior });
+        } else {
+            this.scrollElement.scrollTo({ top: targetTop, behavior });
+            // Some mobile browsers expose the page scroller as window even
+            // when .main-content is present in the layout.
+            window.scrollTo({ top: window.scrollY + containerRect.top + bounded * VIRTUAL_ROW_HEIGHT - 16, behavior });
+        }
+        this.scheduleRender();
+    }
+    destroy() {
+        this.destroyed = true;
+        if (this.raf) cancelAnimationFrame(this.raf);
+        this.scrollElement.removeEventListener('scroll', this.onScroll);
+        window.removeEventListener('resize', this.onScroll);
+        this.rendered.clear();
+        this.container._singlesVirtualController = null;
+    }
+}
+
+function renderVirtualSingles(ui, container, tracks) {
+    clearSinglesAlphabetIndex();
+    container._singlesVirtualController?.destroy();
+    container.innerHTML = '';
     const renderedArtwork = collectRenderedAlbumArtwork();
     applyRenderedAlbumArtwork(tracks, renderedArtwork);
-
-    container.innerHTML = '';
-    const hasMultipleDiscs = tracks.some((track) => (track.volumeNumber || track.discNumber || 1) > 1);
-    let offset = Math.min(INITIAL_RENDER_SIZE, tracks.length);
-
-    renderTrackChunk(ui, container, tracks, 0, offset, hasMultipleDiscs);
-
-    const completionPromise = (async () => {
-        while (offset < tracks.length && generation === activeRenderGeneration) {
-            await yieldToBrowser();
-            if (generation !== activeRenderGeneration) return;
-
-            const end = Math.min(offset + RENDER_CHUNK_SIZE, tracks.length);
-            renderTrackChunk(ui, container, tracks, offset, end, hasMultipleDiscs);
-            offset = end;
-        }
-
-        if (generation !== activeRenderGeneration) return;
-
-        import('./singles-alpha-index.js')
-            .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
-            .catch(() => {});
-    })();
-
-    return completionPromise;
+    const controller = new SinglesVirtualController(ui, container, tracks);
+    container._singlesVirtualController = controller;
+    return controller;
 }
 
 export async function prepareLibrarySingles(ui) {
-    const cached = readSinglesCache(ui);
-
-    if (cached?.fresh) {
+    const cacheKey = getSinglesCacheKey(ui);
+    if (sessionCatalogue?.key === cacheKey)
+        return { tracks: sessionCatalogue.tracks, fromCache: true, stale: false, error: null };
+    const cached = await readSinglesCache(ui);
+    if (cached?.fresh && cached.complete) {
+        sessionCatalogue = { key: cacheKey, tracks: cached.tracks };
         return { tracks: cached.tracks, fromCache: true, stale: false, error: null };
     }
-
     if (cached?.tracks?.length) {
         const completePromise = refreshSingles(ui).catch((error) => {
             console.warn('Could not refresh Singles in background:', error);
             return cached.tracks;
         });
-
-        return {
-            tracks: cached.tracks,
-            fromCache: true,
-            stale: true,
-            completePromise,
-            error: null,
-        };
+        return { tracks: cached.tracks, fromCache: true, stale: true, completePromise, error: null };
     }
-
     try {
         const tracks = await refreshSingles(ui);
         return { tracks, fromCache: false, stale: false, error: null };
@@ -341,38 +495,59 @@ export async function prepareLibrarySingles(ui) {
     }
 }
 
+function sameTrackCatalogue(left, right) {
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index++)
+        if (String(left[index]?.id) !== String(right[index]?.id) || left[index]?.title !== right[index]?.title)
+            return false;
+    return true;
+}
+
 export async function renderLibrarySingles(ui, prepared = null) {
     const container = document.getElementById('library-singles-container');
     if (!container) return;
-
     container.classList.remove('card-grid');
     container.classList.add('track-list');
-
+    container.innerHTML = createPlaceholder('Loading tracks…');
     const result = prepared || (await prepareLibrarySingles(ui));
     if (result?.error) {
         container.innerHTML = createPlaceholder(`Could not load tracks: ${result.error.message}`);
         return;
     }
-
     const tracks = Array.isArray(result?.tracks) ? result.tracks : [];
     if (!tracks.length) {
         container.innerHTML = createPlaceholder('No tracks found in Navidrome.');
         return;
     }
+    const controller = renderVirtualSingles(ui, container, tracks);
+    import('./singles-alpha-index.js')
+        .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
+        .catch((error) => console.warn('Singles alphabet index unavailable:', error));
+    if (result?.completePromise)
+        void result.completePromise
+            .then((completeTracks) => {
+                if (!Array.isArray(completeTracks) || !completeTracks.length || controller.destroyed) return;
+                if (!sameTrackCatalogue(tracks, completeTracks)) {
+                    controller.setTracks(completeTracks);
+                    import('./singles-alpha-index.js')
+                        .then(({ enhanceSinglesAlphabetIndex }) => enhanceSinglesAlphabetIndex())
+                        .catch((error) => console.warn('Singles alphabet index unavailable:', error));
+                }
+            })
+            .catch((error) => console.warn('Could not finish loading the Singles catalogue:', error));
+}
 
-    // Render enough rows to make the tab usable immediately, then finish the
-    // rest in small chunks without monopolising Safari's main thread.
-    renderTracksProgressively(ui, container, tracks);
+export function getSinglesVirtualController(container = document.getElementById('library-singles-container')) {
+    return container?._singlesVirtualController || null;
+}
 
-    if (result?.completePromise) {
-        result.completePromise.then((completeTracks) => {
-            if (!Array.isArray(completeTracks) || !completeTracks.length) return;
-
-            const currentIds = tracks.map((track) => String(track.id)).join('|');
-            const completeIds = completeTracks.map((track) => String(track.id)).join('|');
-            if (currentIds === completeIds) return;
-
-            renderTracksProgressively(ui, container, completeTracks);
-        });
-    }
+export function getSinglesAlphaPositions() {
+    const controller = getSinglesVirtualController();
+    if (!controller) return new Map();
+    const index = new Map();
+    controller.getTracks().forEach((track, position) => {
+        const key = getSinglesAlphaKey(track?.title);
+        if (!index.has(key)) index.set(key, position);
+    });
+    return index;
 }

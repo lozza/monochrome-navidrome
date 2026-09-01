@@ -1,31 +1,29 @@
 import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import authGatePlugin from './vite-plugin-auth-gate.js';
 import blobAssetPlugin from './vite-plugin-blob.js';
 import svgUse from './vite-plugin-svg-use.js';
-import uploadPlugin from './vite-plugin-upload.js';
 import { playwright } from '@vitest/browser-playwright';
 import { execSync } from 'child_process';
-
-function proxyAudioPlugin() {
-    return {
-        name: 'proxy-audio-dev',
-        configureServer(server) {
-            // No longer needed: local proxy-audio middleware replaced by remote proxy
-        },
-    };
-}
+import packageJson from './package.json' with { type: 'json' };
 
 function getGitCommitHash() {
+    const injected = process.env.BUILD_COMMIT?.trim();
+    if (injected) {
+        if (!/^[0-9a-f]{7,40}$/i.test(injected)) {
+            throw new Error('BUILD_COMMIT must be a 7-40 character hexadecimal Git SHA.');
+        }
+        return injected.slice(0, 12);
+    }
+
     try {
-        return execSync('git rev-parse --short HEAD').toString().trim();
-    } catch {
-        return 'unknown';
+        return execSync('git rev-parse --short=12 HEAD').toString().trim();
+    } catch (error) {
+        throw new Error('A real build commit is required. Set BUILD_COMMIT for source archives and Docker builds.', {
+            cause: error,
+        });
     }
 }
-
-const decrypterVersion = '2026-08-06-crossfade-v10';
 
 export default defineConfig(({ mode }) => {
     const commitHash = getGitCommitHash();
@@ -44,6 +42,7 @@ export default defineConfig(({ mode }) => {
         base: './',
         define: {
             __COMMIT_HASH__: JSON.stringify(commitHash),
+            __APP_VERSION__: JSON.stringify(packageJson.version),
             __VITEST__: !!process.env.VITEST,
         },
         worker: {
@@ -52,16 +51,13 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 '!lucide': '/node_modules/lucide-static/icons',
-                '!simpleicons': '/node_modules/simple-icons/icons',
                 '!': '/node_modules',
 
-                events: '/node_modules/events/events.js',
-                pocketbase: '/node_modules/pocketbase/dist/pocketbase.es.js',
                 stream: path.resolve(__dirname, 'stream-stub.js'), // Stub for stream module
             },
         },
         optimizeDeps: {
-            exclude: ['pocketbase', '@ffmpeg/ffmpeg', '@ffmpeg/util'],
+            exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
         },
         server: {
             fs: {
@@ -85,21 +81,17 @@ export default defineConfig(({ mode }) => {
             },
         },
         plugins: [
-            proxyAudioPlugin(),
-            authGatePlugin(),
-            uploadPlugin(),
             blobAssetPlugin(),
             svgUse(),
             VitePWA({
                 registerType: 'autoUpdate',
                 devOptions: {
-                    enabled: true,
+                    enabled: isDev,
                     type: 'classic',
                     disableRuntimeConfig: true,
                     suppressWarnings: true,
                 },
                 workbox: {
-                    importScripts: [`sw-decrypter.js?v=${decrypterVersion}`],
                     skipWaiting: true,
                     clientsClaim: true,
                     // Do not precache index.html. A cached document can bypass the
@@ -120,7 +112,7 @@ export default defineConfig(({ mode }) => {
                                 request.destination === 'script' || request.destination === 'worker',
                             handler: 'NetworkFirst',
                             options: {
-                                cacheName: isDev ? 'scripts-dev' : 'scripts-v2',
+                                cacheName: isDev ? 'scripts-dev' : `scripts-${packageJson.version}`,
                                 networkTimeoutSeconds: 4,
                                 expiration: {
                                     maxEntries: 200,
@@ -154,19 +146,10 @@ export default defineConfig(({ mode }) => {
                         {
                             urlPattern: ({ request }) =>
                                 request.destination === 'audio' || request.destination === 'video',
-                            handler: 'CacheFirst',
-                            options: {
-                                cacheName: 'media',
-                                expiration: {
-                                    maxEntries: 50,
-                                    maxAgeSeconds: 60 * 24 * 60 * 60, // 60 Days
-                                },
-                                rangeRequests: true, // Support scrubbing
-                            },
+                            handler: 'NetworkOnly',
                         },
                     ],
                 },
-                includeAssets: ['discord.html'],
                 manifest: false, // Use existing public/manifest.json
             }),
         ],

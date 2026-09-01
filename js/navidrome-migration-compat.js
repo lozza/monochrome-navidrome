@@ -64,6 +64,9 @@ if (isIos && typeof document !== 'undefined') {
 // Navidrome/OpenSubsonic implementations can expose ISRC as a structured or
 // repeated value. Legacy lyrics code expects a scalar string and calls trim()
 // directly, so normalize it at the adapter boundary.
+// Stored deliberately so the compatibility wrapper can preserve the original
+// method's dynamic receiver.
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalMapTrack = NavidromeAPI.prototype.mapTrack;
 NavidromeAPI.prototype.mapTrack = function (raw = {}) {
     return normalizeTrackIsrc(originalMapTrack.call(this, raw));
@@ -101,6 +104,7 @@ try {
 // rejects that request, but letting the exception escape bricks the whole SPA.
 // Artwork is optional during startup, so return no artwork until the server is
 // configured instead of aborting Player.initialize().
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalGetCoverUrl = NavidromeAPI.prototype.getCoverUrl;
 NavidromeAPI.prototype.getCoverUrl = function (id, size = '320') {
     if (!id) return '';
@@ -122,6 +126,7 @@ NavidromeAPI.prototype.getCoverUrl = function (id, size = '320') {
     }
 };
 
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalGetCoverSrcset = NavidromeAPI.prototype.getCoverSrcset;
 NavidromeAPI.prototype.getCoverSrcset = function (id) {
     if (typeof this.isConfigured === 'function' && !this.isConfigured()) {

@@ -568,14 +568,6 @@ export const getTrackArtistsHTML = (track = {}, { fallback = 'Unknown Artist' } 
             .map((artist) => {
                 const escapedName = escapeHtml(artist.name || 'Unknown Artist');
                 const escapedId = escapeHtml(artist.id || '');
-                // Check if this is a tracker/unreleased track
-                const isTracker = track.isTracker || (track.id && String(track.id).startsWith('tracker-'));
-                if (isTracker && track.trackerInfo?.sheetId) {
-                    const escapedSheetId = escapeHtml(track.trackerInfo.sheetId);
-                    // For tracker tracks, link to the tracker artist page
-                    return `<span class="artist-link tracker-artist-link" data-tracker-sheet-id="${escapedSheetId}">${escapedName}</span>`;
-                }
-                // For normal tracks, use the artist ID
                 return `<span class="artist-link" data-artist-id="${escapedId}">${escapedName}</span>`;
             })
             .join(', ');
@@ -666,7 +658,6 @@ export async function getCoverBlob(api, coverId) {
     const cacheKey = `${coverId}-${requestedSize}`;
     if (coverCache.has(cacheKey)) return coverCache.get(cacheKey);
 
-    // Tidal seems to only support these soooo
     const supportedSizes = [80, 160, 320, 640, 1280];
     let fetchSize = 1280;
 
@@ -675,33 +666,14 @@ export async function getCoverBlob(api, coverId) {
         fetchSize = bestSize;
     }
 
-    const fetchWithProxy = async (url) => {
-        try {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            if (response.ok) return await response.blob();
-        } catch (e) {
-            console.warn('Proxy fetch failed:', e);
-        }
-        return null;
-    };
-
     let blob = null;
     try {
         const url = api.getCoverUrl(coverId, fetchSize.toString());
-        // Try direct fetch first
         const response = await fetch(url);
         if (response.ok) {
             blob = await response.blob();
-        } else {
-            // If direct fetch fails (e.g. 404 from SW due to CORS), try proxy
-            blob = await fetchWithProxy(url);
         }
-    } catch {
-        // Network error (CORS rejection not handled by SW), try proxy
-        const url = api.getCoverUrl(coverId, fetchSize.toString());
-        blob = await fetchWithProxy(url);
-    }
+    } catch {}
 
     if (blob) {
         if (fetchSize !== requestedSize) {
@@ -778,9 +750,8 @@ export function positionMenu(menu, x, y, anchorRect = null) {
 }
 
 export const getShareUrl = (path) => {
-    const baseUrl = window.NL_MODE ? 'https://monochrome.tf' : window.location.origin;
     const safePath = path.startsWith('/') ? path : `/${path}`;
-    return `${baseUrl}${safePath}`;
+    return `${window.location.origin}${safePath}`;
 };
 
 /**

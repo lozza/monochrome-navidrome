@@ -1,253 +1,7 @@
 //storage.js
 
 import { SVG_RIGHT_ARROW } from './icons';
-import { isIos, isSafari } from './platform-detection.js';
 
-export const apiSettings = {
-    STORAGE_KEY: 'monochrome-api-instances-v9',
-    INSTANCES_URLS: [],
-    defaultInstances: { api: [], streaming: [] },
-    userInstances: null,
-    instancesLoaded: false,
-    _loadPromise: null,
-
-    _loadUserInstances() {
-        if (this.userInstances) return this.userInstances;
-        try {
-            const stored = localStorage.getItem('monochrome-user-api-instances-v1');
-            const parsed = stored ? JSON.parse(stored) : {};
-            this.userInstances = {
-                api: Array.isArray(parsed.api) ? parsed.api : [],
-                streaming: Array.isArray(parsed.streaming) ? parsed.streaming : [],
-            };
-        } catch {
-            this.userInstances = { api: [], streaming: [] };
-        }
-        return this.userInstances;
-    },
-
-    _saveUserInstances() {
-        localStorage.setItem('monochrome-user-api-instances-v1', JSON.stringify(this.userInstances));
-    },
-
-    async loadInstancesFromGitHub() {
-        if (this.instancesLoaded) {
-            return this.defaultInstances;
-        }
-
-        if (this._loadPromise) {
-            return this._loadPromise;
-        }
-
-        this._loadPromise = (async () => {
-            const cachedData = localStorage.getItem(this.STORAGE_KEY);
-            if (cachedData) {
-                try {
-                    const parsed = JSON.parse(cachedData);
-                    const now = Date.now();
-                    // Check if cached data is less than 15 minutes old
-                    if (parsed.timestamp && now - parsed.timestamp < 15 * 60 * 1000) {
-                        this.defaultInstances = {
-                            api: Array.isArray(parsed.data?.api) ? parsed.data.api : [],
-                            streaming: Array.isArray(parsed.data?.streaming) ? parsed.data.streaming : [],
-                        };
-                        this.instancesLoaded = true;
-                        this._loadPromise = null;
-                        return this.defaultInstances;
-                    }
-                } catch (e) {
-                    console.warn('Failed to parse cached instances:', e);
-                }
-            }
-
-            let data = null;
-            let fetchError = null;
-
-            // Prefer first URL, only try others as fallback
-            const urls = [...this.INSTANCES_URLS];
-
-            for (const url of urls) {
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    data = await response.json();
-                    break; // Success, exit loop
-                } catch (error) {
-                    console.warn(`Failed to fetch from ${url}:`, error);
-                    fetchError = error;
-                }
-            }
-
-            if (!data) {
-                console.error('Failed to load instances from all uptime APIs:', fetchError);
-                this.defaultInstances = {
-                    api: [{ url: 'https://lol.samidy.workers.dev', version: '2.10' }],
-                    streaming: [],
-                };
-                this.instancesLoaded = true;
-                this._loadPromise = null;
-                return this.defaultInstances;
-            }
-
-            let groupedInstances = { api: [], streaming: [] };
-
-            const isBlockedInstance = (item) => {
-                const url = typeof item === 'string' ? item : item.url;
-                return url && /\.squid\.wtf/i.test(url);
-            };
-
-            if (data.api && Array.isArray(data.api)) {
-                groupedInstances.api = data.api.filter((item) => !isBlockedInstance(item));
-            }
-
-            if (data.streaming && Array.isArray(data.streaming)) {
-                groupedInstances.streaming = data.streaming.filter((item) => !isBlockedInstance(item));
-            } else if (groupedInstances.api.length > 0) {
-                groupedInstances.streaming = [...groupedInstances.api];
-            }
-
-            if (groupedInstances.api.length === 0) {
-                groupedInstances.api = [{ url: 'https://lol.samidy.workers.dev', version: '2.10' }];
-            }
-
-            this.defaultInstances = groupedInstances;
-            this.instancesLoaded = true;
-
-            try {
-                localStorage.setItem(
-                    this.STORAGE_KEY,
-                    JSON.stringify({
-                        timestamp: Date.now(),
-                        data: groupedInstances,
-                    })
-                );
-            } catch (e) {
-                console.warn('Failed to cache instances:', e);
-            }
-
-            this._loadPromise = null;
-            return groupedInstances;
-        })();
-
-        return this._loadPromise;
-    },
-
-    async getInstances(type = 'api', _sortBySpeed = false) {
-        let instancesObj;
-
-        instancesObj = await this.loadInstancesFromGitHub();
-        const userInst = this._loadUserInstances();
-
-        const defaultUrls = instancesObj[type] || instancesObj.api || [];
-        const userUrls = userInst[type] || [];
-
-        const combined = [
-            ...userUrls.map((u) => (typeof u === 'string' ? { url: u, isUser: true } : { ...u, isUser: true })),
-            ...defaultUrls,
-        ];
-
-        if (combined.length === 0) return [];
-
-        return combined;
-    },
-
-    addUserInstance(type, url) {
-        const userInst = this._loadUserInstances();
-        if (!userInst[type]) userInst[type] = [];
-
-        if (!userInst[type].some((u) => (typeof u === 'string' ? u === url : u.url === url))) {
-            userInst[type].push({ url, isUser: true, version: 'custom' });
-            this._saveUserInstances();
-            return true;
-        }
-        return false;
-    },
-
-    removeUserInstance(type, url) {
-        const userInst = this._loadUserInstances();
-        if (!userInst[type]) return false;
-
-        const initialLength = userInst[type].length;
-        userInst[type] = userInst[type].filter((u) => (typeof u === 'string' ? u !== url : u.url !== url));
-
-        if (userInst[type].length !== initialLength) {
-            this._saveUserInstances();
-            return true;
-        }
-        return false;
-    },
-
-    async refreshInstances() {
-        this.instancesLoaded = false;
-        this._loadPromise = null;
-        localStorage.removeItem(this.STORAGE_KEY);
-
-        const instances = await this.loadInstancesFromGitHub();
-
-        const shuffle = (array) => {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        };
-
-        const prioritySort = (array) => {
-            const getUrl = (item) => (typeof item === 'string' ? item : item.url || '');
-            const top = [];
-            const middle = [];
-            const bottom = [];
-            for (const item of array) {
-                const url = getUrl(item);
-                if (url.includes('hifi.geeked.wtf')) top.push(item);
-                else if (url.includes('.qqdl.site')) bottom.push(item);
-                else middle.push(item);
-            }
-            return [...top, ...shuffle(middle), ...shuffle(bottom)];
-        };
-
-        if (instances.api && instances.api.length) {
-            instances.api = prioritySort([...instances.api]);
-        }
-
-        if (instances.streaming && instances.streaming.length) {
-            instances.streaming = prioritySort([...instances.streaming]);
-        }
-
-        this.saveInstances(instances);
-
-        // Return API instances for the UI to render (default view)
-        return this.getInstances('api');
-    },
-    saveInstances(instances, type) {
-        if (type) {
-            try {
-                this._loadUserInstances();
-                const userInst = instances.filter((i) => i.isUser);
-                const defaultInst = instances.filter((i) => !i.isUser);
-
-                this.userInstances[type] = userInst;
-                this._saveUserInstances();
-
-                const stored = localStorage.getItem(this.STORAGE_KEY);
-                let fullObj = stored ? JSON.parse(stored) : { api: [], streaming: [] };
-
-                if (fullObj && fullObj.data) {
-                    fullObj.data[type] = defaultInst;
-                } else {
-                    if (!fullObj) fullObj = { api: [], streaming: [] };
-                    fullObj[type] = defaultInst;
-                }
-
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(fullObj));
-            } catch (e) {
-                console.error('Failed to save instances:', e);
-            }
-        } else {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(instances));
-        }
-    },
-};
 export const recentActivityManager = {
     STORAGE_KEY: 'monochrome-recent-activity',
     LIMIT: 10,
@@ -371,114 +125,6 @@ export const themeManager = {
         for (const [key, value] of Object.entries(colors)) {
             root.style.setProperty(`--${key}`, value);
         }
-    },
-};
-
-// Simple obfuscation to avoid clear-text storage of sensitive data
-function encodeSensitiveData(text) {
-    if (!text) return '';
-    const encoded = btoa(text.split('').reverse().join(''));
-    return encoded;
-}
-
-function decodeSensitiveData(encoded) {
-    if (!encoded) return '';
-    try {
-        return atob(encoded).split('').reverse().join('');
-    } catch {
-        return '';
-    }
-}
-
-export const lastFMStorage = {
-    STORAGE_KEY: 'lastfm-enabled',
-    LOVE_ON_LIKE_KEY: 'lastfm-love-on-like',
-    SCROBBLE_PERCENTAGE_KEY: 'lastfm-scrobble-percentage',
-    CUSTOM_API_KEY: 'lastfm-custom-api-key',
-    CUSTOM_API_SECRET: 'lastfm-custom-api-secret',
-    USE_CUSTOM_CREDENTIALS_KEY: 'lastfm-use-custom-credentials',
-
-    isEnabled() {
-        try {
-            return localStorage.getItem(this.STORAGE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.STORAGE_KEY, enabled ? 'true' : 'false');
-    },
-
-    shouldLoveOnLike() {
-        try {
-            return localStorage.getItem(this.LOVE_ON_LIKE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setLoveOnLike(enabled) {
-        localStorage.setItem(this.LOVE_ON_LIKE_KEY, enabled ? 'true' : 'false');
-    },
-
-    getScrobblePercentage() {
-        try {
-            const value = localStorage.getItem(this.SCROBBLE_PERCENTAGE_KEY);
-            return value ? parseInt(value, 10) : 75;
-        } catch {
-            return 75;
-        }
-    },
-
-    setScrobblePercentage(percentage) {
-        const parsed = parseInt(percentage, 10);
-        const validPercentage = Math.max(1, Math.min(100, isNaN(parsed) ? 75 : parsed));
-        localStorage.setItem(this.SCROBBLE_PERCENTAGE_KEY, validPercentage.toString());
-    },
-
-    useCustomCredentials() {
-        try {
-            return localStorage.getItem(this.USE_CUSTOM_CREDENTIALS_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setUseCustomCredentials(enabled) {
-        localStorage.setItem(this.USE_CUSTOM_CREDENTIALS_KEY, enabled ? 'true' : 'false');
-    },
-
-    getCustomApiKey() {
-        try {
-            const stored = localStorage.getItem(this.CUSTOM_API_KEY);
-            return decodeSensitiveData(stored) || '';
-        } catch {
-            return '';
-        }
-    },
-
-    setCustomApiKey(key) {
-        localStorage.setItem(this.CUSTOM_API_KEY, encodeSensitiveData(key));
-    },
-
-    getCustomApiSecret() {
-        try {
-            const stored = localStorage.getItem(this.CUSTOM_API_SECRET);
-            return decodeSensitiveData(stored) || '';
-        } catch {
-            return '';
-        }
-    },
-
-    setCustomApiSecret(secret) {
-        localStorage.setItem(this.CUSTOM_API_SECRET, encodeSensitiveData(secret));
-    },
-
-    clearCustomCredentials() {
-        localStorage.removeItem(this.CUSTOM_API_KEY);
-        localStorage.removeItem(this.CUSTOM_API_SECRET);
-        localStorage.removeItem(this.USE_CUSTOM_CREDENTIALS_KEY);
     },
 };
 
@@ -723,13 +369,6 @@ export const downloadQualitySettings = {
                 return 'FFMPEG_MP3_320';
             }
 
-            // The unified API no longer uses the generic Atmos request. Preserve
-            // the user's intent by migrating it to the shared Amazon/Tidal tier.
-            if (stored === 'DOLBY_ATMOS') {
-                this.setQuality('DOLBY_ATMOS_EAC3_HIGH');
-                return 'DOLBY_ATMOS_EAC3_HIGH';
-            }
-
             return stored;
         } catch {
             return 'HI_RES_LOSSLESS';
@@ -737,24 +376,6 @@ export const downloadQualitySettings = {
     },
     setQuality(quality) {
         localStorage.setItem(this.STORAGE_KEY, quality);
-    },
-};
-
-export const preferDolbyAtmosSettings = {
-    STORAGE_KEY: 'prefer-dolby-atmos',
-    isEnabled() {
-        try {
-            const stored = localStorage.getItem(this.STORAGE_KEY);
-            if (stored === null) {
-                return isSafari || isIos;
-            }
-            return stored === 'true';
-        } catch {
-            return isSafari || isIos;
-        }
-    },
-    setEnabled(enabled) {
-        localStorage.setItem(this.STORAGE_KEY, enabled ? 'true' : 'false');
     },
 };
 
@@ -770,24 +391,6 @@ export const losslessContainerSettings = {
     },
     setContainer(container) {
         localStorage.setItem(this.STORAGE_KEY, container);
-    },
-};
-
-export const nativeOsAtmosSettings = {
-    STORAGE_KEY: 'native-os-atmos-rendering',
-    isEnabled() {
-        try {
-            const stored = localStorage.getItem(this.STORAGE_KEY);
-            if (stored === null) {
-                return isSafari || isIos;
-            }
-            return stored === 'true';
-        } catch {
-            return isSafari || isIos;
-        }
-    },
-    setEnabled(enabled) {
-        localStorage.setItem(this.STORAGE_KEY, enabled ? 'true' : 'false');
     },
 };
 
@@ -885,23 +488,6 @@ export const crossfadeSettings = {
     setDuration(duration) {
         const safeDuration = Math.max(1, Math.min(12, Number(duration) || 5));
         localStorage.setItem(this.DURATION_KEY, String(safeDuration));
-    },
-};
-
-export const donationPromptSettings = {
-    STORAGE_KEY: 'donation-prompts-enabled',
-
-    isEnabled() {
-        try {
-            const value = localStorage.getItem(this.STORAGE_KEY);
-            return value === null ? true : value === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.STORAGE_KEY, enabled ? 'true' : 'false');
     },
 };
 
@@ -2235,132 +1821,6 @@ export const sidebarSettings = {
     },
 };
 
-export const listenBrainzSettings = {
-    ENABLED_KEY: 'listenbrainz-enabled',
-    TOKEN_KEY: 'listenbrainz-token',
-    CUSTOM_URL_KEY: 'listenbrainz-custom-url',
-    LOVE_ON_LIKE_KEY: 'listenbrainz-love-on-like',
-
-    isEnabled() {
-        try {
-            return localStorage.getItem(this.ENABLED_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.ENABLED_KEY, enabled ? 'true' : 'false');
-    },
-
-    getToken() {
-        try {
-            return localStorage.getItem(this.TOKEN_KEY) || '';
-        } catch {
-            return '';
-        }
-    },
-
-    setToken(token) {
-        localStorage.setItem(this.TOKEN_KEY, token);
-    },
-
-    getCustomUrl() {
-        try {
-            return localStorage.getItem(this.CUSTOM_URL_KEY) || '';
-        } catch {
-            return '';
-        }
-    },
-
-    setCustomUrl(url) {
-        localStorage.setItem(this.CUSTOM_URL_KEY, url);
-    },
-
-    shouldLoveOnLike() {
-        try {
-            return localStorage.getItem(this.LOVE_ON_LIKE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setLoveOnLike(enabled) {
-        localStorage.setItem(this.LOVE_ON_LIKE_KEY, enabled ? 'true' : 'false');
-    },
-};
-
-export const malojaSettings = {
-    ENABLED_KEY: 'maloja-enabled',
-    TOKEN_KEY: 'maloja-token',
-    CUSTOM_URL_KEY: 'maloja-custom-url',
-
-    isEnabled() {
-        try {
-            return localStorage.getItem(this.ENABLED_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.ENABLED_KEY, enabled ? 'true' : 'false');
-    },
-
-    getToken() {
-        try {
-            return localStorage.getItem(this.TOKEN_KEY) || '';
-        } catch {
-            return '';
-        }
-    },
-
-    setToken(token) {
-        localStorage.setItem(this.TOKEN_KEY, token);
-    },
-
-    getCustomUrl() {
-        try {
-            return localStorage.getItem(this.CUSTOM_URL_KEY) || '';
-        } catch {
-            return '';
-        }
-    },
-
-    setCustomUrl(url) {
-        localStorage.setItem(this.CUSTOM_URL_KEY, url);
-    },
-};
-
-export const libreFmSettings = {
-    ENABLED_KEY: 'librefm-enabled',
-    LOVE_ON_LIKE_KEY: 'librefm-love-on-like',
-
-    isEnabled() {
-        try {
-            return localStorage.getItem(this.ENABLED_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.ENABLED_KEY, enabled ? 'true' : 'false');
-    },
-
-    shouldLoveOnLike() {
-        try {
-            return localStorage.getItem(this.LOVE_ON_LIKE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setLoveOnLike(enabled) {
-        localStorage.setItem(this.LOVE_ON_LIKE_KEY, enabled ? 'true' : 'false');
-    },
-};
-
 export const homePageSettings = {
     SHOW_RECOMMENDED_SONGS_KEY: 'home-show-recommended-songs',
     SHOW_RECOMMENDED_ALBUMS_KEY: 'home-show-recommended-albums',
@@ -2418,50 +1878,6 @@ export const homePageSettings = {
     setShowJumpBackIn(enabled) {
         localStorage.setItem(this.SHOW_JUMP_BACK_IN_KEY, enabled ? 'true' : 'false');
     },
-
-    SHOW_EDITORS_PICKS_KEY: 'home-show-editors-picks',
-
-    shouldShowEditorsPicks() {
-        try {
-            const val = localStorage.getItem(this.SHOW_EDITORS_PICKS_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShowEditorsPicks(enabled) {
-        localStorage.setItem(this.SHOW_EDITORS_PICKS_KEY, enabled ? 'true' : 'false');
-    },
-
-    SHUFFLE_EDITORS_PICKS_KEY: 'home-shuffle-editors-picks',
-
-    shouldShuffleEditorsPicks() {
-        try {
-            const val = localStorage.getItem(this.SHUFFLE_EDITORS_PICKS_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShuffleEditorsPicks(enabled) {
-        localStorage.setItem(this.SHUFFLE_EDITORS_PICKS_KEY, enabled ? 'true' : 'false');
-    },
-
-    EDITORS_PICKS_SOURCE_KEY: 'home-editors-picks-source',
-
-    getEditorsPicksSource() {
-        try {
-            return localStorage.getItem(this.EDITORS_PICKS_SOURCE_KEY) || 'current';
-        } catch {
-            return 'current';
-        }
-    },
-
-    setEditorsPicksSource(source) {
-        localStorage.setItem(this.EDITORS_PICKS_SOURCE_KEY, source);
-    },
 };
 
 export const radioSettings = {
@@ -2480,7 +1896,7 @@ export const radioSettings = {
     },
 };
 
-// fuck you binimum for adding this bullshit
+// Preserve the legacy custom-font keys for existing browser profiles.
 
 try {
     const RESET_FLAG = 'autoplay-enabled-reset-v1';
@@ -2520,46 +1936,21 @@ export const autoplaySettings = {
     },
 };
 
-export const analyticsSettings = {
-    ENABLED_KEY: 'analytics-enabled',
-
-    isEnabled() {
-        try {
-            const val = localStorage.getItem(this.ENABLED_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.ENABLED_KEY, enabled ? 'true' : 'false');
-    },
-};
-
 export const sidebarSectionSettings = {
     SHOW_HOME_KEY: 'sidebar-show-home',
     SHOW_LIBRARY_KEY: 'sidebar-show-library',
     SHOW_RECENT_KEY: 'sidebar-show-recent',
-    SHOW_UNRELEASED_KEY: 'sidebar-show-unreleased',
-    SHOW_DONATE_KEY: 'sidebar-show-donate',
     SHOW_SETTINGS_KEY: 'sidebar-show-settings',
     SHOW_ABOUT_KEY: 'sidebar-show-about',
-    SHOW_DISCORD_KEY: 'sidebar-show-discord',
     SHOW_GITHUB_KEY: 'sidebar-show-github',
-    SHOW_PARTY_KEY: 'sidebar-show-party',
     ORDER_KEY: 'sidebar-menu-order',
     DEFAULT_ORDER: [
         'sidebar-nav-home',
         'sidebar-nav-library',
         'sidebar-nav-recent',
-        'sidebar-nav-unreleased',
-        'sidebar-nav-donate',
         'sidebar-nav-settings',
         'sidebar-nav-about-bottom',
         'sidebar-nav-mobile',
-        'sidebar-nav-discordbtn',
-        'sidebar-nav-party',
         'sidebar-nav-githubbtn',
     ],
 
@@ -2608,32 +1999,6 @@ export const sidebarSectionSettings = {
         localStorage.setItem(this.SHOW_RECENT_KEY, enabled ? 'true' : 'false');
     },
 
-    shouldShowUnreleased() {
-        try {
-            const val = localStorage.getItem(this.SHOW_UNRELEASED_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShowUnreleased(enabled) {
-        localStorage.setItem(this.SHOW_UNRELEASED_KEY, enabled ? 'true' : 'false');
-    },
-
-    shouldShowDonate() {
-        try {
-            const val = localStorage.getItem(this.SHOW_DONATE_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShowDonate(enabled) {
-        localStorage.setItem(this.SHOW_DONATE_KEY, enabled ? 'true' : 'false');
-    },
-
     shouldShowSettings() {
         return true;
     },
@@ -2659,19 +2024,6 @@ export const sidebarSectionSettings = {
         localStorage.setItem(this.SHOW_ABOUT_KEY, enabled ? 'true' : 'false');
     },
 
-    shouldShowDiscord() {
-        try {
-            const val = localStorage.getItem(this.SHOW_DISCORD_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShowDiscord(enabled) {
-        localStorage.setItem(this.SHOW_DISCORD_KEY, enabled ? 'true' : 'false');
-    },
-
     shouldShowGithub() {
         try {
             const val = localStorage.getItem(this.SHOW_GITHUB_KEY);
@@ -2683,19 +2035,6 @@ export const sidebarSectionSettings = {
 
     setShowGithub(enabled) {
         localStorage.setItem(this.SHOW_GITHUB_KEY, enabled ? 'true' : 'false');
-    },
-
-    shouldShowParty() {
-        try {
-            const val = localStorage.getItem(this.SHOW_PARTY_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShowParty(enabled) {
-        localStorage.setItem(this.SHOW_PARTY_KEY, enabled ? 'true' : 'false');
     },
 
     normalizeOrder(order) {
@@ -2759,13 +2098,9 @@ export const sidebarSectionSettings = {
             { id: 'sidebar-nav-home', check: this.shouldShowHome() },
             { id: 'sidebar-nav-library', check: this.shouldShowLibrary() },
             { id: 'sidebar-nav-recent', check: this.shouldShowRecent() },
-            { id: 'sidebar-nav-unreleased', check: this.shouldShowUnreleased() },
-            { id: 'sidebar-nav-donate', check: this.shouldShowDonate() },
             { id: 'sidebar-nav-settings', check: this.shouldShowSettings() },
             { id: 'sidebar-nav-about-bottom', check: this.shouldShowAbout() },
             { id: 'sidebar-nav-mobile', check: true },
-            { id: 'sidebar-nav-discordbtn', check: this.shouldShowDiscord() },
-            { id: 'sidebar-nav-party', check: this.shouldShowParty() },
             { id: 'sidebar-nav-githubbtn', check: this.shouldShowGithub() },
         ];
 
@@ -2860,60 +2195,19 @@ export const fontSettings = {
     },
 
     parseGoogleFontsUrl(url) {
-        try {
-            if (url.includes('fonts.google.com/specimen/')) {
-                const match = url.match(/specimen\/([^/?]+)/);
-                if (match) {
-                    return decodeURIComponent(match[1]).replace(/\+/g, ' ');
-                }
-            }
-            if (url.includes('fonts.googleapis.com/css')) {
-                const match = url.match(/family=([^&:]+)/);
-                if (match) {
-                    return decodeURIComponent(match[1]).replace(/\+/g, ' ').split(':')[0];
-                }
-            }
-        } catch {
-            // ignore
-        }
+        void url;
         return null;
     },
 
     async loadGoogleFont(familyName) {
-        // Validate familyName to prevent injection
-        if (!familyName || typeof familyName !== 'string') {
-            return;
-        }
-        // Only allow alphanumeric, spaces, and basic punctuation in font names
-        const sanitizedFamily = familyName.replace(/[^a-zA-Z0-9\s\-_,.]/g, '');
-        if (!sanitizedFamily) {
-            return;
-        }
-
-        const encodedFamily = encodeURIComponent(sanitizedFamily);
-        const url = `https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@100;200;300;400;500;600;700;800;900&display=swap`;
-
-        let link = document.getElementById(this.FONT_LINK_ID);
-        if (!link) {
-            link = document.createElement('link');
-            link.id = this.FONT_LINK_ID;
-            link.rel = 'stylesheet';
-            document.head.appendChild(link);
-        }
-
-        link.href = url;
-
-        this.setConfig({
-            type: 'google',
-            family: familyName,
-            fallback: 'sans-serif',
-            weights: [100, 200, 300, 400, 500, 600, 700, 800, 900],
-        });
-
-        document.documentElement.style.setProperty('--font-family', `'${familyName}', ${this.NOTO_FALLBACK}`);
+        this.loadPresetFont(familyName || 'Inter');
     },
 
     async loadFontFromUrl(url, familyName) {
+        if (!url?.startsWith('data:') && !url?.startsWith('blob:')) {
+            this.loadPresetFont('Inter');
+            return;
+        }
         const weights = [100, 200, 300, 400, 500, 600, 700, 800, 900];
         const fontFaceId = this.FONT_FACE_ID;
 
@@ -3055,7 +2349,8 @@ export const fontSettings = {
             weights: [400, 500, 600, 700, 800],
         });
 
-        const fontValue = family === 'monospace' ? 'monospace' : `'${family}', ${this.NOTO_FALLBACK}`;
+        const resolvedFamily = family === 'Inter' ? 'Inter Variable' : family;
+        const fontValue = resolvedFamily === 'monospace' ? 'monospace' : `'${resolvedFamily}', ${this.NOTO_FALLBACK}`;
         document.documentElement.style.setProperty('--font-family', fontValue);
     },
 
@@ -3143,120 +2438,6 @@ export const pwaUpdateSettings = {
 
     setAutoUpdateEnabled(enabled) {
         localStorage.setItem(this.STORAGE_KEY, enabled ? 'true' : 'false');
-    },
-};
-
-export const musicProviderSettings = {
-    STORAGE_KEY: 'music-provider',
-
-    getProvider() {
-        try {
-            return localStorage.getItem(this.STORAGE_KEY) || 'amazon';
-        } catch {
-            return 'amazon';
-        }
-    },
-
-    setProvider(provider) {
-        localStorage.setItem(this.STORAGE_KEY, provider);
-    },
-};
-
-export const unifiedPlaybackSettings = {
-    ENABLED_KEY: 'unified-playback-enabled',
-    API_BASE_URL_KEY: 'unified-playback-api-base-url',
-    API_TOKEN_KEY: 'unified-playback-api-token',
-    DEFAULT_API_BASE_URL: 'https://music-api.geeked.wtf',
-    LEGACY_API_BASE_URLS: ['https://amz.geeked.wtf', 'https://track-api.monochrome.tf', 'https://mono.geeked.wtf'],
-    DEFAULT_API_TOKEN: 'amp_29b2lIr4mze4tK-P8QDOxfMZ9anCgJ9_uGTUks3nIyo',
-
-    isEnabled() {
-        try {
-            const value = localStorage.getItem(this.ENABLED_KEY) ?? localStorage.getItem('amazon-music-enabled');
-            return value !== 'false';
-        } catch {
-            return true;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.ENABLED_KEY, enabled ? 'true' : 'false');
-    },
-
-    getApiBaseUrl() {
-        try {
-            const storedUrl =
-                localStorage.getItem(this.API_BASE_URL_KEY) || localStorage.getItem('amazon-music-api-base-url');
-            if (storedUrl && !this.LEGACY_API_BASE_URLS.includes(storedUrl.replace(/\/+$/, ''))) {
-                return storedUrl;
-            }
-            return import.meta.env.VITE_UNIFIED_PLAYBACK_API_BASE_URL || this.DEFAULT_API_BASE_URL;
-        } catch {
-            return this.DEFAULT_API_BASE_URL;
-        }
-    },
-
-    setApiBaseUrl(url) {
-        localStorage.setItem(this.API_BASE_URL_KEY, url || this.DEFAULT_API_BASE_URL);
-    },
-
-    getApiToken() {
-        try {
-            return (
-                localStorage.getItem(this.API_TOKEN_KEY) ||
-                localStorage.getItem('amazon-music-turnstile-bypass-token') ||
-                import.meta.env.VITE_UNIFIED_PLAYBACK_API_TOKEN ||
-                import.meta.env.VITE_AMAZON_TURNSTILE_BYPASS_TOKEN ||
-                this.DEFAULT_API_TOKEN
-            );
-        } catch {
-            return this.DEFAULT_API_TOKEN;
-        }
-    },
-
-    setApiToken(token) {
-        localStorage.setItem(this.API_TOKEN_KEY, token || '');
-    },
-
-    isDefaultApiToken(token) {
-        const currentToken = (token || this.getApiToken() || '').trim();
-        const defaultToken = (this.DEFAULT_API_TOKEN || '').trim();
-        const envToken = (
-            import.meta.env.VITE_UNIFIED_PLAYBACK_API_TOKEN ||
-            import.meta.env.VITE_AMAZON_TURNSTILE_BYPASS_TOKEN ||
-            ''
-        ).trim();
-        return currentToken === defaultToken || (Boolean(envToken) && currentToken === envToken);
-    },
-};
-
-export const deezerFallbackSettings = {
-    ENABLED_KEY: 'deezer-fallback-enabled',
-    API_BASE_URL_KEY: 'deezer-fallback-api-base-url',
-    DEFAULT_API_BASE_URL: 'https://dzr.tabs-vs-spaces.wtf',
-
-    isEnabled() {
-        try {
-            return localStorage.getItem(this.ENABLED_KEY) !== 'false';
-        } catch {
-            return true;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.ENABLED_KEY, enabled ? 'true' : 'false');
-    },
-
-    getApiBaseUrl() {
-        try {
-            return localStorage.getItem(this.API_BASE_URL_KEY) || this.DEFAULT_API_BASE_URL;
-        } catch {
-            return this.DEFAULT_API_BASE_URL;
-        }
-    },
-
-    setApiBaseUrl(url) {
-        localStorage.setItem(this.API_BASE_URL_KEY, url || this.DEFAULT_API_BASE_URL);
     },
 };
 
@@ -3362,82 +2543,18 @@ export const modalSettings = {
     },
 };
 
-export const devModeSettings = {
-    STORAGE_KEY: 'dev-mode-enabled',
-    URL_KEY: 'dev-mode-url',
-
-    isEnabled() {
-        try {
-            return localStorage.getItem(this.STORAGE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    setEnabled(enabled) {
-        localStorage.setItem(this.STORAGE_KEY, enabled ? 'true' : 'false');
-    },
-
-    getUrl() {
-        try {
-            return localStorage.getItem(this.URL_KEY) || 'http://127.0.0.1:8000';
-        } catch {
-            return 'http://127.0.0.1:8000';
-        }
-    },
-
-    setUrl(url) {
-        localStorage.setItem(this.URL_KEY, url);
-    },
-};
-
-export const serverDisruptionSettings = {
-    STORAGE_KEY: 'server-disruption-dismissed',
-
-    isDismissed() {
-        try {
-            return localStorage.getItem(this.STORAGE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    },
-
-    dismiss() {
-        localStorage.setItem(this.STORAGE_KEY, 'true');
-    },
-
-    reset() {
-        localStorage.removeItem(this.STORAGE_KEY);
-    },
-};
-
 export const contentBlockingSettings = {
     BLOCKED_ARTISTS_KEY: 'blocked-artists',
     BLOCKED_TRACKS_KEY: 'blocked-tracks',
     BLOCKED_ALBUMS_KEY: 'blocked-albums',
 
-    // Hardcoded always-blocked artist IDs. Merged into the user blocklist on
-    // every read so the block survives localStorage clears. To allow playback
-    // for one of these artists again, remove the ID from this array.
-    HARDCODED_BLOCKED_ARTIST_IDS: [3995478],
-
-    _hardcodedBlockedArtists() {
-        return this.HARDCODED_BLOCKED_ARTIST_IDS.map((id) => ({
-            id,
-            name: null,
-            blockedAt: 0,
-            hardcoded: true,
-        }));
-    },
-
     // Blocked Artists
     getBlockedArtists() {
         try {
             const data = localStorage.getItem(this.BLOCKED_ARTISTS_KEY);
-            const user = data ? JSON.parse(data) : [];
-            return [...this._hardcodedBlockedArtists(), ...user];
+            return data ? JSON.parse(data) : [];
         } catch {
-            return this._hardcodedBlockedArtists();
+            return [];
         }
     },
 
@@ -3567,27 +2684,6 @@ export const contentBlockingSettings = {
     shouldHideArtist(artist) {
         if (!artist) return true;
         return this.isArtistBlocked(artist.id);
-    },
-
-    // True only for hardcoded (non-user-removable) blocks. Renderers use
-    // this to omit the item entirely rather than just dim it.
-    isHardcodedBlockedArtist(artistId) {
-        if (!artistId) return false;
-        return this.HARDCODED_BLOCKED_ARTIST_IDS.some((id) => String(id) === String(artistId));
-    },
-
-    isHardcodedBlockedTrack(track) {
-        if (!track) return false;
-        if (track.artist?.id && this.isHardcodedBlockedArtist(track.artist.id)) return true;
-        if (track.artists?.some((a) => this.isHardcodedBlockedArtist(a.id))) return true;
-        return false;
-    },
-
-    isHardcodedBlockedAlbum(album) {
-        if (!album) return false;
-        if (album.artist?.id && this.isHardcodedBlockedArtist(album.artist.id)) return true;
-        if (album.artists?.some((a) => this.isHardcodedBlockedArtist(a.id))) return true;
-        return false;
     },
 
     // Filter arrays

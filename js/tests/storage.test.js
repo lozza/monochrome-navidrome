@@ -2,14 +2,12 @@ import { expect, test, describe, beforeEach, vi } from 'vitest';
 import {
     recentActivityManager,
     themeManager,
-    lastFMStorage,
     nowPlayingSettings,
     gaplessPlaybackSettings,
     exponentialVolumeSettings,
     audioEffectsSettings,
     silenceRemovalSettings,
     crossfadeSettings,
-    donationPromptSettings,
 } from '../storage.js';
 
 describe('storage.js', () => {
@@ -55,22 +53,6 @@ describe('storage.js', () => {
             expect(themeManager.getTheme()).toBe('custom');
             expect(themeManager.getCustomTheme()).toEqual(colors);
             expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#ff0000');
-        });
-    });
-
-    describe('lastFMStorage', () => {
-        test('handles enabled state', () => {
-            lastFMStorage.setEnabled(true);
-            expect(lastFMStorage.isEnabled()).toBe(true);
-            lastFMStorage.setEnabled(false);
-            expect(lastFMStorage.isEnabled()).toBe(false);
-        });
-
-        test('obfuscates sensitive data', () => {
-            const key = 'test-api-key';
-            lastFMStorage.setCustomApiKey(key);
-            expect(localStorage.getItem(lastFMStorage.CUSTOM_API_KEY)).not.toBe(key);
-            expect(lastFMStorage.getCustomApiKey()).toBe(key);
         });
     });
 
@@ -121,14 +103,6 @@ describe('storage.js', () => {
             expect(crossfadeSettings.getDuration()).toBe(12);
             crossfadeSettings.setDuration(0);
             expect(crossfadeSettings.getDuration()).toBe(5);
-        });
-    });
-
-    describe('donation prompt settings', () => {
-        test('defaults reminders on and persists an opt-out', () => {
-            expect(donationPromptSettings.isEnabled()).toBe(true);
-            donationPromptSettings.setEnabled(false);
-            expect(donationPromptSettings.isEnabled()).toBe(false);
         });
     });
 

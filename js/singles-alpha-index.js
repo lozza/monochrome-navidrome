@@ -1,4 +1,6 @@
-const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'];
+import { getSinglesAlphaKey, SINGLES_ALPHA_GROUPS } from './singles-alpha.js';
+
+const ALPHABET = SINGLES_ALPHA_GROUPS;
 
 function injectStyles() {
     if (document.getElementById('singles-alpha-index-styles')) return;
@@ -14,7 +16,7 @@ function injectStyles() {
             z-index: 60;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            gap: 4px;
             width: 30px;
             height: min(72vh, 560px);
             max-height: calc(100vh - 170px);
@@ -23,6 +25,14 @@ function injectStyles() {
             background: rgba(0, 0, 0, 0.28);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
+        }
+
+        .singles-alpha-letters {
+            display: flex;
+            flex: 1 1 auto;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 0;
         }
 
         .singles-alpha-index button {
@@ -48,11 +58,29 @@ function injectStyles() {
             outline: none;
         }
 
-        .singles-alpha-index button:disabled {
+        .singles-alpha-index button.is-unavailable {
             color: var(--text-secondary, #777);
             opacity: 0.25;
             cursor: default;
             background: transparent;
+        }
+
+        .singles-back-to-top {
+            flex: 0 0 22px;
+            min-height: 22px !important;
+            font-size: 16px !important;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-3px);
+            transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+        }
+
+        .singles-back-to-top.is-visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0);
         }
 
         #library-singles-container .singles-alpha-anchor {
@@ -65,13 +93,13 @@ function injectStyles() {
 
         @media (max-width: 768px) {
             #library-tab-singles {
-                padding-right: 22px;
+                padding-right: 36px;
             }
 
             .singles-alpha-index {
                 top: 50%;
                 right: max(1px, env(safe-area-inset-right));
-                width: 20px;
+                width: 36px;
                 height: min(78dvh, 610px);
                 max-height: calc(100dvh - 132px);
                 padding: 3px 0;
@@ -84,7 +112,11 @@ function injectStyles() {
                 -webkit-user-select: none;
             }
 
-            .singles-alpha-index button {
+            .singles-alpha-letters {
+                width: 100%;
+            }
+
+            .singles-alpha-letters button {
                 flex: 1 1 0;
                 min-height: 0;
                 width: 100%;
@@ -95,15 +127,22 @@ function injectStyles() {
                 touch-action: none;
             }
 
-            .singles-alpha-index button:hover,
-            .singles-alpha-index button:focus-visible,
-            .singles-alpha-index button.is-active {
+            .singles-alpha-letters button:hover,
+            .singles-alpha-letters button:focus-visible,
+            .singles-alpha-letters button.is-active {
                 background: transparent;
                 transform: scale(1.22);
             }
 
-            .singles-alpha-index button:disabled {
+            .singles-alpha-letters button.is-unavailable {
                 opacity: 0.18;
+            }
+
+            .singles-back-to-top {
+                flex-basis: 20px;
+                min-height: 20px !important;
+                width: 100%;
+                font-size: 14px !important;
             }
 
             .singles-alpha-bubble {
@@ -145,17 +184,6 @@ function getItemTitle(item) {
     );
 }
 
-function getAlphaKey(title) {
-    const normalized = String(title || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .replace(/^[^A-Za-z0-9]+/, '');
-
-    const first = normalized.charAt(0).toUpperCase();
-    return /^[A-Z]$/.test(first) ? first : '#';
-}
-
 function findNearestAvailableLetter(index, targets) {
     if (targets.has(ALPHABET[index])) return ALPHABET[index];
 
@@ -169,7 +197,7 @@ function findNearestAvailableLetter(index, targets) {
     return null;
 }
 
-function setupMobileScrubbing(index, bubble, buttons, firstItemByLetter) {
+function setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLetter, scrollToTarget, signal) {
     const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
     let activePointerId = null;
     let hideTimer = null;
@@ -178,10 +206,10 @@ function setupMobileScrubbing(index, bubble, buttons, firstItemByLetter) {
     const setActiveLetter = (letter, clientY, smooth = false) => {
         if (!letter) return;
         const target = firstItemByLetter.get(letter);
-        if (!target) return;
+        if (target === undefined || target === null) return;
 
         if (lastLetter !== letter) {
-            target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+            scrollToTarget(target, smooth);
             lastLetter = letter;
         }
 
@@ -193,8 +221,14 @@ function setupMobileScrubbing(index, bubble, buttons, firstItemByLetter) {
         clearTimeout(hideTimer);
     };
 
-    const letterFromPointer = (clientY) => {
-        const rect = index.getBoundingClientRect();
+    const letterFromPointer = (clientX, clientY) => {
+        const pointedButton = document.elementFromPoint(clientX, clientY)?.closest('button[data-letter]');
+        if (pointedButton && lettersContainer.contains(pointedButton)) {
+            const buttonIndex = ALPHABET.indexOf(pointedButton.dataset.letter);
+            return findNearestAvailableLetter(buttonIndex, firstItemByLetter);
+        }
+
+        const rect = lettersContainer.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(0.9999, (clientY - rect.top) / rect.height));
         const alphabetIndex = Math.floor(ratio * ALPHABET.length);
         return findNearestAvailableLetter(alphabetIndex, firstItemByLetter);
@@ -207,26 +241,60 @@ function setupMobileScrubbing(index, bubble, buttons, firstItemByLetter) {
         lastLetter = null;
     };
 
-    index.addEventListener('pointerdown', (event) => {
-        if (!isMobile()) return;
-        event.preventDefault();
-        activePointerId = event.pointerId;
-        index.setPointerCapture?.(event.pointerId);
-        setActiveLetter(letterFromPointer(event.clientY), event.clientY);
-    });
+    lettersContainer.addEventListener(
+        'pointerdown',
+        (event) => {
+            if (!isMobile()) return;
+            event.preventDefault();
+            activePointerId = event.pointerId;
+            lettersContainer.setPointerCapture?.(event.pointerId);
+            setActiveLetter(letterFromPointer(event.clientX, event.clientY), event.clientY);
+        },
+        { signal }
+    );
 
-    index.addEventListener('pointermove', (event) => {
-        if (!isMobile() || activePointerId !== event.pointerId) return;
-        event.preventDefault();
-        setActiveLetter(letterFromPointer(event.clientY), event.clientY);
-    });
+    lettersContainer.addEventListener(
+        'pointermove',
+        (event) => {
+            if (!isMobile() || activePointerId !== event.pointerId) return;
+            event.preventDefault();
+            setActiveLetter(letterFromPointer(event.clientX, event.clientY), event.clientY);
+        },
+        { signal }
+    );
 
-    index.addEventListener('pointerup', (event) => {
-        if (activePointerId !== event.pointerId) return;
-        finish();
-    });
+    lettersContainer.addEventListener(
+        'pointerup',
+        (event) => {
+            if (activePointerId !== event.pointerId) return;
+            finish();
+        },
+        { signal }
+    );
 
-    index.addEventListener('pointercancel', finish);
+    lettersContainer.addEventListener('pointercancel', finish, { signal });
+}
+
+function setupBackToTop(button, signal) {
+    const mainContent = document.querySelector('.main-content');
+    const getScrollTop = () => Math.max(window.scrollY || 0, mainContent?.scrollTop || 0);
+    const updateVisibility = () => {
+        const visible = getScrollTop() > 240;
+        button.classList.toggle('is-visible', visible);
+        button.tabIndex = visible ? 0 : -1;
+    };
+
+    button.addEventListener(
+        'click',
+        () => {
+            mainContent?.scrollTo({ top: 0, behavior: 'smooth' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        { signal }
+    );
+    mainContent?.addEventListener('scroll', updateVisibility, { passive: true, signal });
+    window.addEventListener('scroll', updateVisibility, { passive: true, signal });
+    updateVisibility();
 }
 
 export function enhanceSinglesAlphabetIndex() {
@@ -235,28 +303,53 @@ export function enhanceSinglesAlphabetIndex() {
     if (!singlesTab || !singlesContainer) return;
 
     injectStyles();
+    singlesTab._navichromeAlphabetController?.abort();
+    const controller = new AbortController();
+    singlesTab._navichromeAlphabetController = controller;
     singlesTab.querySelector('.singles-alpha-index')?.remove();
     singlesTab.querySelector('.singles-alpha-bubble')?.remove();
 
-    // library-singles.js already sorts the track data before rendering. Do not
-    // sort and re-append thousands of DOM nodes here; that caused a second large
-    // main-thread stall just as Singles appeared to have finished loading.
-    const items = [...singlesContainer.querySelectorAll('.card, .track-item')].filter((item) => getItemTitle(item));
-    if (!items.length) return;
-
     const firstItemByLetter = new Map();
-    for (const item of items) {
-        item.classList.remove('singles-alpha-anchor');
-        const key = getAlphaKey(getItemTitle(item));
-        if (!firstItemByLetter.has(key)) {
-            firstItemByLetter.set(key, item);
-            item.classList.add('singles-alpha-anchor');
+    const virtualController = singlesContainer._singlesVirtualController;
+    if (virtualController) {
+        virtualController.getTracks().forEach((track, index) => {
+            const key = getSinglesAlphaKey(track?.title);
+            if (!firstItemByLetter.has(key)) firstItemByLetter.set(key, index);
+        });
+    } else {
+        const items = [...singlesContainer.querySelectorAll('.card, .track-item')].filter((item) => getItemTitle(item));
+        if (!items.length) return;
+        for (const item of items) {
+            item.classList.remove('singles-alpha-anchor');
+            const key = getSinglesAlphaKey(getItemTitle(item));
+            if (!firstItemByLetter.has(key)) {
+                firstItemByLetter.set(key, item);
+                item.classList.add('singles-alpha-anchor');
+            }
         }
     }
+
+    const scrollToTarget = (target, smooth = true) => {
+        if (virtualController) virtualController.scrollToIndex(target, smooth);
+        else target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    };
 
     const index = document.createElement('nav');
     index.className = 'singles-alpha-index';
     index.setAttribute('aria-label', 'Jump to track by title');
+
+    const backToTop = document.createElement('button');
+    backToTop.type = 'button';
+    backToTop.className = 'singles-back-to-top';
+    backToTop.textContent = '↑';
+    backToTop.title = 'Back to top';
+    backToTop.setAttribute('aria-label', 'Back to top');
+    backToTop.tabIndex = -1;
+    index.appendChild(backToTop);
+
+    const lettersContainer = document.createElement('div');
+    lettersContainer.className = 'singles-alpha-letters';
+    index.appendChild(lettersContainer);
 
     const buttons = [];
     for (const letter of ALPHABET) {
@@ -264,18 +357,21 @@ export function enhanceSinglesAlphabetIndex() {
         const target = firstItemByLetter.get(letter);
         button.type = 'button';
         button.textContent = letter;
-        button.disabled = !target;
-        button.setAttribute('aria-label', target ? `Jump to ${letter}` : `No tracks beginning with ${letter}`);
+        button.dataset.letter = letter;
+        const hasTarget = target !== undefined && target !== null;
+        button.classList.toggle('is-unavailable', !hasTarget);
+        button.setAttribute('aria-disabled', String(!hasTarget));
+        if (!hasTarget) button.tabIndex = -1;
+        button.setAttribute('aria-label', hasTarget ? `Jump to ${letter}` : `No tracks beginning with ${letter}`);
 
-        if (target) {
+        if (hasTarget) {
             button.addEventListener('click', () => {
-                if (window.matchMedia('(max-width: 768px)').matches) return;
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                scrollToTarget(target, true);
             });
         }
 
         buttons.push(button);
-        index.appendChild(button);
+        lettersContainer.appendChild(button);
     }
 
     const bubble = document.createElement('div');
@@ -284,5 +380,6 @@ export function enhanceSinglesAlphabetIndex() {
 
     singlesTab.appendChild(index);
     singlesTab.appendChild(bubble);
-    setupMobileScrubbing(index, bubble, buttons, firstItemByLetter);
+    setupMobileScrubbing(lettersContainer, bubble, buttons, firstItemByLetter, scrollToTarget, controller.signal);
+    setupBackToTop(backToTop, controller.signal);
 }

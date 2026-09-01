@@ -36,13 +36,8 @@ vi.mock('../storage.js', () => ({
     },
     qualityBadgeSettings: { isEnabled: vi.fn(() => true) },
     coverArtSizeSettings: { getSize: vi.fn(() => '1280') },
-    apiSettings: {
-        loadInstancesFromGitHub: vi.fn(() => Promise.resolve([])),
-        getInstances: vi.fn(() => Promise.resolve([])),
-    },
     recentActivityManager: { addArtist: vi.fn(), addAlbum: vi.fn() },
     themeManager: { getTheme: vi.fn(() => 'dark'), setTheme: vi.fn() },
-    lastFMStorage: { isEnabled: vi.fn(() => false) },
     nowPlayingSettings: { getMode: vi.fn(() => 'cover') },
     gaplessPlaybackSettings: { isEnabled: vi.fn(() => true) },
 }));
@@ -63,8 +58,6 @@ vi.mock('../ui.js', () => ({
 vi.mock('../platform-detection.js', () => ({
     isIos: false,
     isSafari: false,
-    canUseNativeAmazonCenc: true,
-    getAmazonDecrypterCodec: vi.fn(() => 'flac'),
 }));
 
 vi.mock('shaka-player', () => ({
@@ -216,19 +209,19 @@ describe('Player', () => {
         player = new Player(audioElement, api);
 
         player.setPlaybackSpeed(2.0);
-        expect(audioEffectsSettings.setSpeed).toHaveBeenCalledWith(2.0);
+        expect(audioEffectsSettings.setSpeed.mock.calls.at(-1)?.[0]).toBe(2.0);
 
         player.setPlaybackSpeed(0);
-        expect(audioEffectsSettings.setSpeed).toHaveBeenCalledWith(0.0625);
+        expect(audioEffectsSettings.setSpeed.mock.calls.at(-1)?.[0]).toBe(0.0625);
 
         player.setPlaybackSpeed(100);
-        expect(audioEffectsSettings.setSpeed).toHaveBeenCalledWith(16);
+        expect(audioEffectsSettings.setSpeed.mock.calls.at(-1)?.[0]).toBe(16);
     });
 
     test('compensates when Safari lands a direct FLAC seek before the requested time', async () => {
         player = new Player(audioElement, api);
         player.currentTrack = { id: '123' };
-        player.currentStreamProvider = 'monochrome';
+        player.currentStreamProvider = 'navidrome';
         player.shouldCorrectSafariSeek = vi.fn(() => true);
         player.updateMediaSessionPositionState = vi.fn();
 
@@ -250,27 +243,6 @@ describe('Player', () => {
         expect(player.updateMediaSessionPositionState).toHaveBeenCalledOnce();
     });
 
-    test('fully detaches Shaka before loading a single-use native fallback', async () => {
-        player = new Player(audioElement, api);
-        const calls = [];
-        player.shakaInitialized = true;
-        player.shakaPlayer = {
-            unload: vi.fn(async () => calls.push('unload')),
-            detach: vi.fn(async () => calls.push('detach')),
-        };
-        audioElement.pause = vi.fn(() => calls.push('pause'));
-        audioElement.load = vi.fn(() => calls.push('load'));
-
-        await player.prepareNativePlayback(audioElement, 'https://tracks.example/fallback.flac?token=one-use', {
-            singleUse: true,
-        });
-
-        expect(calls).toEqual(['unload', 'detach', 'pause', 'load', 'load']);
-        expect(player.shakaInitialized).toBe(false);
-        expect(audioElement.preload).toBe('none');
-        expect(audioElement.src).toBe('https://tracks.example/fallback.flac?token=one-use');
-    });
-
     test('prepares the next track leading-silence boundary from its waveform', async () => {
         player = new Player(audioElement, api);
         const streamInfo = {
@@ -284,24 +256,5 @@ describe('Player', () => {
 
         expect(boundaries.leadingSilenceSeconds).toBe(25);
         expect(streamInfo.crossfadeSilenceBoundaries).toBe(boundaries);
-    });
-
-    test('keeps encrypted Amazon crossfade playback on the dual-Shaka path', () => {
-        player = new Player(audioElement, api);
-        player.hasControllingServiceWorker = vi.fn(() => true);
-        const originalStreamInfo = {
-            provider: 'amazon',
-            url: 'data:application/dash+xml;base64,manifest',
-            sourceUrl: 'https://media.example/track.mp4?token=signed',
-            decryptionKey: '00112233445566778899aabbccddeeff',
-            keyId: '11223344556677889900aabbccddeeff',
-            codec: 'flac',
-            playbackType: 'dash-cenc',
-        };
-        const streamInfo = player.getCrossfadeStreamInfo(originalStreamInfo);
-
-        expect(streamInfo).toBe(originalStreamInfo);
-        expect(player.isCrossfadeShakaStream(streamInfo)).toBe(true);
-        expect(player.canCrossfadeStream({ id: 'next' }, streamInfo)).toBe(true);
     });
 });

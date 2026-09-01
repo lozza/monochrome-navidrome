@@ -57,43 +57,9 @@
                 "description": "A minimalist web player for your self-hosted Navidrome music library."
             }
         </script>
-        <!-- Preconnect to critical third-party origins -->
-        <link rel="preconnect" href="https://resources.tidal.com" crossorigin />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-
         <link rel="apple-touch-icon" href="/assets/appicon.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/images/navichrome_icon.svg" type="image/svg+xml" />
-        <link
-            rel="preload"
-            as="style"
-            href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
-        />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
-            rel="stylesheet"
-            media="print"
-            onload="this.media = 'all'"
-        />
-        <noscript>
-            <link
-                href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
-                rel="stylesheet"
-            />
-        </noscript>
-        <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Sans+HK:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+Hebrew:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&family=Noto+Sans+Georgian:wght@400;500;600;700&family=Noto+Sans+Armenian:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap"
-            media="print"
-            onload="this.media = 'all'"
-        />
-        <noscript>
-            <link
-                rel="stylesheet"
-                href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Sans+HK:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+Hebrew:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&family=Noto+Sans+Georgian:wght@400;500;600;700&family=Noto+Sans+Armenian:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap"
-            />
-        </noscript>
         <script>
             (() => {
                 try {
@@ -164,7 +130,6 @@
                 <li data-action="open-in-new-tab">Open in new tab</li>
                 <li data-action="open-in-harmony" data-type-filter="album">Open in Harmony</li>
                 <li data-action="track-info" data-type-filter="track,video">Track info</li>
-                <li data-action="open-original-url" data-type-filter="track,video">Open original URL</li>
                 <li data-action="download">Download</li>
                 <li class="separator" data-type-filter="track,album,artist,user-playlist" data-action="horizantal-rule">
                     <!-- IDK why adding a `data-action` is necessary, but without it
@@ -539,66 +504,10 @@
                     <div id="csv-import-panel" class="import-panel active">
                         <p style="margin-bottom: 0.5rem; font-size: 0.9rem">Import from CSV</p>
 
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
-                            <button
-                                type="button"
-                                id="csv-spotify-btn"
-                                class="btn-secondary"
-                                style="flex: 1; opacity: 0.7"
-                            >
-                                Spotify
-                            </button>
-                            <button
-                                type="button"
-                                id="csv-apple-btn"
-                                class="btn-secondary"
-                                style="flex: 1; opacity: 0.7"
-                            >
-                                Apple Music
-                            </button>
-                            <button type="button" id="csv-ytm-btn" class="btn-secondary" style="flex: 1; opacity: 0.7">
-                                YouTube Music
-                            </button>
-                        </div>
-
-                        <div id="csv-spotify-guide" style="display: none; margin-bottom: 1rem">
-                            <p style="font-size: 0.8rem; margin: 0">
-                                Please use
-                                <a href="https://exportify.app/" target="_blank" style="text-decoration: underline"
-                                    >Exportify</a
-                                >
-                                to export your Spotify playlist into a .csv.
-                            </p>
-                        </div>
-
-                        <div id="csv-apple-guide" style="display: none; margin-bottom: 1rem">
-                            <p style="font-size: 0.8rem; margin: 0">
-                                Please use
-                                <a
-                                    href="https://www.tunemymusic.com/transfer/spotify-to-apple-music"
-                                    target="_blank"
-                                    style="text-decoration: underline"
-                                    >TuneMyMusic</a
-                                >
-                                to export your Apple Music playlist into a .csv. <br /><span style="opacity: 0.7"
-                                    >(Apple Music imports are prone to errors)</span
-                                >
-                            </p>
-                        </div>
-
-                        <div id="csv-ytm-guide" style="display: none; margin-bottom: 1rem">
-                            <p style="font-size: 0.8rem; margin: 0 0 0.5rem 0">Paste a YouTube Music Playlist URL.</p>
-                            <input
-                                type="text"
-                                id="ytm-url-input"
-                                class="template-input"
-                                placeholder="https://music.youtube.com/playlist?list=..."
-                                style="width: 100%; margin-bottom: 0.5rem"
-                            />
-                            <p id="ytm-status" style="font-size: 0.8rem; margin: 0; opacity: 0.7"></p>
-                        </div>
-
-                        <div id="csv-input-container" style="display: none">
+                        <p style="font-size: 0.8rem; margin-bottom: 0.75rem">
+                            Choose a CSV exported from a music service or media manager.
+                        </p>
+                        <div id="csv-input-container">
                             <input
                                 type="file"
                                 id="csv-file-input"
@@ -716,265 +625,6 @@
                     <button id="playlist-share-btn" class="btn-secondary" style="display: none">Share</button>
                     <button id="playlist-modal-cancel" class="btn-secondary">Cancel</button>
                     <button id="playlist-modal-save" class="btn-primary">Save</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="edit-profile-modal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content">
-                <h3>Edit Profile</h3>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Username</label>
-                    <input type="text" id="edit-profile-username" class="template-input" placeholder="username" />
-                    <p
-                        id="username-error"
-                        style="color: #ef4444; font-size: 0.8rem; display: none; margin-top: 0.25rem"
-                    ></p>
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Display Name</label>
-                    <input
-                        type="text"
-                        id="edit-profile-display-name"
-                        class="template-input"
-                        placeholder="Display Name"
-                    />
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Avatar URL</label>
-                    <div style="display: flex; gap: 0.5rem; align-items: stretch">
-                        <input
-                            type="url"
-                            id="edit-profile-avatar"
-                            class="template-input"
-                            placeholder="Avatar URL"
-                            style="flex: 1; margin: 0; display: none"
-                        />
-                        <input type="file" id="edit-profile-avatar-file" accept="image/*" style="display: none" />
-                        <button
-                            type="button"
-                            id="edit-profile-avatar-upload-btn"
-                            class="template-btn"
-                            style="
-                                flex: 1;
-                                padding: 0.5rem;
-                                font-size: 0.85rem;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                gap: 0.5rem;
-                                background: var(--input);
-                                border: 1px solid var(--border);
-                                color: var(--foreground);
-                                border-radius: var(--radius);
-                                cursor: pointer;
-                            "
-                        >
-                            <use svg="!lucide/upload.svg" size="16" />
-                            <span>Upload</span>
-                        </button>
-                        <button
-                            type="button"
-                            id="edit-profile-avatar-toggle-btn"
-                            class="template-btn"
-                            style="
-                                padding: 0.5rem;
-                                font-size: 0.85rem;
-                                white-space: nowrap;
-                                background: var(--input);
-                                border: 1px solid var(--border);
-                                color: var(--foreground);
-                                border-radius: var(--radius);
-                                cursor: pointer;
-                            "
-                            title="Switch to URL input"
-                        >
-                            or URL
-                        </button>
-                    </div>
-                    <div
-                        id="edit-profile-avatar-upload-status"
-                        style="display: none; margin-top: 0.25rem; font-size: 0.75rem; opacity: 0.8"
-                    ></div>
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Banner URL</label>
-                    <div style="display: flex; gap: 0.5rem; align-items: stretch">
-                        <input
-                            type="url"
-                            id="edit-profile-banner"
-                            class="template-input"
-                            placeholder="Banner URL"
-                            style="flex: 1; margin: 0; display: none"
-                        />
-                        <input type="file" id="edit-profile-banner-file" accept="image/*" style="display: none" />
-                        <button
-                            type="button"
-                            id="edit-profile-banner-upload-btn"
-                            class="template-btn"
-                            style="
-                                flex: 1;
-                                padding: 0.5rem;
-                                font-size: 0.85rem;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                gap: 0.5rem;
-                                background: var(--input);
-                                border: 1px solid var(--border);
-                                color: var(--foreground);
-                                border-radius: var(--radius);
-                                cursor: pointer;
-                            "
-                        >
-                            <use svg="!lucide/upload.svg" size="16" />
-                            <span>Upload</span>
-                        </button>
-                        <button
-                            type="button"
-                            id="edit-profile-banner-toggle-btn"
-                            class="template-btn"
-                            style="
-                                padding: 0.5rem;
-                                font-size: 0.85rem;
-                                white-space: nowrap;
-                                background: var(--input);
-                                border: 1px solid var(--border);
-                                color: var(--foreground);
-                                border-radius: var(--radius);
-                                cursor: pointer;
-                            "
-                            title="Switch to URL input"
-                        >
-                            or URL
-                        </button>
-                    </div>
-                    <div
-                        id="edit-profile-banner-upload-status"
-                        style="display: none; margin-top: 0.25rem; font-size: 0.75rem; opacity: 0.8"
-                    ></div>
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem"
-                        >Status (Listening to...)</label
-                    >
-                    <div class="status-picker-container">
-                        <input
-                            type="text"
-                            id="edit-profile-status-search"
-                            class="template-input"
-                            placeholder="Search for a song or album..."
-                            autocomplete="off"
-                        />
-                        <div id="status-search-results" class="search-results-dropdown"></div>
-                        <input type="hidden" id="edit-profile-status-json" />
-                        <div
-                            id="status-preview"
-                            style="
-                                display: none;
-                                margin-top: 0.5rem;
-                                padding: 0.5rem;
-                                background: var(--secondary);
-                                border-radius: var(--radius);
-                                align-items: center;
-                                gap: 0.5rem;
-                            "
-                        >
-                            <img
-                                crossorigin="anonymous"
-                                referrerpolicy="no-referrer"
-                                id="status-preview-img"
-                                alt="Status preview"
-                                style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover"
-                            />
-                            <div style="flex: 1; min-width: 0">
-                                <div
-                                    id="status-preview-title"
-                                    style="
-                                        font-weight: 500;
-                                        font-size: 0.9rem;
-                                        white-space: nowrap;
-                                        overflow: hidden;
-                                        text-overflow: ellipsis;
-                                    "
-                                ></div>
-                                <div
-                                    id="status-preview-subtitle"
-                                    style="
-                                        font-size: 0.8rem;
-                                        color: var(--muted-foreground);
-                                        white-space: nowrap;
-                                        overflow: hidden;
-                                        text-overflow: ellipsis;
-                                    "
-                                ></div>
-                            </div>
-                            <button id="clear-status-btn" class="btn-icon" style="width: 24px; height: 24px">
-                                &times;
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem"
-                        >Favorite Albums (Max 5)</label
-                    >
-                    <div
-                        id="edit-favorite-albums-list"
-                        style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem"
-                    ></div>
-                    <div class="status-picker-container">
-                        <input
-                            type="text"
-                            id="edit-favorite-albums-search"
-                            class="template-input"
-                            placeholder="Search for an album..."
-                            autocomplete="off"
-                        />
-                        <div id="edit-favorite-albums-results" class="search-results-dropdown"></div>
-                    </div>
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">About Me</label>
-                    <textarea
-                        id="edit-profile-about"
-                        class="template-input"
-                        style="resize: vertical; min-height: 80px"
-                        placeholder="Tell us about yourself"
-                    ></textarea>
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Website</label>
-                    <input type="url" id="edit-profile-website" class="template-input" placeholder="https://..." />
-                </div>
-                <div style="margin-bottom: 1rem">
-                    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Last.fm Username</label>
-                    <input type="text" id="edit-profile-lastfm" class="template-input" placeholder="Last.fm Username" />
-                    <p style="font-size: 0.8rem; color: var(--muted-foreground); margin-top: 0.5rem; line-height: 1.5">
-                        Integrating Last.fm enables recent activity and top stats on your profile. Authorize it in
-                        <strong>Settings &gt; Scrobbling</strong>. Note: Last.fm authorization is stored locally and
-                        must be repeated on each device.
-                    </p>
-                </div>
-
-                <h4 style="margin-top: 1.5rem; margin-bottom: 1rem; font-size: 1rem">Privacy</h4>
-                <div class="setting-item" style="padding: 0.5rem 0; border: none">
-                    <div class="info"><span class="label">Public Playlists</span></div>
-                    <label class="toggle-switch"
-                        ><input type="checkbox" id="privacy-playlists-toggle" checked /><span class="slider"></span
-                    ></label>
-                </div>
-                <div class="setting-item" style="padding: 0.5rem 0; border: none">
-                    <div class="info"><span class="label">Show Last.fm Link & Stats</span></div>
-                    <label class="toggle-switch"
-                        ><input type="checkbox" id="privacy-lastfm-toggle" checked /><span class="slider"></span
-                    ></label>
-                </div>
-
-                <div class="modal-actions">
-                    <button id="edit-profile-cancel" class="btn-secondary">Cancel</button>
-                    <button id="edit-profile-save" class="btn-primary">Save Profile</button>
                 </div>
             </div>
         </div>
@@ -1174,274 +824,6 @@
                 </div>
             </div>
         </div>
-
-        <div id="theme-store-modal" class="modal">
-            <div class="modal-overlay"></div>
-            <div
-                class="modal-content wide"
-                style="height: 80vh; display: flex; flex-direction: column; max-height: 80vh"
-            >
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
-                    <h3 style="margin: 0">Theme Store</h3>
-                    <button
-                        class="close-modal-btn"
-                        style="
-                            background: none;
-                            border: none;
-                            font-size: 1.5rem;
-                            cursor: pointer;
-                            color: var(--muted-foreground);
-                        "
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <div class="search-tabs" style="margin-bottom: 1rem">
-                    <button class="search-tab active" data-tab="browse">Browse</button>
-                    <button class="search-tab" data-tab="upload">Upload</button>
-                </div>
-
-                <div
-                    id="theme-store-details"
-                    style="display: none; flex-direction: column; height: 100%; overflow: hidden"
-                >
-                    <button
-                        class="btn-secondary"
-                        id="theme-details-back-btn"
-                        style="
-                            align-self: flex-start;
-                            margin-bottom: 1rem;
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                        "
-                    >
-                        <use svg="!lucide/chevron-left.svg" size="16" />
-                        Back
-                    </button>
-                    <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem">
-                        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem">
-                            <div
-                                id="theme-details-preview-container"
-                                style="
-                                    width: 300px;
-                                    height: 220px;
-                                    flex-shrink: 0;
-                                    border: 1px solid var(--border);
-                                    border-radius: var(--radius);
-                                "
-                            ></div>
-                            <div style="flex: 1; min-width: 250px">
-                                <h2 id="theme-details-name" style="font-size: 2rem; margin-bottom: 0.5rem"></h2>
-                                <div
-                                    class="meta"
-                                    style="
-                                        color: var(--muted-foreground);
-                                        font-size: 0.9rem;
-                                        margin-bottom: 1rem;
-                                        line-height: 1.6;
-                                    "
-                                >
-                                    <div id="theme-details-author"></div>
-                                    <div>
-                                        Created: <span id="theme-details-created"></span> - Updated:
-                                        <span id="theme-details-updated"></span>
-                                    </div>
-                                    <div>Installs: <span id="theme-details-installs">0</span></div>
-                                </div>
-                                <button
-                                    id="theme-details-apply-btn"
-                                    class="btn-primary"
-                                    style="width: 100%; max-width: 200px"
-                                >
-                                    Apply Theme
-                                </button>
-                            </div>
-                        </div>
-                        <div style="margin-bottom: 2rem">
-                            <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem">Description</h3>
-                            <p
-                                id="theme-details-desc"
-                                style="white-space: pre-wrap; color: var(--foreground); line-height: 1.6"
-                            ></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    id="theme-store-browse"
-                    class="search-tab-content active"
-                    style="flex: 1; overflow-y: auto; min-height: 0"
-                >
-                    <div class="track-list-search-container" style="margin: 0 0 1rem 0">
-                        <use svg="!lucide/search.svg" class="search-icon" size="20" />
-                        <input
-                            type="search"
-                            id="theme-store-search"
-                            placeholder="Search themes..."
-                            class="track-list-search-input"
-                            autocomplete="off"
-                        />
-                    </div>
-                    <div id="community-themes-grid" class="card-grid"></div>
-                    <div id="theme-store-loading" style="text-align: center; padding: 2rem; display: none">
-                        <div class="animate-spin" style="display: inline-block">
-                            <use svg="!lucide/loader-circle.svg" size="24" />
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    id="theme-store-upload"
-                    class="search-tab-content"
-                    style="flex: 1; overflow-y: auto; min-height: 0"
-                >
-                    <div
-                        id="theme-upload-auth-message"
-                        style="
-                            display: none;
-                            text-align: center;
-                            padding: 2rem;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 1rem;
-                        "
-                    >
-                        <p>You need to be logged in to upload themes.</p>
-                        <button class="btn-primary" id="theme-store-login-btn">Go to Login</button>
-                    </div>
-                    <form id="theme-upload-form">
-                        <div style="margin-bottom: 1rem">
-                            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Theme Name</label>
-                            <input
-                                type="text"
-                                id="theme-upload-name"
-                                class="template-input"
-                                placeholder="My Awesome Theme"
-                                required
-                            />
-                        </div>
-                        <div style="margin-bottom: 1rem">
-                            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">Description</label>
-                            <textarea
-                                id="theme-upload-desc"
-                                class="template-input"
-                                placeholder="Describe your theme..."
-                                style="min-height: 80px; resize: vertical"
-                            ></textarea>
-                        </div>
-                        <div style="margin-bottom: 1rem">
-                            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem"
-                                >Author Website (Optional)</label
-                            >
-                            <input
-                                type="url"
-                                id="theme-upload-website"
-                                class="template-input"
-                                placeholder="https://example.com"
-                            />
-                            <p style="font-size: 0.8rem; color: var(--muted-foreground); margin-top: 0.25rem">
-                                Add a public author website if you would like it shown with the theme.
-                            </p>
-                        </div>
-                        <div style="margin-bottom: 1rem">
-                            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem">CSS</label>
-                            <p style="font-size: 0.8rem; color: var(--muted-foreground); margin-bottom: 0.5rem">
-                                Define your CSS variables or custom styles here.
-                                <a
-                                    href="https://github.com/lozza/monochrome-navidrome/blob/main/THEME_GUIDE.md"
-                                    target="_blank"
-                                    style="text-decoration: underline; color: var(--primary)"
-                                    >Read the Theme Guide</a
-                                >.
-                            </p>
-                            <div class="theme-editor-toolbar">
-                                <div class="color-picker-group">
-                                    <input type="color" id="te-bg-color" title="Background" />
-                                    <input type="color" id="te-fg-color" title="Foreground" />
-                                    <input type="color" id="te-primary-color" title="Primary" />
-                                    <input type="color" id="te-sec-color" title="Secondary" />
-                                    <input type="color" id="te-accent-color" title="Accent/Highlight" />
-                                    <input type="color" id="te-card-color" title="Card Background" />
-                                    <input type="color" id="te-border-color" title="Border Color" />
-                                    <input type="color" id="te-muted-color" title="Muted Text" />
-                                </div>
-                                <div class="style-picker-group">
-                                    <select id="te-font-family" title="Font Family">
-                                        <option value="">Font...</option>
-                                        <option value="'Inter', sans-serif">Inter</option>
-                                        <option value="system-ui, -apple-system, sans-serif">System</option>
-                                        <option value="'Courier New', monospace">Mono</option>
-                                        <option value="'Times New Roman', serif">Serif</option>
-                                    </select>
-                                    <input
-                                        type="text"
-                                        id="te-font-custom"
-                                        placeholder="Custom Font..."
-                                        style="
-                                            height: 24px;
-                                            padding: 0 4px;
-                                            font-size: 0.75rem;
-                                            width: 100px;
-                                            border: 1px solid var(--border);
-                                            border-radius: var(--radius-sm);
-                                            background: var(--input);
-                                            color: var(--foreground);
-                                        "
-                                    />
-                                    <select id="te-radius" title="Border Radius">
-                                        <option value="">Radius...</option>
-                                        <option value="0px">Square</option>
-                                        <option value="4px">Small</option>
-                                        <option value="8px">Medium</option>
-                                        <option value="16px">Large</option>
-                                    </select>
-                                </div>
-                                <div class="editor-actions">
-                                    <button
-                                        type="button"
-                                        id="te-insert-template"
-                                        class="btn-secondary"
-                                        style="padding: 2px 8px; font-size: 0.8rem"
-                                    >
-                                        Template
-                                    </button>
-                                    <button
-                                        type="button"
-                                        id="te-toggle-preview"
-                                        class="btn-secondary"
-                                        style="padding: 2px 8px; font-size: 0.8rem"
-                                    >
-                                        Preview
-                                    </button>
-                                </div>
-                            </div>
-                            <textarea
-                                id="theme-upload-css"
-                                class="template-input"
-                                style="min-height: 200px; font-family: monospace; white-space: pre"
-                                placeholder=":root {&#10;    --background: #000000;&#10;    --foreground: #ffffff;&#10;    /* ... */&#10;}"
-                                required
-                            ></textarea>
-                        </div>
-                        <div class="modal-actions">
-                            <button
-                                type="button"
-                                id="theme-upload-cancel-edit"
-                                class="btn-secondary"
-                                style="display: none"
-                            >
-                                Cancel Edit
-                            </button>
-                            <button type="submit" id="theme-upload-submit-btn" class="btn-primary">Upload Theme</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div id="theme-preview-window" style="display: none"></div>
 
         <div id="epilepsy-warning-modal" class="modal">
             <div class="modal-overlay"></div>
@@ -1698,9 +1080,6 @@
                 <div id="page-home" class="page">
                     <div class="home-header-tabs">
                         <button class="home-tab active" data-tab="for-you">Home</button>
-                        <button class="home-tab" data-tab="explore" style="display: none">Hot & New</button>
-                        <button class="home-tab" data-tab="editors-picks" style="display: none">Editor's Picks</button>
-                        <button class="home-tab" data-tab="aoty" style="display: none">AOTY</button>
                     </div>
 
                     <div id="home-view-for-you" class="home-view active">
@@ -1729,16 +1108,9 @@
                                     <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
                                         <h2 class="section-title">Recommended Songs</h2>
                                         <button
-                                            class="btn-primary"
+                                            class="btn-primary home-radio-button"
                                             id="home-start-infinite-radio-btn"
                                             title="Start Infinite Radio"
-                                            style="
-                                                display: flex;
-                                                align-items: center;
-                                                gap: 8px;
-                                                padding: 6px 12px;
-                                                font-size: 0.85rem;
-                                            "
                                         >
                                             <use svg="!lucide/radio.svg" size="16" />
                                             Start Infinite Radio
@@ -1820,178 +1192,6 @@
                             </section>
                         </div>
                     </div>
-
-                    <div id="home-view-explore" class="home-view" style="display: none">
-                        <div id="explore-content">
-                            <div class="card-grid" id="explore-grid"></div>
-                        </div>
-                    </div>
-
-                    <div id="home-view-editors-picks" class="home-view" style="display: none">
-                        <section class="content-section" style="margin-top: 0">
-                            <div class="card-grid" id="home-editors-picks"></div>
-                        </section>
-                    </div>
-
-                    <div id="home-view-aoty" class="home-view" style="display: none">
-                        <div id="aoty-content"></div>
-                    </div>
-                </div>
-
-                <div id="page-parties" class="page">
-                    <div style="text-align: center; padding: 4rem 2rem; max-width: 600px; margin: 0 auto">
-                        <h2 class="section-title">Listening Parties</h2>
-                        <p style="color: var(--muted-foreground); margin-bottom: 2rem">
-                            Listen to music together with your friends in real-time. Host controls the music, everyone
-                            enjoys it.
-                        </p>
-                        <div
-                            id="parties-disabled-notice"
-                            style="
-                                display: none;
-                                margin-bottom: 2rem;
-                                padding: 1rem;
-                                border: 1px solid var(--border);
-                                border-radius: 8px;
-                                background: var(--card);
-                                color: var(--muted-foreground);
-                                text-align: left;
-                            "
-                        >
-                            <strong style="display: block; color: var(--foreground); margin-bottom: 0.35rem">
-                                Temporarily unavailable
-                            </strong>
-                            Listening parties could not connect to the realtime server. Try again in a moment.
-                        </div>
-                        <div id="parties-auth-required" style="display: none; margin-bottom: 2rem">
-                            <p style="margin-bottom: 1rem; color: var(--muted-foreground); font-size: 0.9rem">
-                                Hosting as a guest works. Signing in uses your profile name and avatar in the chat.
-                            </p>
-                            <button id="parties-login-btn" class="btn-secondary">Sign In / Sign Up</button>
-                        </div>
-                        <div id="parties-active-party" style="display: none; margin-bottom: 2rem">
-                            <p style="margin-bottom: 1rem; color: var(--muted-foreground); font-size: 0.9rem">
-                                You are already in a listening party.
-                            </p>
-                            <button id="parties-return-btn" class="btn-primary" style="width: 100%">
-                                Return to Party
-                            </button>
-                        </div>
-                        <div id="parties-host-controls" style="display: none">
-                            <input
-                                type="text"
-                                id="party-name-input"
-                                class="template-input"
-                                placeholder="Party Name"
-                                style="margin-bottom: 1rem"
-                            />
-                            <button id="create-party-btn" class="btn-primary" style="width: 100%">
-                                Create Listening Party
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="page-party-detail" class="page">
-                    <div class="party-container">
-                        <header class="detail-header">
-                            <div class="detail-header-info">
-                                <div class="type">Listening Party</div>
-                                <h1 class="title" id="party-title">Party Name</h1>
-                                <div class="meta" id="party-meta">Host: ...</div>
-                                <div class="detail-header-actions">
-                                    <button id="leave-party-btn" class="btn-secondary danger">Leave Party</button>
-                                    <button id="copy-party-link-btn" class="btn-secondary">Copy Invite Link</button>
-                                </div>
-                            </div>
-                        </header>
-
-                        <div
-                            class="party-content-layout"
-                            style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; margin-top: 2rem"
-                        >
-                            <div class="party-main-section">
-                                <section class="content-section">
-                                    <h2 class="section-title">Currently Playing</h2>
-                                    <div id="party-current-track-display"></div>
-                                </section>
-
-                                <section class="content-section">
-                                    <h2 class="section-title">Participants (<span id="party-member-count">0</span>)</h2>
-                                    <div id="party-members-list" class="card-grid compact"></div>
-                                </section>
-
-                                <section class="content-section" id="party-requests-section">
-                                    <h2 class="section-title">Song Requests</h2>
-                                    <div id="party-requests-list" class="track-list"></div>
-                                </section>
-                            </div>
-
-                            <div class="party-sidebar-section">
-                                <div
-                                    class="party-chat-container"
-                                    style="
-                                        display: flex;
-                                        flex-direction: column;
-                                        height: 600px;
-                                        background: var(--background-secondary);
-                                        border-radius: var(--radius);
-                                        border: 1px solid var(--border);
-                                    "
-                                >
-                                    <div
-                                        class="chat-header"
-                                        style="padding: 1rem; border-bottom: 1px solid var(--border); font-weight: 600"
-                                    >
-                                        Chat
-                                    </div>
-                                    <div
-                                        id="party-chat-messages"
-                                        style="
-                                            flex: 1;
-                                            overflow-y: auto;
-                                            padding: 1rem;
-                                            display: flex;
-                                            flex-direction: column;
-                                            gap: 0.5rem;
-                                            min-height: 0;
-                                        "
-                                    ></div>
-                                    <div
-                                        id="party-typing-indicator"
-                                        class="party-typing-indicator"
-                                        aria-live="polite"
-                                        hidden
-                                    >
-                                        <span class="party-typing-dots" aria-hidden="true"
-                                            ><span></span><span></span><span></span
-                                        ></span>
-                                        <span class="party-typing-text"></span>
-                                    </div>
-                                    <div
-                                        class="chat-input-container"
-                                        style="
-                                            padding: 1rem;
-                                            border-top: 1px solid var(--border);
-                                            display: flex;
-                                            gap: 0.5rem;
-                                        "
-                                    >
-                                        <input
-                                            type="text"
-                                            id="party-chat-input"
-                                            class="template-input"
-                                            placeholder="Say something..."
-                                            style="flex: 1"
-                                        />
-                                        <button id="party-chat-send-btn" class="btn-primary" style="padding: 0 1rem">
-                                            Send
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div id="page-search" class="page">
@@ -2001,8 +1201,6 @@
                         <button class="search-tab" data-tab="albums">Albums</button>
                         <button class="search-tab" data-tab="artists">Artists</button>
                         <button class="search-tab" data-tab="playlists">Playlists</button>
-                        <button class="search-tab" data-tab="community-playlists">YT Music Playlists (BETA)</button>
-                        <button class="search-tab" data-tab="podcasts">Podcasts</button>
                     </div>
                     <div class="search-tab-content active" id="search-tab-tracks">
                         <div class="track-list" id="search-tracks-container"></div>
@@ -2015,12 +1213,6 @@
                     </div>
                     <div class="search-tab-content" id="search-tab-playlists">
                         <div class="card-grid" id="search-playlists-container"></div>
-                    </div>
-                    <div class="search-tab-content" id="search-tab-community-playlists">
-                        <div class="card-grid" id="search-community-playlists-container"></div>
-                    </div>
-                    <div class="search-tab-content" id="search-tab-podcasts">
-                        <div class="card-grid" id="search-podcasts-container"></div>
                     </div>
                 </div>
 
@@ -2169,15 +1361,8 @@
                                         id="local-browser-warning"
                                         style="display: none; color: #ef4444; margin-top: 10px; font-size: 0.9rem"
                                     >
-                                        Your browser doesn't support the File System Access API, which is required for
-                                        Local Files. We recommend
-                                        <a
-                                            href="https://helium.computer/"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style="color: inherit; text-decoration: underline"
-                                            >Helium</a
-                                        >.
+                                        Your browser doesn't support the File System Access API required for Local
+                                        Files. Use a Chromium-based browser if you need this feature.
                                     </p>
                                     <p style="margin-top: 10px; font-size: 0.9rem; color: var(--muted-foreground)">
                                         Select a folder on your device to play local files. <br />
@@ -2217,48 +1402,6 @@
                     <div class="track-list" id="recent-tracks-container"></div>
                 </div>
 
-                <div id="page-podcasts" class="page">
-                    <header class="detail-header">
-                        <img
-                            crossorigin="anonymous"
-                            referrerpolicy="no-referrer"
-                            id="podcasts-detail-image"
-                            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-                            alt=""
-                            class="detail-header-image artist"
-                        />
-                        <div class="detail-header-info">
-                            <div class="type">Podcast</div>
-                            <h1 class="title" id="podcasts-detail-name"></h1>
-                            <div class="meta" id="podcasts-detail-meta"></div>
-                            <div class="detail-header-actions">
-                                <button id="play-podcasts-btn" class="btn-primary" title="Play Latest Episode">
-                                    <use svg="./images/play.svg" size="20" />
-                                    <span>Play Latest</span>
-                                </button>
-                            </div>
-                        </div>
-                    </header>
-                    <div class="content-section">
-                        <h2 class="section-title">Episodes</h2>
-                        <div class="track-list" id="podcasts-episodes-container"></div>
-                    </div>
-                </div>
-
-                <div id="page-podcasts-browse" class="page">
-                    <h2 class="section-title">Browse Podcasts</h2>
-                    <div class="search-tabs">
-                        <button class="search-tab active" data-tab="trending">Trending</button>
-                        <button class="search-tab" data-tab="recent">Recent</button>
-                    </div>
-                    <div class="search-tab-content active" id="podcasts-tab-trending">
-                        <div class="card-grid" id="podcasts-trending-container"></div>
-                    </div>
-                    <div class="search-tab-content" id="podcasts-tab-recent">
-                        <div class="card-grid" id="podcasts-recent-container"></div>
-                    </div>
-                </div>
-
                 <div id="page-album" class="page">
                     <header class="detail-header">
                         <img
@@ -2273,9 +1416,6 @@
                             <h1 class="title" id="album-detail-title"></h1>
                             <div class="meta" id="album-detail-meta"></div>
                             <div class="meta" id="album-detail-producer"></div>
-                            <br />
-                            <div class="ratings" id="album-detail-ratings-critics"></div>
-                            <div class="ratings" id="album-detail-ratings-users"></div>
                             <div class="detail-header-actions">
                                 <button id="play-album-btn" class="btn-primary" title="Play Album">
                                     <use svg="./images/play.svg" size="20" />
@@ -2656,80 +1796,6 @@
                     </section>
                 </div>
 
-                <div id="page-profile" class="page">
-                    <div class="profile-header-container">
-                        <div class="profile-banner" id="profile-banner"></div>
-                        <div class="profile-info-section">
-                            <img
-                                crossorigin="anonymous"
-                                referrerpolicy="no-referrer"
-                                id="profile-avatar"
-                                src="/assets/appicon.png"
-                                class="profile-avatar"
-                                alt="Avatar"
-                            />
-                            <div class="profile-details">
-                                <h1 id="profile-display-name">User</h1>
-                                <div id="profile-username" class="profile-username">@username</div>
-                                <div id="profile-status" class="profile-status" style="display: none"></div>
-                                <div id="profile-about" class="profile-about"></div>
-                                <div class="profile-links">
-                                    <a
-                                        id="profile-website"
-                                        href="#"
-                                        target="_blank"
-                                        class="profile-link"
-                                        style="display: none"
-                                        >Website</a
-                                    >
-                                    <a
-                                        id="profile-lastfm"
-                                        href="#"
-                                        target="_blank"
-                                        class="profile-link"
-                                        style="display: none"
-                                        >Last.fm</a
-                                    >
-                                </div>
-                            </div>
-                            <div class="profile-actions">
-                                <button id="profile-edit-btn" class="btn-secondary" style="display: none">
-                                    Edit Profile
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="profile-content">
-                        <h2 class="section-title">Public Playlists</h2>
-                        <div class="card-grid" id="profile-playlists-container"></div>
-                        <div id="profile-favorite-albums-section" style="display: none; margin-top: 3rem">
-                            <h2 class="section-title">Favorite Albums of All Time</h2>
-                            <div id="profile-favorite-albums-container"></div>
-                        </div>
-                        <div id="profile-recent-scrobbles-section" style="display: none; margin-top: 3rem">
-                            <div style="display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem">
-                                <h2 class="section-title" style="margin-bottom: 0">Recent Scrobbling</h2>
-                                <span style="font-size: 0.8rem; color: var(--muted-foreground)"
-                                    >Powered by Last.fm</span
-                                >
-                            </div>
-                            <div class="track-list" id="profile-recent-scrobbles-container"></div>
-                        </div>
-                        <div id="profile-top-artists-section" style="display: none; margin-top: 3rem">
-                            <h2 class="section-title">Top Artists</h2>
-                            <div class="card-grid" id="profile-top-artists-container"></div>
-                        </div>
-                        <div id="profile-top-albums-section" style="display: none; margin-top: 3rem">
-                            <h2 class="section-title">Top Albums</h2>
-                            <div class="card-grid" id="profile-top-albums-container"></div>
-                        </div>
-                        <div id="profile-top-tracks-section" style="display: none; margin-top: 3rem">
-                            <h2 class="section-title">Top Tracks</h2>
-                            <div class="track-list" id="profile-top-tracks-container"></div>
-                        </div>
-                    </div>
-                </div>
-
                 <div id="page-settings" class="page">
                     <h2 class="section-title">Settings</h2>
                     <form
@@ -2789,52 +1855,6 @@
                                     <div class="theme-option" data-theme="latte">Latte</div>
                                     <div class="theme-option" data-theme="custom">Custom</div>
                                 </div>
-                                <div id="applied-community-theme-container" style="display: none; margin-top: 1rem">
-                                    <button
-                                        id="applied-community-theme-btn"
-                                        class="btn-secondary"
-                                        style="
-                                            width: 100%;
-                                            display: flex;
-                                            justify-content: space-between;
-                                            align-items: center;
-                                            padding: 1rem;
-                                        "
-                                    >
-                                        <span>Applied Community Theme</span>
-                                        <span
-                                            id="applied-theme-name"
-                                            style="color: var(--muted-foreground); font-size: 0.9rem"
-                                        ></span>
-                                    </button>
-                                    <div
-                                        id="community-theme-details-panel"
-                                        style="
-                                            display: none;
-                                            padding: 1rem;
-                                            background: var(--secondary);
-                                            border-radius: var(--radius);
-                                            margin-top: 0.5rem;
-                                            border: 1px solid var(--border);
-                                        "
-                                    >
-                                        <div
-                                            style="margin-bottom: 0.5rem; font-weight: 600"
-                                            id="ct-details-title"
-                                        ></div>
-                                        <div
-                                            style="
-                                                margin-bottom: 1rem;
-                                                font-size: 0.9rem;
-                                                color: var(--muted-foreground);
-                                            "
-                                            id="ct-details-author"
-                                        ></div>
-                                        <button id="ct-unapply-btn" class="btn-secondary danger" style="width: 100%">
-                                            Unapply Theme
-                                        </button>
-                                    </div>
-                                </div>
                                 <div class="custom-theme-editor" id="custom-theme-editor">
                                     <h4>Custom Theme</h4>
                                     <div class="theme-color-grid" id="theme-color-grid"></div>
@@ -2842,15 +1862,6 @@
                                         <button class="btn-secondary" id="apply-custom-theme">Apply Theme</button>
                                         <button class="btn-secondary" id="reset-custom-theme">Reset</button>
                                     </div>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Community Themes</span>
-                                        <span class="description"
-                                            >Browse and apply themes created by the community</span
-                                        >
-                                    </div>
-                                    <button id="open-theme-store-btn" class="btn-secondary">Open Theme Store</button>
                                 </div>
                                 <div class="setting-item font-settings-container">
                                     <div class="info">
@@ -3258,45 +2269,6 @@
                                         <span class="slider"></span>
                                     </label>
                                 </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Show Editor's Picks</span>
-                                        <span class="description"
-                                            >Display curated album selections on the home page</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="show-editors-picks-toggle" checked />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Shuffle Editor's Picks</span>
-                                        <span class="description"
-                                            >Randomize the order of editor's picks on each load</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="shuffle-editors-picks-toggle" checked />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Editor's Picks Source</span>
-                                        <span class="description">Choose which editor's picks file to display</span>
-                                    </div>
-                                    <select id="editors-picks-source-select" class="select-dropdown">
-                                        <option value="current">Current</option>
-                                    </select>
-                                </div>
                             </div>
 
                             <div class="settings-group">
@@ -3481,434 +2453,17 @@
                             <div class="settings-group">
                                 <div class="setting-item">
                                     <div class="info">
-                                        <span class="label">Scrobble Threshold</span>
-                                        <span class="description"
-                                            >Percentage of track to play before scrobbling (1-100%)</span
-                                        >
+                                        <span class="label">Navidrome scrobbling</span>
+                                        <span class="description">
+                                            Playback is submitted directly to your configured Navidrome server. No
+                                            third-party scrobbling account is used.
+                                        </span>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 10px">
-                                        <input
-                                            type="range"
-                                            id="scrobble-percentage-slider"
-                                            min="1"
-                                            max="100"
-                                            step="1"
-                                            value="75"
-                                            style="width: 100px"
-                                        />
-                                        <input
-                                            type="number"
-                                            id="scrobble-percentage-input"
-                                            min="1"
-                                            max="100"
-                                            value="75"
-                                            style="
-                                                width: 50px;
-                                                font-size: 0.9rem;
-                                                text-align: center;
-                                                padding: 4px;
-                                                border: 1px solid var(--border-color);
-                                                border-radius: 4px;
-                                                background: var(--input-bg);
-                                                color: var(--text-color);
-                                            "
-                                        />
-                                        <span style="font-size: 0.9rem">%</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Last.fm Scrobbling</span>
-                                        <span class="description" id="lastfm-status"
-                                            >Connect your Last.fm account to scrobble tracks</span
-                                        >
-                                    </div>
-                                    <div id="lastfm-controls">
-                                        <button id="lastfm-connect-btn" class="btn-secondary">Connect Last.fm</button>
-                                    </div>
-                                    <div id="lastfm-credential-auth" style="display: none; margin-top: 12px">
-                                        <div id="lastfm-credential-form" style="display: none">
-                                            <p style="margin: 0 0 8px 0; font-size: 0.85rem; color: var(--muted)">
-                                                Enter your Last.fm credentials:
-                                            </p>
-                                            <input
-                                                type="text"
-                                                id="lastfm-username"
-                                                placeholder="Username"
-                                                style="
-                                                    padding: 8px;
-                                                    border-radius: 4px;
-                                                    border: 1px solid var(--border);
-                                                    background: var(--background);
-                                                    color: var(--foreground);
-                                                    width: 100%;
-                                                    margin-bottom: 8px;
-                                                "
-                                            />
-                                            <input
-                                                type="password"
-                                                id="lastfm-password"
-                                                placeholder="Password"
-                                                style="
-                                                    padding: 8px;
-                                                    border-radius: 4px;
-                                                    border: 1px solid var(--border);
-                                                    background: var(--background);
-                                                    color: var(--foreground);
-                                                    width: 100%;
-                                                    margin-bottom: 8px;
-                                                "
-                                            />
-                                            <div style="display: flex; gap: 8px">
-                                                <button
-                                                    id="lastfm-login-credentials"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem; flex: 1"
-                                                >
-                                                    Login
-                                                </button>
-                                                <button
-                                                    id="lastfm-use-oauth"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem; flex: 1"
-                                                >
-                                                    Use OAuth Instead
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div id="lastfm-credential-auth-secondary" style="display: none; margin-top: 12px">
-                                        <div style="display: flex; flex-direction: column; gap: 8px">
-                                            <div id="lastfm-credential-toggle-container-secondary">
-                                                <button
-                                                    id="lastfm-show-credential-auth-secondary"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem; width: 100%"
-                                                >
-                                                    Login with Username/Password
-                                                </button>
-                                            </div>
-                                            <div id="lastfm-credential-form-secondary" style="display: none">
-                                                <input
-                                                    type="text"
-                                                    id="lastfm-username-secondary"
-                                                    placeholder="Last.fm Username"
-                                                    style="
-                                                        padding: 8px;
-                                                        border-radius: 4px;
-                                                        border: 1px solid var(--border);
-                                                        background: var(--background);
-                                                        color: var(--foreground);
-                                                        width: 100%;
-                                                        margin-bottom: 8px;
-                                                    "
-                                                />
-                                                <input
-                                                    type="password"
-                                                    id="lastfm-password-secondary"
-                                                    placeholder="Last.fm Password"
-                                                    style="
-                                                        padding: 8px;
-                                                        border-radius: 4px;
-                                                        border: 1px solid var(--border);
-                                                        background: var(--background);
-                                                        color: var(--foreground);
-                                                        width: 100%;
-                                                        margin-bottom: 8px;
-                                                    "
-                                                />
-                                                <div style="display: flex; gap: 8px">
-                                                    <button
-                                                        id="lastfm-login-credentials-secondary"
-                                                        class="btn-secondary"
-                                                        style="padding: 6px 12px; font-size: 0.85rem; flex: 1"
-                                                    >
-                                                        Login
-                                                    </button>
-                                                    <button
-                                                        id="lastfm-use-oauth-secondary"
-                                                        class="btn-secondary"
-                                                        style="padding: 6px 12px; font-size: 0.85rem; flex: 1"
-                                                    >
-                                                        Use OAuth
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div id="lastfm-credential-auth-alt" style="margin-top: 12px; display: none">
-                                        <div style="display: flex; flex-direction: column; gap: 8px">
-                                            <input
-                                                type="text"
-                                                id="lastfm-username-alt"
-                                                placeholder="Last.fm Username"
-                                                style="
-                                                    padding: 8px;
-                                                    border-radius: 4px;
-                                                    border: 1px solid var(--border);
-                                                    background: var(--background);
-                                                    color: var(--foreground);
-                                                "
-                                            />
-                                            <input
-                                                type="password"
-                                                id="lastfm-password-alt"
-                                                placeholder="Last.fm Password"
-                                                style="
-                                                    padding: 8px;
-                                                    border-radius: 4px;
-                                                    border: 1px solid var(--border);
-                                                    background: var(--background);
-                                                    color: var(--foreground);
-                                                "
-                                            />
-                                            <div style="display: flex; gap: 8px; margin-top: 4px">
-                                                <button
-                                                    id="lastfm-login-credentials-alt"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem"
-                                                >
-                                                    Login with Credentials
-                                                </button>
-                                                <button
-                                                    id="lastfm-use-oauth-alt"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem"
-                                                >
-                                                    Use OAuth Instead
-                                                </button>
-                                            </div>
-                                            <div style="display: flex; gap: 8px; margin-top: 4px">
-                                                <button
-                                                    id="lastfm-show-credential-auth-alt"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem"
-                                                >
-                                                    Login with Username/Password
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="setting-item" id="lastfm-toggle-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Enable Scrobbling</span>
-                                        <span class="description">Automatically scrobble played tracks</span>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="lastfm-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-
-                                <div class="setting-item" id="lastfm-love-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Love on Like</span>
-                                        <span class="description"
-                                            >Automatically 'love' tracks on Last.fm when you like them</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="lastfm-love-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-
-                                <div class="setting-item" id="lastfm-custom-creds-toggle-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Use Custom API Credentials</span>
-                                        <span class="description">Use your own Last.fm API key and secret</span>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="lastfm-custom-creds-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-
-                                <div class="setting-item" id="lastfm-custom-creds-setting" style="display: none">
-                                    <div class="info" style="flex: 1; min-width: 0">
-                                        <span class="label">Custom API Credentials</span>
-                                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px">
-                                            <input
-                                                type="text"
-                                                id="lastfm-custom-api-key"
-                                                placeholder="API Key"
-                                                style="
-                                                    padding: 8px;
-                                                    border-radius: 4px;
-                                                    border: 1px solid var(--border);
-                                                    background: var(--background);
-                                                    color: var(--foreground);
-                                                "
-                                            />
-                                            <input
-                                                type="password"
-                                                id="lastfm-custom-api-secret"
-                                                placeholder="API Secret"
-                                                style="
-                                                    padding: 8px;
-                                                    border-radius: 4px;
-                                                    border: 1px solid var(--border);
-                                                    background: var(--background);
-                                                    color: var(--foreground);
-                                                "
-                                            />
-                                            <div style="display: flex; gap: 8px; margin-top: 4px">
-                                                <button
-                                                    id="lastfm-save-custom-creds"
-                                                    class="btn-secondary"
-                                                    style="padding: 6px 12px; font-size: 0.85rem"
-                                                >
-                                                    Save Credentials
-                                                </button>
-                                                <button
-                                                    id="lastfm-clear-custom-creds"
-                                                    class="btn-secondary danger"
-                                                    style="padding: 6px 12px; font-size: 0.85rem; display: none"
-                                                >
-                                                    Clear
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Libre.fm Scrobbling</span>
-                                        <span class="description" id="librefm-status"
-                                            >Connect your Libre.fm account to scrobble tracks</span
-                                        >
-                                    </div>
-                                    <div id="librefm-controls">
-                                        <button id="librefm-connect-btn" class="btn-secondary">Connect Libre.fm</button>
-                                    </div>
-                                </div>
-
-                                <div class="setting-item" id="librefm-toggle-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Enable Scrobbling</span>
-                                        <span class="description">Automatically scrobble played tracks</span>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="librefm-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-
-                                <div class="setting-item" id="librefm-love-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Love on Like</span>
-                                        <span class="description"
-                                            >Automatically 'love' tracks on Libre.fm when you like them</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="librefm-love-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">ListenBrainz Scrobbling</span>
-                                        <span class="description"
-                                            >Submit listens to ListenBrainz (requires User Token)</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="listenbrainz-enabled-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item" id="listenbrainz-token-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">User Token</span>
-                                        <span class="description">Found on your ListenBrainz profile page</span>
-                                    </div>
-                                    <input
-                                        type="password"
-                                        id="listenbrainz-token-input"
-                                        placeholder="Enter Token"
-                                        class="template-input"
-                                        style="width: 250px"
-                                    />
-                                </div>
-                                <div class="setting-item" id="listenbrainz-custom-url-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Custom API URL (Optional)</span>
-                                        <span class="description">Leave empty to use official ListenBrainz server</span>
-                                    </div>
-                                    <input
-                                        type="url"
-                                        id="listenbrainz-custom-url-input"
-                                        placeholder="https://api.listenbrainz.org"
-                                        class="template-input"
-                                        style="width: 250px"
-                                    />
-                                </div>
-                                <div class="setting-item" id="listenbrainz-love-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Love on Like</span>
-                                        <span class="description"
-                                            >Automatically 'love' tracks on ListenBrainz when you like them</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="listenbrainz-love-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="settings-group">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Maloja Scrobbling</span>
-                                        <span class="description">Submit listens to a self-hosted Maloja server</span>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="maloja-enabled-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item" id="maloja-token-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">API Key</span>
-                                        <span class="description">Found in your Maloja settings</span>
-                                    </div>
-                                    <input
-                                        type="password"
-                                        id="maloja-token-input"
-                                        placeholder="Enter API Key"
-                                        class="template-input"
-                                        style="width: 250px"
-                                    />
-                                </div>
-                                <div class="setting-item" id="maloja-custom-url-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Maloja Server URL</span>
-                                        <span class="description">Your Maloja instance URL</span>
-                                    </div>
-                                    <input
-                                        type="url"
-                                        id="maloja-custom-url-input"
-                                        placeholder="https://maloja.example.com"
-                                        class="template-input"
-                                        style="width: 250px"
-                                    />
                                 </div>
                             </div>
                         </div>
                     </div>
+
                     <div class="settings-tab-content" id="settings-tab-audio">
                         <div class="settings-list">
                             <div class="settings-group">
@@ -3920,65 +2475,10 @@
                                         >
                                     </div>
                                     <select id="streaming-quality-setting">
-                                        <option value="auto" data-sources="Amazon and Mono">Auto (Adaptive)</option>
-                                        <option value="DOLBY_ATMOS_EAC3_HIGH" data-sources="Amazon and Tidal">
-                                            Dolby Atmos — E-AC-3 High
-                                        </option>
-                                        <option value="DOLBY_ATMOS_EAC3_LOW" data-sources="Amazon">
-                                            Dolby Atmos — E-AC-3 Low
-                                        </option>
-                                        <option value="DOLBY_ATMOS_AC4_HIGH" data-sources="Amazon">
-                                            Dolby Atmos — AC-4 High
-                                        </option>
-                                        <option value="DOLBY_ATMOS_AC4_LOW" data-sources="Amazon">
-                                            Dolby Atmos — AC-4 Low
-                                        </option>
-                                        <option value="HI_RES_LOSSLESS" data-sources="Amazon and Mono">
-                                            Hi-Res Lossless (24-bit)
-                                        </option>
-                                        <option value="LOSSLESS" data-sources="Amazon and Mono">
-                                            Lossless (16-bit)
-                                        </option>
-                                        <option value="HIGH" data-sources="Amazon">High</option>
-                                        <option value="LOW" data-sources="Amazon">Low</option>
+                                        <option value="auto">Original quality</option>
+                                        <option value="HIGH">High (up to 320 kbps)</option>
+                                        <option value="LOW">Low (up to 96 kbps)</option>
                                     </select>
-                                </div>
-                                <div
-                                    class="setting-item codec-warning"
-                                    id="atmos-streaming-warning"
-                                    role="status"
-                                    aria-live="polite"
-                                    style="display: none"
-                                >
-                                    <div class="info setting-details">
-                                        <span class="description" id="atmos-streaming-warning-text"></span>
-                                    </div>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Prefer Dolby Atmos</span>
-                                        <span class="description"
-                                            >Automatically request Dolby Atmos spatial audio on Tidal when
-                                            available</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="prefer-dolby-atmos-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Native OS Dolby Atmos Rendering</span>
-                                        <span class="description"
-                                            >Render Atmos directly on Safari (Apple Spatial Audio) or Edge (Windows
-                                            Dolby Audio) for full volume</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="native-os-atmos-toggle" checked />
-                                        <span class="slider"></span>
-                                    </label>
                                 </div>
                                 <div class="setting-item">
                                     <div class="info">
@@ -4647,17 +3147,21 @@
                                             <div class="autoeq-database-header-right">
                                                 <span class="autoeq-database-count" id="autoeq-database-count"></span>
                                                 <button
-                                                    class="autoeq-collapse-btn"
+                                                    class="autoeq-collapse-btn collapsed"
                                                     id="autoeq-database-collapse"
-                                                    aria-label="Collapse database"
-                                                    aria-expanded="true"
+                                                    aria-label="Expand database"
+                                                    aria-expanded="false"
                                                     aria-controls="autoeq-database-body"
                                                 >
                                                     <use svg="!lucide/chevron-up.svg" size="18" />
                                                 </button>
                                             </div>
                                         </div>
-                                        <div class="autoeq-database-body" id="autoeq-database-body">
+                                        <div
+                                            class="autoeq-database-body"
+                                            id="autoeq-database-body"
+                                            style="display: none"
+                                        >
                                             <div class="autoeq-database-search">
                                                 <use svg="!lucide/search.svg" size="16" />
                                                 <input
@@ -5230,26 +3734,7 @@
                                             >
                                         </div>
                                         <select id="download-quality-setting">
-                                            <option value="DOLBY_ATMOS_EAC3_HIGH" data-sources="Amazon and Tidal">
-                                                Dolby Atmos — E-AC-3 High
-                                            </option>
-                                            <option value="DOLBY_ATMOS_EAC3_LOW" data-sources="Amazon">
-                                                Dolby Atmos — E-AC-3 Low
-                                            </option>
-                                            <option value="DOLBY_ATMOS_AC4_HIGH" data-sources="Amazon">
-                                                Dolby Atmos — AC-4 High
-                                            </option>
-                                            <option value="DOLBY_ATMOS_AC4_LOW" data-sources="Amazon">
-                                                Dolby Atmos — AC-4 Low
-                                            </option>
-                                            <option value="HI_RES_LOSSLESS" data-sources="Amazon and Mono">
-                                                Hi-Res Lossless (24-bit)
-                                            </option>
-                                            <option value="LOSSLESS" data-sources="Amazon and Mono">
-                                                Lossless (16-bit)
-                                            </option>
-                                            <option value="HIGH" data-sources="Amazon">High</option>
-                                            <option value="LOW" data-sources="Amazon">Low</option>
+                                            <option value="HI_RES_LOSSLESS">Original server file</option>
                                         </select>
                                     </div>
                                     <div class="setting-item" id="hi-res-download-warning" style="display: none">
@@ -5598,152 +4083,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="settings-group" style="display: none">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label" style="color: #f59e0b">Dev Mode</span>
-                                        <span class="description"
-                                            >Route all API requests through a local Tidal HiFi API server. Requires a
-                                            compatible server running at the specified URL.</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="dev-mode-toggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item" id="dev-mode-url-setting" style="display: none">
-                                    <div class="info">
-                                        <span class="label">Dev Mode API URL</span>
-                                        <span class="description">The URL of your local Tidal HiFi API instance</span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="dev-mode-url-input"
-                                        placeholder="http://127.0.0.1:8000"
-                                        style="
-                                            width: 220px;
-                                            padding: 0.35rem 0.5rem;
-                                            border: 1px solid var(--border);
-                                            border-radius: var(--radius-md);
-                                            background: var(--card);
-                                            color: var(--foreground);
-                                            font-size: 0.8rem;
-                                        "
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="settings-group" style="display: none">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Unified Playback</span>
-                                        <span class="description"
-                                            >Amazon is tried first, with the in-house lossless source handled by the
-                                            same API when Amazon is unavailable.</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="unified-playback-toggle" checked />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Unified Playback API URL</span>
-                                        <span class="description">The API endpoint that resolves Amazon and Mono</span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="unified-playback-api-base-url"
-                                        placeholder="https://music-api.geeked.wtf"
-                                        style="
-                                            width: 220px;
-                                            padding: 0.35rem 0.5rem;
-                                            border: 1px solid var(--border);
-                                            border-radius: var(--radius-md);
-                                            background: var(--card);
-                                            color: var(--foreground);
-                                            font-size: 0.8rem;
-                                        "
-                                    />
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">App API Key</span>
-                                        <span class="description"
-                                            >Bearer key used with a browser Turnstile session for playback</span
-                                        >
-                                    </div>
-                                    <input
-                                        type="password"
-                                        id="unified-playback-api-token"
-                                        placeholder="amp_…"
-                                        autocomplete="off"
-                                        style="
-                                            width: 220px;
-                                            padding: 0.35rem 0.5rem;
-                                            border: 1px solid var(--border);
-                                            border-radius: var(--radius-md);
-                                            background: var(--card);
-                                            color: var(--foreground);
-                                            font-size: 0.8rem;
-                                        "
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="settings-group" style="display: none">
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Deezer Fallback</span>
-                                        <span class="description"
-                                            >Last-resort source when the primary and other fallback providers fail. Tops
-                                            out at 16-bit lossless (FLAC).</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="deezer-fallback-toggle" checked />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Deezer Fallback API URL</span>
-                                        <span class="description">The Deezer fallback API endpoint</span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="deezer-fallback-api-base-url"
-                                        placeholder="https://dzr.tabs-vs-spaces.wtf"
-                                        style="
-                                            width: 220px;
-                                            padding: 0.35rem 0.5rem;
-                                            border: 1px solid var(--border);
-                                            border-radius: var(--radius-md);
-                                            background: var(--card);
-                                            color: var(--foreground);
-                                            font-size: 0.8rem;
-                                        "
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="settings-group" style="display: none">
-                                <div id="api-instance-manager">
-                                    <div class="setting-item">
-                                        <div class="info">
-                                            <span class="label">API Instances</span>
-                                            <span class="description">Manage and prioritize API instances.</span>
-                                        </div>
-                                        <button id="refresh-speed-test-btn" class="btn-secondary">
-                                            Refresh Instance List
-                                        </button>
-                                    </div>
-                                    <ul id="api-instance-list"></ul>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -5775,18 +4114,6 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="pwa-auto-update-toggle" checked />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="info">
-                                        <span class="label">Analytics</span>
-                                        <span class="description"
-                                            >Send anonymous usage data to help improve the app</span
-                                        >
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="analytics-toggle" checked />
                                         <span class="slider"></span>
                                     </label>
                                 </div>

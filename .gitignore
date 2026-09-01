@@ -10,13 +10,15 @@ dist
 .tmp/
 .vitest-attachments/
 **/__screenshots__/*
+test-results/
+playwright-report/
+.lighthouseci/
 bin/
 *.log
 .storage/
 auth_storage/
 www
 neutralino.js
-package-lock.json
 # Direnv
 .envrc
 # vim
@@ -24,5 +26,6 @@ package-lock.json
 Caddyfile
 dev-dist
 load-balancer
-# We already have bun.lock, bun.lockb is redundant
+# npm is the supported package manager; ignore obsolete Bun lockfiles.
+bun.lock
 bun.lockb

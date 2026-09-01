@@ -1,4 +1,4 @@
-name: Lighthouse
+name: Lighthouse (informational)
 
 on:
     workflow_dispatch:
@@ -8,6 +8,8 @@ on:
 jobs:
     lighthouse:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         steps:
             - name: Checkout
               uses: actions/checkout@v6
@@ -16,24 +18,16 @@ jobs:
               uses: actions/setup-node@v6
               with:
                   node-version: '24'
-                  package-manager-cache: false
+                  cache: npm
 
             - name: Install dependencies
-              run: npm install --no-audit --no-fund
+              run: npm ci --no-audit --no-fund
 
             - name: Build
               run: npm run build
 
-            - name: Preview build
-              run: npm run preview &
-              continue-on-error: true
-
-            - name: Wait for preview server
-              run: sleep 10
-
             - name: Run Lighthouse
-              run: |
-                  npx lhci autorun --config=.lhci.yml || true
+              run: npx lhci autorun --config=lhci.yml
 
             - name: Upload results
               if: always()

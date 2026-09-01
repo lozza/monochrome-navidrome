@@ -107,14 +107,6 @@ export class SidePanelManager {
     }
 
     close() {
-        // Track side panel close
-        if (this.currentView) {
-            if (this.currentView === 'lyrics') {
-                // Get current track from audio player context
-                const audioPlayer = document.getElementById('audio-player');
-            }
-        }
-
         this.panel.classList.remove('active');
         this.currentView = null;
         this.emitChange();

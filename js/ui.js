@@ -13,11 +13,9 @@ import {
     calculateTotalDuration,
     formatDuration,
     escapeHtml,
-    decodeHtml,
     getShareUrl,
-    createModal,
 } from './utils.js';
-import { openLyricsPanel, renderLyricsInFullscreen, clearFullscreenLyricsSync } from './lyrics.js';
+import { renderLyricsInFullscreen, clearFullscreenLyricsSync } from './lyrics.js';
 import {
     recentActivityManager,
     backgroundSettings,
@@ -29,25 +27,14 @@ import {
     contentBlockingSettings,
     settingsUiState,
     fullscreenCoverNoRoundSettings,
-    artistBannerSettings,
 } from './storage.js';
 import { db } from './db.js';
 import { getVibrantColorFromImage } from './vibrant-color.js';
-import { syncManager } from './accounts/pocketbase.js';
-import { authManager } from './accounts/auth.js';
-import { AUTH_BASE_URL } from './accounts/config.js';
-import { areListeningPartiesDisabled, partyManager } from './listening-party.js';
+import { syncManager } from './local-sync-compat.js';
 import { Visualizer } from './visualizer.js';
 import { audioContextManager } from './audio-context.js';
 import { navigate } from './router.js';
 import { sidePanelManager } from './side-panel.js';
-import { searchCommunityPlaylists } from './community-playlists.js';
-let _isBlockedCopyright = (_c) => false;
-import('./content-filter.ts')
-    .then((m) => {
-        _isBlockedCopyright = m.isBlockedCopyright;
-    })
-    .catch(() => {});
 
 fontSettings.applyFont().catch(console.error);
 fontSettings.applyFontSize();
@@ -65,7 +52,6 @@ import {
     SVG_CLOSE,
     SVG_SORT,
     SVG_BIN,
-    SVG_TRASH,
     SVG_GLOBE,
     SVG_INSTAGRAM,
     SVG_FACEBOOK,
@@ -84,71 +70,10 @@ import {
     SVG_UPLOAD,
     SVG_SHUFFLE,
     SVG_VIDEO,
-    SVG_LEFT_ARROW,
     SVG_RIGHT_ARROW,
     SVG_CLOCK,
     SVG_CHECKBOX,
 } from './icons.js';
-
-const AOTY_BASE = 'https://aoty.prigoana.pw';
-const AOTY_CACHE_TTL = 86_400_000; // 24 hours
-
-function aotyCoverUrl(url) {
-    if (!url) return url;
-    return String(url).replace(/(https?:\/\/cdn2\.albumoftheyear\.org\/)\d+x0\//, '$15000x0/');
-}
-
-async function fetchAOTY(path) {
-    const key = `aoty_cache_${path}`;
-    try {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-            const { ts, data } = JSON.parse(raw);
-            if (Date.now() - ts < AOTY_CACHE_TTL) return data;
-        }
-    } catch {}
-    const res = await fetch(`${AOTY_BASE}${path}`);
-    if (!res.ok) throw new Error(`AOTY request failed: ${res.status}`);
-    const data = await res.json();
-    try {
-        localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
-    } catch {}
-    return data;
-}
-
-function aotyNorm(s) {
-    return (s || '')
-        .toLowerCase()
-        .replace(/\(.*?\)/g, '')
-        .replace(/\[.*?\]/g, '')
-        .replace(/\bdeluxe\b.*/i, '')
-        .replace(/\bexpanded\b.*/i, '')
-        .replace(/\banniversary\b.*/i, '')
-        .replace(/\bremastered\b.*/i, '')
-        .replace(/\bbonus\b.*/i, '')
-        .replace(/feat\..*$/i, '')
-        .replace(/ft\..*$/i, '')
-        .replace(/[^a-z0-9]/g, '');
-}
-
-function updateAOTYMustHearIndex(albums) {
-    if (!albums?.length) return;
-    try {
-        const index = JSON.parse(localStorage.getItem('aoty_musthear') || '{}');
-        for (const a of albums) {
-            if (a.mustHear) index[`${aotyNorm(a.artist)}\x00${aotyNorm(a.title)}`] = true;
-        }
-        localStorage.setItem('aoty_musthear', JSON.stringify(index));
-    } catch {}
-}
-
-function checkAOTYMustHear(artist, title) {
-    try {
-        const index = JSON.parse(localStorage.getItem('aoty_musthear') || '{}');
-        return index[`${aotyNorm(artist)}\x00${aotyNorm(title)}`] === true;
-    } catch {}
-    return false;
-}
 
 const setFullscreenUIToggleIcon = (button, visualizerOnlyMode) => {
     if (!button) return;
@@ -251,13 +176,6 @@ export class UIRenderer {
                 if (coverImage?.vanillaTilt) {
                     coverImage.vanillaTilt.destroy();
                 }
-            }
-        });
-
-        window.addEventListener('refresh-home-editors-picks', async () => {
-            const container = document.getElementById('home-editors-picks');
-            if (container && container.children.length > 0) {
-                await this.renderHomeEditorsPicks(true, 'home-editors-picks');
             }
         });
     }
@@ -492,7 +410,6 @@ export class UIRenderer {
         useTrackNumber = false,
         inlineLike = false
     ) {
-        if (contentBlockingSettings?.isHardcodedBlockedTrack(track)) return '';
         const isUnavailable = track.isUnavailable;
         const isBlocked = contentBlockingSettings?.shouldHideTrack(track);
         const isVideo = track.type === 'video';
@@ -612,15 +529,7 @@ export class UIRenderer {
         `;
     }
 
-    getCoverHTML(
-        cover,
-        alt,
-        className = 'card-image',
-        loading = 'lazy',
-        videoCoverUrl = null,
-        isEditorsPick = false,
-        type = 'album'
-    ) {
+    getCoverHTML(cover, alt, className = 'card-image', loading = 'lazy', videoCoverUrl = null, type = 'album') {
         let size = '320';
         if (className === 'track-item-cover') {
             size = '80';
@@ -630,27 +539,13 @@ export class UIRenderer {
 
         const imageUrl =
             type === 'artist' ? this.api.getArtistPictureUrl(cover, size) : this.api.getCoverUrl(cover, size);
+        const dimensions = className === 'track-item-cover' ? ' width="40" height="40"' : '';
 
         if (videoCoverUrl) {
             return `<video src="${videoCoverUrl}" poster="${imageUrl}" class="${className}" alt="${alt}" preload="metadata" playsinline muted></video>`;
         }
 
-        if (
-            isEditorsPick &&
-            cover &&
-            typeof cover === 'string' &&
-            !cover.startsWith('http') &&
-            !cover.startsWith('blob:') &&
-            !cover.startsWith('assets/')
-        ) {
-            const formattedId = String(cover).replace(/-/g, '/');
-            const tidalUrl = `https://resources.tidal.com/images/${formattedId}/320x320.jpg`;
-            const wsrvUrl = `https://wsrv.nl/?url=${encodeURIComponent(tidalUrl)}&w=250&h=250&output=webp`;
-            const fetchPriorityAttr = loading === 'eager' ? ' fetchpriority="high"' : '';
-            return `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${wsrvUrl}" class="${className}" alt="${alt}" loading="${loading}"${fetchPriorityAttr}>`;
-        }
-
-        return `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${imageUrl}" class="${className}" alt="${alt}" loading="${loading}">`;
+        return `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${imageUrl}" class="${className}" alt="${alt}" loading="${loading}"${dimensions}>`;
     }
 
     createBaseCardHTML({
@@ -766,7 +661,6 @@ export class UIRenderer {
                 'card-image',
                 playlist._lazy === false ? 'eager' : 'lazy',
                 null,
-                playlist._isEditorsPick || false,
                 'album'
             );
         } else {
@@ -831,7 +725,6 @@ export class UIRenderer {
     }
 
     createAlbumCardHTML(album) {
-        if (contentBlockingSettings?.isHardcodedBlockedAlbum(album)) return '';
         const explicitBadge = hasExplicitContent(album) ? this.createExplicitBadge() : '';
         const qualityBadge = createQualityBadgeHTML(album);
         const isBlocked = contentBlockingSettings?.shouldHideAlbum(album);
@@ -865,7 +758,6 @@ export class UIRenderer {
                 'card-image',
                 album._lazy === false ? 'eager' : 'lazy',
                 album.videoCoverUrl,
-                album._isEditorsPick || false,
                 'album'
             ),
             actionButtonsHTML: `
@@ -928,7 +820,6 @@ export class UIRenderer {
     }
 
     createArtistCardHTML(artist) {
-        if (contentBlockingSettings?.isHardcodedBlockedArtist(artist?.id)) return '';
         const isCompact = cardSettings.isCompactArtist();
         const isBlocked = contentBlockingSettings?.shouldHideArtist(artist);
 
@@ -944,7 +835,6 @@ export class UIRenderer {
                 'card-image',
                 artist._lazy === false ? 'eager' : 'lazy',
                 null,
-                artist._isEditorsPick || false,
                 'artist'
             ),
             actionButtonsHTML: `
@@ -1290,7 +1180,6 @@ export class UIRenderer {
         const overlay = document.getElementById('fullscreen-cover-overlay');
         const image = document.getElementById('fullscreen-cover-image');
         const videoContainer = document.getElementById('fullscreen-video-container');
-        const title = document.getElementById('fullscreen-track-title');
         const album = document.getElementById('fullscreen-track-album');
         const artist = document.getElementById('fullscreen-track-artist');
         const nextTrackEl = document.getElementById('fullscreen-next-track');
@@ -2468,29 +2357,7 @@ export class UIRenderer {
             await this.updateGlobalTheme();
         }
 
-        const downloadsdisabled = true;
-        if (downloadsdisabled == true) {
-            if (pageId === 'download') {
-                const maintenanceModal = document.getElementById('maintenance-modal');
-                const maintenanceHomeBtn = document.getElementById('maintenance-home-btn');
-                if (maintenanceModal) {
-                    maintenanceModal.classList.add('active');
-                    if (maintenanceHomeBtn) {
-                        maintenanceHomeBtn.onclick = () => {
-                            maintenanceModal.classList.remove('active');
-                            navigate('/');
-                        };
-                    }
-                }
-            } else {
-                const maintenanceModal = document.getElementById('maintenance-modal');
-                if (maintenanceModal) {
-                    maintenanceModal.classList.remove('active');
-                }
-            }
-        }
         if (pageId === 'settings') {
-            this.renderApiSettings();
             const savedTabName = settingsUiState.getActiveTab();
             const savedTab = document.querySelector(`.settings-tab[data-tab="${savedTabName}"]`);
             if (savedTab) {
@@ -2503,65 +2370,6 @@ export class UIRenderer {
             document.querySelectorAll('.settings-tab').forEach((t) => t.classList.remove('active'));
             document.querySelectorAll('.settings-tab-content').forEach((c) => c.classList.remove('active'));
         }
-    }
-
-    async renderPartiesPage() {
-        await this.showPage('parties');
-        const authRequired = document.getElementById('parties-auth-required');
-        const hostControls = document.getElementById('parties-host-controls');
-        const loginBtn = document.getElementById('parties-login-btn');
-        const disabledNotice = document.getElementById('parties-disabled-notice');
-        const activeParty = document.getElementById('parties-active-party');
-        const returnBtn = document.getElementById('parties-return-btn');
-
-        const authServerAvailable = await this.checkPartiesServerAvailable();
-        if (areListeningPartiesDisabled() || !authServerAvailable) {
-            if (disabledNotice) disabledNotice.style.display = 'block';
-            if (hostControls) hostControls.style.display = 'none';
-            if (authRequired) authRequired.style.display = 'none';
-            if (activeParty) activeParty.style.display = 'none';
-            return;
-        }
-
-        if (disabledNotice) disabledNotice.style.display = 'none';
-        if (partyManager.currentParty?.id) {
-            if (activeParty) activeParty.style.display = 'block';
-            if (hostControls) hostControls.style.display = 'none';
-            if (authRequired) authRequired.style.display = 'none';
-            if (returnBtn) returnBtn.onclick = () => navigate(`/party/${partyManager.currentParty.id}`);
-            return;
-        }
-
-        if (activeParty) activeParty.style.display = 'none';
-        if (hostControls) hostControls.style.display = 'block';
-        if (authManager.user) {
-            if (authRequired) authRequired.style.display = 'none';
-        } else {
-            if (authRequired) authRequired.style.display = 'block';
-            if (loginBtn) loginBtn.onclick = () => navigate('/account');
-        }
-    }
-
-    async checkPartiesServerAvailable() {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        try {
-            const response = await fetch(`${AUTH_BASE_URL}/health`, {
-                credentials: 'include',
-                cache: 'no-store',
-                signal: controller.signal,
-            });
-            return response.ok;
-        } catch (_e) {
-            return false;
-        } finally {
-            clearTimeout(timeout);
-        }
-    }
-
-    async renderPartyDetailPage(id) {
-        await this.showPage('party-detail');
-        await partyManager.joinParty(id);
     }
 
     async renderLibraryPage() {
@@ -2788,11 +2596,6 @@ export class UIRenderer {
 
             const hasActivity = history.length > 0 || favorites.length > 0 || playlists.length > 0;
 
-            const editorsPicksTab = document.querySelector('.home-tab[data-tab="editors-picks"]');
-            if (editorsPicksTab) {
-                editorsPicksTab.style.display = homePageSettings.shouldShowEditorsPicks() ? '' : 'none';
-            }
-
             if (!hasActivity) {
                 if (welcomeEl) welcomeEl.style.display = 'block';
                 if (contentEl) contentEl.style.display = 'none';
@@ -2898,786 +2701,7 @@ export class UIRenderer {
                     view.style.display = 'block';
                     view.classList.add('active');
                 }
-
-                if (tab.dataset.tab === 'explore') {
-                    await this.renderExplorePage();
-                }
-                if (tab.dataset.tab === 'editors-picks') {
-                    await this.renderHomeEditorsPicks(false, 'home-editors-picks');
-                }
-                if (tab.dataset.tab === 'aoty') {
-                    await this.renderAOTYPage();
-                }
             });
-        }
-    }
-
-    async renderExplorePage() {
-        const container = document.getElementById('explore-grid');
-        if (!container) return;
-
-        if (container.children.length > 0) return;
-
-        container.classList.remove('card-grid');
-
-        container.innerHTML = `<div class="card-grid">${this.createSkeletonCards(12)}</div>`;
-
-        try {
-            const response = await fetch('https://hot.monochrome.tf/');
-            if (!response.ok) throw new Error('Failed to load explore data');
-            const data = await response.json();
-
-            container.innerHTML = '';
-
-            const GENRES = [
-                { id: 'hip_hop', name: 'Hip-Hop' },
-                { id: 'rnb', name: 'R&B / Soul' },
-                { id: 'blues', name: 'Blues' },
-                { id: 'classical', name: 'Classical' },
-                { id: 'country', name: 'Country' },
-                { id: 'dance_electronic', name: 'Dance & Electronic' },
-                { id: 'americana', name: 'Folk / Americana' },
-                { id: 'world', name: 'Global' },
-                { id: 'gospel', name: 'Gospel / Christian' },
-                { id: 'jazz', name: 'Jazz' },
-                { id: 'kpop', name: 'K-Pop' },
-                { id: 'kids', name: 'Kids' },
-                { id: 'latin', name: 'Latin' },
-                { id: 'metal', name: 'Metal' },
-                { id: 'pop', name: 'Pop' },
-                { id: 'reggae', name: 'Reggae / Dancehall' },
-                { id: 'retro', name: 'Legacy' },
-                { id: 'indierock', name: 'Rock / Indie' },
-            ];
-
-            if (GENRES.length > 0) {
-                const genresSection = document.createElement('section');
-                genresSection.className = 'content-section';
-                genresSection.innerHTML = `<h2 class="section-title">Genres</h2>`;
-
-                const genresGrid = document.createElement('div');
-                genresGrid.style.display = 'flex';
-                genresGrid.style.flexWrap = 'wrap';
-                genresGrid.style.gap = '0.5rem';
-                genresGrid.innerHTML = GENRES.map(
-                    (genre) => `
-                    <div class="card genre-card" data-genre-id="${genre.id}" data-genre-name="${escapeHtml(genre.name)}" style="cursor: pointer; background: var(--secondary); padding: 0.6rem 1rem; border-radius: var(--radius); border: 1px solid var(--border);">
-                        <h3 style="margin: 0; font-size: 0.875rem; font-weight: 600;">${escapeHtml(genre.name)}</h3>
-                    </div>
-                `
-                ).join('');
-
-                genresSection.appendChild(genresGrid);
-                container.appendChild(genresSection);
-
-                for (const card of genresGrid.querySelectorAll('.genre-card')) {
-                    card.addEventListener('click', async () => {
-                        await this.renderGenrePage(card.dataset.genreId, card.dataset.genreName);
-                    });
-                }
-            }
-
-            if (data.top_albums && data.top_albums.length > 0) {
-                await this.renderExploreSection(container, 'Trending Albums', data.top_albums, 'album');
-            }
-
-            if (data.top_tracks && data.top_tracks.length > 0) {
-                await this.renderExploreSection(container, 'Trending Tracks', data.top_tracks, 'track');
-            }
-
-            if (data.featured_playlists && data.featured_playlists.length > 0) {
-                await this.renderExploreSection(container, 'Featured Playlists', data.featured_playlists, 'playlist');
-            }
-
-            if (data.sections && data.sections.length > 0) {
-                for (const section of data.sections) {
-                    if (section.items && section.items.length > 0) {
-                        let type = null;
-                        if (section.type === 'ALBUM_LIST') type = 'album';
-                        else if (section.type === 'TRACK_LIST') type = 'track';
-                        else if (section.type === 'PLAYLIST_LIST') type = 'playlist';
-
-                        if (type) {
-                            await this.renderExploreSection(container, section.title, section.items, type);
-                        }
-                    }
-                }
-            }
-
-            if (container.children.length === 0) {
-                container.innerHTML = createPlaceholder('No explore content available.');
-            }
-        } catch (e) {
-            console.error(e);
-            container.innerHTML = createPlaceholder('Failed to load explore content.');
-        }
-    }
-
-    async renderAOTYPage() {
-        const container = document.getElementById('aoty-content');
-        if (!container) return;
-        if (container.children.length > 0) return;
-
-        const TABS = [
-            { id: 'discover', label: 'Discover' },
-            { id: 'releases', label: 'New Releases' },
-            { id: 'musthear', label: 'Must Hear' },
-            { id: 'news', label: 'News' },
-            { id: 'lists', label: 'Critic Lists' },
-        ];
-
-        const pill = (active) =>
-            `padding:0.32rem 0.9rem;border-radius:2rem;border:1px solid ${active ? 'var(--primary)' : 'var(--border)'};background:${active ? 'var(--primary)' : 'transparent'};color:${active ? 'var(--primary-foreground)' : 'var(--muted-foreground)'};cursor:pointer;font-size:0.82rem;font-weight:500;white-space:nowrap;`;
-
-        container.innerHTML = `
-            <div style="font-size:0.72rem;color:var(--muted-foreground);margin-bottom:0.9rem;">
-                Powered by <a href="https://aoty.prigoana.pw/" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;">aoty-api</a>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.5rem;">
-                ${TABS.map(({ id, label }, i) => `<button class="aoty-subnav-btn" data-aoty-tab="${id}" style="${pill(i === 0)}">${label}</button>`).join('')}
-            </div>
-            ${TABS.map(({ id }, i) => `<div id="aoty-view-${id}" class="aoty-view"${i > 0 ? ' style="display:none"' : ''}></div>`).join('')}
-        `;
-
-        const setActive = (activeId) => {
-            for (const btn of container.querySelectorAll('.aoty-subnav-btn')) {
-                const on = btn.dataset.aotyTab === activeId;
-                btn.style.background = on ? 'var(--primary)' : 'transparent';
-                btn.style.color = on ? 'var(--primary-foreground)' : 'var(--muted-foreground)';
-                btn.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
-            }
-            for (const view of container.querySelectorAll('.aoty-view')) {
-                view.style.display = view.id === `aoty-view-${activeId}` ? '' : 'none';
-            }
-        };
-
-        for (const btn of container.querySelectorAll('.aoty-subnav-btn')) {
-            btn.addEventListener('click', async () => {
-                setActive(btn.dataset.aotyTab);
-                await this.loadAOTYTab(btn.dataset.aotyTab);
-            });
-        }
-
-        await this.loadAOTYTab('discover');
-    }
-
-    async loadAOTYTab(tabId) {
-        const view = document.getElementById(`aoty-view-${tabId}`);
-        if (!view || view.dataset.aotyLoaded) return;
-        view.dataset.aotyLoaded = 'true';
-        const handlers = {
-            discover: () => this.renderAOTYDiscover(view),
-            releases: () => this.renderAOTYReleases(view),
-            musthear: () => this.renderAOTYMustHear(view),
-            news: () => this.renderAOTYNews(view),
-            lists: () => this.renderAOTYLists(view),
-        };
-        if (handlers[tabId]) await handlers[tabId]();
-    }
-
-    async renderAOTYDiscover(container) {
-        container.innerHTML = `<div class="card-grid">${this.createSkeletonCards(12)}</div>`;
-        try {
-            const [discover, singles, underRadar, anticipated] = await Promise.all([
-                fetchAOTY('/discover').catch(() => null),
-                fetchAOTY('/discover/singles').catch(() => null),
-                fetchAOTY('/discover/under-radar').catch(() => null),
-                fetchAOTY('/discover/anticipated').catch(() => null),
-            ]);
-            container.innerHTML = '';
-            updateAOTYMustHearIndex([
-                ...(discover?.albums || []),
-                ...(underRadar?.albums || []),
-                ...(anticipated?.albums || []),
-            ]);
-            if (discover?.albums?.length) this.renderAOTYSection(container, 'Popular Right Now', discover.albums);
-            if (singles?.albums?.length) this.renderAOTYSection(container, 'Popular Singles', singles.albums);
-            if (underRadar?.albums?.length) this.renderAOTYSection(container, 'Under the Radar', underRadar.albums);
-            if (anticipated?.albums?.length)
-                this.renderAOTYSection(container, 'Most Anticipated', anticipated.albums, { isUpcoming: true });
-            if (!container.children.length) container.innerHTML = createPlaceholder('No content available.');
-        } catch (e) {
-            console.error(e);
-            container.innerHTML = createPlaceholder('Failed to load AOTY content.');
-        }
-    }
-
-    async renderAOTYReleases(container) {
-        container.innerHTML = `<div class="card-grid">${this.createSkeletonCards(12)}</div>`;
-        try {
-            const [albums, singles] = await Promise.all([
-                fetchAOTY('/releases').catch(() => null),
-                fetchAOTY('/releases/singles').catch(() => null),
-            ]);
-            container.innerHTML = '';
-            if (albums?.albums?.length) this.renderAOTYSection(container, 'New Albums', albums.albums);
-            if (singles?.albums?.length) this.renderAOTYSection(container, 'New Singles', singles.albums);
-            if (!container.children.length) container.innerHTML = createPlaceholder('No new releases.');
-        } catch (e) {
-            console.error(e);
-            container.innerHTML = createPlaceholder('Failed to load releases.');
-        }
-    }
-
-    async renderAOTYMustHear(container) {
-        const currentYear = new Date().getFullYear();
-        const currentDecadeStart = Math.floor(currentYear / 10) * 10;
-
-        const DECADES = [];
-        for (let d = currentDecadeStart; d >= 1950; d -= 10) DECADES.push(d);
-
-        const yearsInDecade = (d) => {
-            const end = Math.min(d + 9, currentYear);
-            return Array.from({ length: end - d + 1 }, (_, i) => d + i);
-        };
-
-        const pill = (y, active) =>
-            `<button class="aoty-mh-year-btn" data-year="${y}" style="padding:0.28rem 0.7rem;border-radius:2rem;border:1px solid ${active ? 'var(--primary)' : 'var(--border)'};background:${active ? 'var(--primary)' : 'transparent'};color:${active ? 'var(--primary-foreground)' : 'var(--muted-foreground)'};cursor:pointer;font-size:0.78rem;font-weight:500;">${y}</button>`;
-
-        container.innerHTML = `
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
-                <select id="aoty-decade-select" style="padding:0.32rem 0.6rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--background);color:var(--foreground);font-size:0.82rem;cursor:pointer;outline:none;">
-                    ${DECADES.map((d) => `<option value="${d}">${d}s</option>`).join('')}
-                </select>
-                <span style="color:var(--border);user-select:none;font-size:1.1rem;">|</span>
-                <div id="aoty-mh-years" style="display:flex;flex-wrap:wrap;gap:0.35rem;">
-                    ${yearsInDecade(currentDecadeStart)
-                        .map((y) => pill(y, y === currentYear))
-                        .join('')}
-                </div>
-            </div>
-            <div id="aoty-mh-content"></div>
-        `;
-
-        const contentDiv = container.querySelector('#aoty-mh-content');
-        const yearsDiv = container.querySelector('#aoty-mh-years');
-        const decadeSelect = container.querySelector('#aoty-decade-select');
-
-        const loadYear = async (year) => {
-            contentDiv.innerHTML = `<div class="card-grid">${this.createSkeletonCards(12)}</div>`;
-            try {
-                const data = await fetchAOTY(`/must-hear?year=${year}`);
-                contentDiv.innerHTML = '';
-                if (data.albums?.length) {
-                    updateAOTYMustHearIndex(data.albums);
-                    this.renderAOTYSection(contentDiv, `Must Hear ${year}`, data.albums);
-                } else {
-                    contentDiv.innerHTML = createPlaceholder('No must-hear albums found.');
-                }
-            } catch {
-                contentDiv.innerHTML = createPlaceholder('Failed to load must-hear albums.');
-            }
-        };
-
-        const setActiveYear = (btn) => {
-            for (const b of yearsDiv.querySelectorAll('.aoty-mh-year-btn')) {
-                b.style.background = 'transparent';
-                b.style.color = 'var(--muted-foreground)';
-                b.style.borderColor = 'var(--border)';
-            }
-            btn.style.background = 'var(--primary)';
-            btn.style.color = 'var(--primary-foreground)';
-            btn.style.borderColor = 'var(--primary)';
-        };
-
-        const loadDecade = async (d) => {
-            contentDiv.innerHTML = `<div class="card-grid">${this.createSkeletonCards(12)}</div>`;
-            try {
-                const data = await fetchAOTY(`/must-hear?decade=${d}s`);
-                contentDiv.innerHTML = '';
-                if (data.albums?.length) {
-                    updateAOTYMustHearIndex(data.albums);
-                    this.renderAOTYSection(contentDiv, `Must Hear — ${d}s`, data.albums);
-                } else {
-                    contentDiv.innerHTML = createPlaceholder('No must-hear albums found.');
-                }
-            } catch {
-                contentDiv.innerHTML = createPlaceholder('Failed to load must-hear albums.');
-            }
-        };
-
-        const attachYearHandlers = () => {
-            for (const btn of yearsDiv.querySelectorAll('.aoty-mh-year-btn')) {
-                btn.addEventListener('click', async () => {
-                    setActiveYear(btn);
-                    await loadYear(Number(btn.dataset.year));
-                });
-            }
-        };
-
-        attachYearHandlers();
-
-        decadeSelect.addEventListener('change', async () => {
-            const d = Number(decadeSelect.value);
-            yearsDiv.innerHTML = yearsInDecade(d)
-                .map((y) => pill(y, false))
-                .join('');
-            attachYearHandlers();
-            await loadDecade(d);
-        });
-
-        await loadDecade(currentDecadeStart);
-    }
-
-    async renderAOTYNews(container) {
-        const skeletonRow = () => `
-            <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);">
-                <div class="skeleton" style="width:52px;height:52px;border-radius:6px;flex-shrink:0;"></div>
-                <div style="flex:1;"><div class="skeleton" style="height:13px;width:75%;margin-bottom:6px;"></div><div class="skeleton" style="height:11px;width:40%;"></div></div>
-            </div>`;
-        container.innerHTML = `<div>${Array(10).fill(0).map(skeletonRow).join('')}</div>`;
-        try {
-            const data = await fetchAOTY('/news?type=newsworthy');
-            container.innerHTML = '';
-            if (!data.items?.length) {
-                container.innerHTML = createPlaceholder('No news available.');
-                return;
-            }
-            const list = document.createElement('div');
-            for (const item of data.items) {
-                const url = item.url?.startsWith('http') ? item.url : `https://www.albumoftheyear.org${item.url || ''}`;
-                const el = document.createElement('a');
-                el.href = url;
-                el.target = '_blank';
-                el.rel = 'noopener';
-                el.style.cssText =
-                    'display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;';
-                const img = document.createElement('img');
-                img.crossOrigin = 'anonymous';
-                img.referrerPolicy = 'no-referrer';
-                img.src = aotyCoverUrl(item.image) || 'images/navichrome_logo.svg';
-                img.width = 88;
-                img.height = 56;
-                img.style.cssText =
-                    'width:88px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--secondary);';
-                img.loading = 'lazy';
-                img.onerror = () => {
-                    img.src = 'images/navichrome_logo.svg';
-                    img.onerror = null;
-                };
-                el.appendChild(img);
-                const info = document.createElement('div');
-                info.style.cssText = 'flex:1;min-width:0;';
-                const t = document.createElement('div');
-                t.style.cssText =
-                    'font-weight:500;font-size:0.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-                t.textContent = item.title || '';
-                const m = document.createElement('div');
-                m.style.cssText = 'font-size:0.75rem;color:var(--muted-foreground);margin-top:2px;';
-                m.textContent = [item.source, item.date].filter(Boolean).join(' · ');
-                info.appendChild(t);
-                info.appendChild(m);
-                el.appendChild(info);
-                if (item.likes) {
-                    const lk = document.createElement('div');
-                    lk.style.cssText = 'font-size:0.72rem;color:var(--muted-foreground);flex-shrink:0;';
-                    lk.textContent = `♥ ${item.likes}`;
-                    el.appendChild(lk);
-                }
-                list.appendChild(el);
-            }
-            container.appendChild(list);
-        } catch (e) {
-            console.error(e);
-            container.innerHTML = createPlaceholder('Failed to load news.');
-        }
-    }
-
-    async renderAOTYLists(container) {
-        const currentYear = new Date().getFullYear();
-        const years = Array.from({ length: currentYear - 1970 + 1 }, (_, i) => currentYear - i);
-
-        const yearOptions = years.map((y) => `<option value="${y}">${y}</option>`).join('');
-
-        container.innerHTML = `
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
-                <select id="aoty-lists-year" style="padding:0.3rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--background);color:var(--foreground);font-size:0.85rem;cursor:pointer;">
-                    ${yearOptions}
-                </select>
-            </div>
-            <div id="aoty-lists-content"></div>
-        `;
-
-        const contentDiv = container.querySelector('#aoty-lists-content');
-
-        const skeletonRow = () => `
-            <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);">
-                <div class="skeleton" style="width:44px;height:44px;border-radius:6px;flex-shrink:0;"></div>
-                <div style="flex:1;"><div class="skeleton" style="height:13px;width:70%;margin-bottom:6px;"></div><div class="skeleton" style="height:11px;width:35%;"></div></div>
-            </div>`;
-
-        const loadLists = async (year) => {
-            contentDiv.innerHTML = `<div>${Array(8).fill(0).map(skeletonRow).join('')}</div>`;
-            try {
-                const data = await fetchAOTY(`/lists?year=${year}`);
-                contentDiv.innerHTML = '';
-                if (!data.lists?.length) {
-                    contentDiv.innerHTML = createPlaceholder('No critic lists found.');
-                    return;
-                }
-                const list = document.createElement('div');
-                for (const entry of data.lists) {
-                    const slug = (entry.url || '').split('/').filter(Boolean).pop() || '';
-                    const el = document.createElement('div');
-                    el.style.cssText =
-                        'display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;';
-                    const thumb = document.createElement('img');
-                    thumb.crossOrigin = 'anonymous';
-                    thumb.referrerPolicy = 'no-referrer';
-                    thumb.src = entry.cover || 'images/navichrome_logo.svg';
-                    thumb.width = 44;
-                    thumb.height = 44;
-                    thumb.loading = 'lazy';
-                    thumb.onerror = () => {
-                        thumb.src = 'images/navichrome_logo.svg';
-                        thumb.onerror = null;
-                    };
-                    thumb.style.cssText =
-                        'width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--secondary);';
-                    el.appendChild(thumb);
-                    const info = document.createElement('div');
-                    info.style.cssText = 'flex:1;min-width:0;';
-                    const t = document.createElement('div');
-                    t.style.cssText =
-                        'font-weight:500;font-size:0.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-                    const displayName = entry.title || entry.publication || '';
-                    t.textContent = displayName;
-                    const p = document.createElement('div');
-                    p.style.cssText = 'font-size:0.75rem;color:var(--muted-foreground);margin-top:2px;';
-                    p.textContent = entry.title ? entry.publication || '' : '';
-                    info.appendChild(t);
-                    info.appendChild(p);
-                    el.appendChild(info);
-                    el.addEventListener('click', () => this.showAOTYListModal(slug, displayName));
-                    list.appendChild(el);
-                }
-                contentDiv.appendChild(list);
-            } catch (e) {
-                console.error(e);
-                contentDiv.innerHTML = createPlaceholder('Failed to load critic lists.');
-            }
-        };
-
-        container.querySelector('#aoty-lists-year').addEventListener('change', async (e) => {
-            await loadLists(e.target.value);
-        });
-
-        await loadLists(currentYear);
-    }
-
-    async showAOTYListModal(slug, listTitle) {
-        const body = document.createElement('div');
-        body.innerHTML = `<div style="display:flex;flex-direction:column;gap:0;">
-            ${Array(10)
-                .fill(0)
-                .map(
-                    () => `
-                <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);">
-                    <div class="skeleton" style="width:2rem;height:1.2rem;border-radius:4px;flex-shrink:0;"></div>
-                    <div class="skeleton" style="width:48px;height:48px;border-radius:6px;flex-shrink:0;"></div>
-                    <div style="flex:1;"><div class="skeleton" style="height:13px;width:70%;margin-bottom:6px;"></div><div class="skeleton" style="height:11px;width:40%;"></div></div>
-                </div>`
-                )
-                .join('')}
-        </div>`;
-
-        const { modal } = createModal({ title: listTitle, content: body, className: 'extra-wide' });
-
-        try {
-            const data = await fetchAOTY(`/list/${slug}`);
-            const items = data.items || [];
-            const modalBody = modal.querySelector('.modal-body');
-            modalBody.innerHTML = '';
-
-            if (!items.length) {
-                modalBody.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted-foreground);">No items found.</div>`;
-                return;
-            }
-
-            const list = document.createElement('div');
-            list.style.cssText = 'display:flex;flex-direction:column;gap:0;';
-
-            const scoreTargets = []; // { item, scoreEl } — collected during loop for lazy fetch
-
-            for (const item of items) {
-                const row = document.createElement('div');
-                row.style.cssText =
-                    'display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);cursor:pointer;';
-
-                const scoreEl = document.createElement('div');
-                scoreEl.style.cssText =
-                    'font-size:0.8rem;font-weight:700;color:var(--primary-foreground);background:var(--primary);padding:2px 7px;border-radius:5px;flex-shrink:0;display:none;';
-
-                row.innerHTML = `
-                    <span style="font-size:0.8rem;font-weight:700;color:var(--primary);min-width:2rem;text-align:right;flex-shrink:0;">#${escapeHtml(item.rank || '')}</span>
-                    <img crossorigin="anonymous" referrerpolicy="no-referrer" src="${aotyCoverUrl(item.cover) || 'images/navichrome_logo.svg'}" width="48" height="48"
-                        style="border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--secondary);"
-                        loading="lazy" onerror="this.src='images/navichrome_logo.svg';this.onerror=null;">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-weight:500;font-size:0.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" class="row-title"></div>
-                        <div style="font-size:0.75rem;color:var(--muted-foreground);margin-top:2px;" class="row-meta"></div>
-                    </div>`;
-
-                row.querySelector('.row-title').textContent = item.title || '';
-                const metaParts = [item.date, ...(item.genres?.slice(0, 2) || [])].filter(Boolean);
-                row.querySelector('.row-meta').textContent = metaParts.join(' · ');
-                row.appendChild(scoreEl);
-                scoreTargets.push({ item, scoreEl });
-
-                const aotyItemUrl = item.url?.startsWith('http')
-                    ? item.url
-                    : `https://www.albumoftheyear.org${item.url || ''}`;
-
-                row.addEventListener('click', async () => {
-                    row.style.opacity = '0.5';
-                    row.style.pointerEvents = 'none';
-                    try {
-                        const found = await this.findAOTYAlbumInLibrary('', item.title || '');
-                        if (found) {
-                            modal.remove();
-                            navigate(`/album/${found.id}`);
-                        } else {
-                            window.open(aotyItemUrl, '_blank', 'noopener');
-                        }
-                    } finally {
-                        row.style.opacity = '';
-                        row.style.pointerEvents = '';
-                    }
-                });
-
-                list.appendChild(row);
-            }
-
-            modalBody.appendChild(list);
-
-            // Lazy-load scores — uses direct element refs collected above, no DOM querying
-            for (const { item, scoreEl } of scoreTargets) {
-                if (!item.title) continue;
-                fetchAOTY(`/album?name=${encodeURIComponent(item.title)}&minimal=true`)
-                    .then((d) => {
-                        if (d.criticScore && d.criticScore !== 'NR') {
-                            scoreEl.textContent = d.criticScore;
-                            scoreEl.style.display = '';
-                        }
-                    })
-                    .catch(() => {});
-            }
-        } catch (e) {
-            console.error(e);
-            modal.querySelector('.modal-body').innerHTML =
-                `<div style="text-align:center;padding:2rem;color:var(--muted-foreground);">Failed to load list.</div>`;
-        }
-    }
-
-    renderAOTYSection(container, title, albums, { isUpcoming = false } = {}) {
-        const section = document.createElement('section');
-        section.className = 'content-section';
-        section.innerHTML = `<h2 class="section-title">${escapeHtml(title)}</h2>`;
-        const grid = document.createElement('div');
-        grid.className = 'card-grid';
-        grid.innerHTML = albums.map((a) => this.createAOTYAlbumCardHTML(a, isUpcoming)).join('');
-        for (const card of grid.querySelectorAll('.aoty-card')) {
-            card.addEventListener('click', () => this.handleAOTYCardClick(card));
-        }
-        section.appendChild(grid);
-        container.appendChild(section);
-    }
-
-    async handleAOTYCardClick(card) {
-        const aotyUrl = card.dataset.aotyUrl;
-        const isUpcoming = card.dataset.aotyUpcoming === 'true';
-
-        if (isUpcoming) {
-            if (aotyUrl) window.open(aotyUrl, '_blank', 'noopener');
-            return;
-        }
-
-        const artist = card.dataset.aotyArtist;
-        const title = card.dataset.aotyTitle;
-
-        card.style.opacity = '0.6';
-        card.style.pointerEvents = 'none';
-        try {
-            const album = await this.findAOTYAlbumInLibrary(artist, title);
-            if (album) {
-                navigate(`/album/${album.id}`);
-            } else if (aotyUrl) {
-                window.open(aotyUrl, '_blank', 'noopener');
-            }
-        } finally {
-            card.style.opacity = '';
-            card.style.pointerEvents = '';
-        }
-    }
-
-    async findAOTYAlbumInLibrary(artist, title) {
-        const normTitle = aotyNorm(title);
-        const normArtist = artist ? aotyNorm(artist) : null;
-        const query = [artist, title].filter(Boolean).join(' ').trim();
-        if (!normTitle) return null;
-        try {
-            const result = await this.api.searchAlbums(query);
-            if (!result?.items?.length) return null;
-            for (const album of result.items) {
-                const aTitle = aotyNorm(album.title);
-                const aArtist = aotyNorm(album.artist?.name || album.artists?.[0]?.name || '');
-                const titleMatch =
-                    aTitle === normTitle ||
-                    (normTitle.length > 2 && (aTitle.includes(normTitle) || normTitle.includes(aTitle)));
-                const artistMatch =
-                    !normArtist ||
-                    aArtist === normArtist ||
-                    aArtist.includes(normArtist) ||
-                    normArtist.includes(aArtist);
-                if (titleMatch && artistMatch) return album;
-            }
-        } catch (e) {
-            console.error('AOTY match:', e);
-        }
-        return null;
-    }
-
-    createAOTYAlbumCardHTML(album, isUpcoming = false) {
-        const title = escapeHtml(album.title || 'Unknown Album');
-        const artist = escapeHtml(album.artist || '');
-        const cover = `<img crossorigin="anonymous" referrerpolicy="no-referrer" src="${aotyCoverUrl(album.cover) || 'images/navichrome_logo.svg'}" alt="${title}" class="card-image" loading="lazy" onerror="this.src='images/navichrome_logo.svg'">`;
-
-        const scoreParts = [];
-        if (album.criticScore) scoreParts.push(`${album.criticScore} critic`);
-        if (album.userScore) scoreParts.push(`${album.userScore} user`);
-        const scores = scoreParts.join(' · ');
-
-        const subtitleParts = [artist, scores].filter(Boolean);
-        if (album.releaseDate) subtitleParts.push(album.releaseDate);
-        const subtitle = subtitleParts.join(' · ');
-
-        const mustHearBadge = album.mustHear
-            ? `<span style="background:var(--primary);color:var(--primary-foreground);font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:3px;margin-left:5px;vertical-align:middle;">MUST HEAR</span>`
-            : '';
-
-        const aotyUrl = album.url
-            ? album.url.startsWith('http')
-                ? album.url
-                : `https://www.albumoftheyear.org${album.url}`
-            : '';
-
-        return `
-            <div class="card aoty-card" style="cursor: pointer;"
-                data-aoty-url="${aotyUrl}"
-                data-aoty-artist="${escapeHtml(album.artist || '')}"
-                data-aoty-title="${escapeHtml(album.title || '')}"
-                data-aoty-upcoming="${isUpcoming}">
-                <div class="card-image-wrapper">
-                    ${cover}
-                </div>
-                <div class="card-info">
-                    <h3 class="card-title">${title}${mustHearBadge}</h3>
-                    ${subtitle ? `<p class="card-subtitle">${subtitle}</p>` : ''}
-                </div>
-            </div>
-        `;
-    }
-
-    async renderExploreSection(container, title, items, type) {
-        const section = document.createElement('section');
-        section.className = 'content-section';
-        section.innerHTML = `<h2 class="section-title">${title}</h2>`;
-
-        if (type === 'track') {
-            const list = document.createElement('div');
-            list.className = 'track-list';
-            await this.renderListWithTracks(list, items, true);
-            section.appendChild(list);
-        } else {
-            const grid = document.createElement('div');
-            grid.className = 'card-grid';
-            grid.innerHTML = items
-                .map((item) => {
-                    if (type === 'album') return this.createAlbumCardHTML(item);
-                    if (type === 'playlist') return this.createPlaylistCardHTML(item);
-                    return '';
-                })
-                .join('');
-
-            for (const item of items) {
-                let selector;
-                if (type === 'album') selector = `[data-album-id="${item.id}"]`;
-                if (type === 'playlist') selector = `[data-playlist-id="${item.uuid}"]`;
-
-                if (selector) {
-                    const el = grid.querySelector(selector);
-                    if (el) {
-                        trackDataStore.set(el, item);
-                        if (type === 'album') await this.updateLikeState(el, 'album', item.id);
-                        if (type === 'playlist') await this.updateLikeState(el, 'playlist', item.uuid);
-                    }
-                }
-            }
-            section.appendChild(grid);
-        }
-        container.appendChild(section);
-    }
-
-    async renderGenrePage(genreId, genreName) {
-        const container = document.getElementById('explore-grid');
-        if (!container) return;
-
-        container.classList.remove('card-grid');
-
-        container.innerHTML = `
-            <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
-                <button class="btn-secondary explore-back-btn" style="display: flex; align-items: center; gap: 0.5rem;">
-                    ${SVG_LEFT_ARROW(20)}
-                    Back
-                </button>
-                <h2 class="section-title" style="margin: 0;">${escapeHtml(genreName)}</h2>
-            </div>
-            <div class="card-grid">${this.createSkeletonCards(12)}</div>
-        `;
-
-        container.querySelector('.explore-back-btn').addEventListener('click', async () => {
-            container.innerHTML = '';
-            await this.renderExplorePage();
-        });
-
-        try {
-            const response = await fetch(`https://hot.monochrome.tf/explore/genre/?id=${genreId}`);
-            if (!response.ok) throw new Error('Failed to load genre data');
-            const data = await response.json();
-
-            const header = container.firstElementChild;
-            container.innerHTML = '';
-            container.appendChild(header);
-
-            const contentContainer = document.createElement('div');
-            container.appendChild(contentContainer);
-
-            if (data.sections && data.sections.length > 0) {
-                for (const section of data.sections) {
-                    if (section.items && section.items.length > 0) {
-                        let type = null;
-                        if (section.type === 'ALBUM_LIST') type = 'album';
-                        else if (section.type === 'TRACK_LIST') type = 'track';
-                        else if (section.type === 'PLAYLIST_LIST') type = 'playlist';
-
-                        if (type) {
-                            await this.renderExploreSection(contentContainer, section.title, section.items, type);
-                        }
-                    }
-                }
-            }
-
-            if (contentContainer.children.length === 0) {
-                contentContainer.innerHTML = createPlaceholder('No content found for this genre.');
-            }
-        } catch (e) {
-            console.error(e);
-            const header = container.firstElementChild;
-            container.innerHTML = '';
-            container.appendChild(header);
-            const errorDiv = document.createElement('div');
-            errorDiv.innerHTML = createPlaceholder('Failed to load genre content.');
-            container.appendChild(errorDiv);
         }
     }
 
@@ -3866,203 +2890,6 @@ export class UIRenderer {
             `,
             isCompact,
         });
-    }
-
-    async renderHomeEditorsPicks(forceRefresh = false, containerId = 'home-editors-picks') {
-        const picksContainer = document.getElementById(containerId);
-
-        if (picksContainer) {
-            if (forceRefresh) picksContainer.innerHTML = this.createSkeletonCards(6);
-            else if (picksContainer.children.length > 0 && !picksContainer.querySelector('.skeleton')) return;
-
-            try {
-                const source = homePageSettings.getEditorsPicksSource();
-                const picksPath = source === 'current' ? '/editors-picks.json' : `/editors-picks-old/${source}`;
-                const response = await fetch(picksPath);
-                if (!response.ok) throw new Error("Failed to load editor's picks");
-
-                let items = await response.json();
-
-                if (!Array.isArray(items) || items.length === 0) {
-                    picksContainer.innerHTML = createPlaceholder("No editor's picks available.");
-                    return;
-                }
-
-                // Filter out blocked content
-                const { contentBlockingSettings } = await import('./storage.js');
-                items = items.filter((item) => {
-                    if (item.type === 'track') {
-                        return !contentBlockingSettings.shouldHideTrack(item);
-                    } else if (item.type === 'album') {
-                        return !contentBlockingSettings.shouldHideAlbum(item);
-                    } else if (item.type === 'artist') {
-                        return !contentBlockingSettings.shouldHideArtist(item);
-                    }
-                    return true;
-                });
-
-                // Shuffle items if enabled
-                if (homePageSettings.shouldShuffleEditorsPicks()) {
-                    items = [...items].sort(() => Math.random() - 0.5);
-                }
-
-                // Use cached metadata or fetch details for each item
-                const cardsHTML = [];
-                const itemsToStore = [];
-
-                for (const item of items) {
-                    try {
-                        if (item.type === 'album') {
-                            // Check if we have cached metadata
-                            if (item.title && item.artist) {
-                                // Use cached data directly
-                                const album = {
-                                    id: item.id,
-                                    title: item.title,
-                                    artist: item.artist,
-                                    releaseDate: item.releaseDate,
-                                    cover: item.cover,
-                                    explicit: item.explicit,
-                                    audioQuality: item.audioQuality,
-                                    mediaMetadata: item.mediaMetadata,
-                                    type: 'ALBUM',
-                                    _lazy: cardsHTML.length >= 6,
-                                    _isEditorsPick: true,
-                                };
-                                cardsHTML.push(this.createAlbumCardHTML(album));
-                                itemsToStore.push({ el: null, data: album, type: 'album' });
-                            } else {
-                                // Fall back to API call for legacy format
-                                const result = await this.api.getAlbum(item.id);
-                                if (result && result.album) {
-                                    result.album._lazy = cardsHTML.length >= 6;
-                                    result.album._isEditorsPick = true;
-                                    cardsHTML.push(this.createAlbumCardHTML(result.album));
-                                    itemsToStore.push({ el: null, data: result.album, type: 'album' });
-                                }
-                            }
-                        } else if (item.type === 'userplaylist') {
-                            if (item.id && item.title) {
-                                const playlist = {
-                                    id: item.id,
-                                    name: item.title,
-                                    cover: item.cover,
-                                    numberOfTracks: item.numberOfTracks || 0,
-                                };
-                                cardsHTML.push(
-                                    this.createAlbumCardHTML({
-                                        ...playlist,
-                                        title: item.title,
-                                        artist: item.artist,
-                                        cover: item.cover,
-                                        explicit: item.explicit,
-                                        releaseDate: item.releaseDate,
-                                        type: 'ALBUM',
-                                        _href: `/userplaylist/${item.id}`,
-                                        _lazy: cardsHTML.length >= 6,
-                                        _isEditorsPick: true,
-                                    })
-                                );
-                                itemsToStore.push({ el: null, data: playlist, type: 'user-playlist' });
-                            }
-                        } else if (item.type === 'artist') {
-                            if (item.name && item.picture) {
-                                // Use cached data directly
-                                const artist = {
-                                    id: item.id,
-                                    name: item.name,
-                                    picture: item.picture,
-                                    _lazy: cardsHTML.length >= 6,
-                                    _isEditorsPick: true,
-                                };
-                                cardsHTML.push(this.createArtistCardHTML(artist));
-                                itemsToStore.push({ el: null, data: artist, type: 'artist' });
-                            } else {
-                                // Fall back to API call
-                                const artist = await this.api.getArtist(item.id);
-                                if (artist) {
-                                    artist._lazy = cardsHTML.length >= 6;
-                                    artist._isEditorsPick = true;
-                                    cardsHTML.push(this.createArtistCardHTML(artist));
-                                    itemsToStore.push({ el: null, data: artist, type: 'artist' });
-                                }
-                            }
-                        } else if (item.type === 'track') {
-                            if (item.title && item.album) {
-                                // Use cached data directly
-                                const track = {
-                                    id: item.id,
-                                    title: item.title,
-                                    artist: item.artist,
-                                    album: item.album,
-                                    explicit: item.explicit,
-                                    audioQuality: item.audioQuality,
-                                    mediaMetadata: item.mediaMetadata,
-                                    duration: item.duration,
-                                    _lazy: cardsHTML.length >= 6,
-                                    _isEditorsPick: true,
-                                };
-                                cardsHTML.push(this.createTrackCardHTML(track));
-                                itemsToStore.push({ el: null, data: track, type: 'track' });
-                            } else {
-                                // Fall back to API call
-                                const track = await this.api.getTrackMetadata(item.id);
-                                if (track) {
-                                    track._lazy = cardsHTML.length >= 6;
-                                    track._isEditorsPick = true;
-                                    cardsHTML.push(this.createTrackCardHTML(track));
-                                    itemsToStore.push({ el: null, data: track, type: 'track' });
-                                }
-                            }
-                        } else if (item.type === 'user-playlist') {
-                            if (item.id && item.name) {
-                                const playlist = {
-                                    id: item.id,
-                                    name: item.name,
-                                    cover: item.cover,
-                                    tracks: item.tracks || [],
-                                    numberOfTracks: item.numberOfTracks || (item.tracks ? item.tracks.length : 0),
-                                    _lazy: cardsHTML.length >= 6,
-                                    _isEditorsPick: true,
-                                };
-                                const subtitle = item.username ? `by ${item.username}` : null;
-                                cardsHTML.push(this.createUserPlaylistCardHTML(playlist, subtitle));
-                                itemsToStore.push({ el: null, data: playlist, type: 'user-playlist' });
-                            } else {
-                                const playlist = await syncManager.getPublicPlaylist(item.id);
-                                if (playlist) {
-                                    playlist._lazy = cardsHTML.length >= 6;
-                                    playlist._isEditorsPick = true;
-                                    const subtitle = item.username ? `by ${item.username}` : null;
-                                    cardsHTML.push(this.createUserPlaylistCardHTML(playlist, subtitle));
-                                    itemsToStore.push({ el: null, data: playlist, type: 'user-playlist' });
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn(`Failed to load ${item.type} ${item.id}:`, e);
-                    }
-                }
-
-                if (cardsHTML.length > 0) {
-                    picksContainer.innerHTML = cardsHTML.join('');
-                    for (const item of itemsToStore) {
-                        const type = item.type;
-                        const id = item.data.id;
-                        const el = picksContainer.querySelector(`[data-${type}-id="${id}"]`);
-                        if (el) {
-                            trackDataStore.set(el, item.data);
-                            await this.updateLikeState(el, type, id);
-                        }
-                    }
-                } else {
-                    picksContainer.innerHTML = createPlaceholder("No editor's picks available.");
-                }
-            } catch (e) {
-                console.error("Failed to load editor's picks:", e);
-                picksContainer.innerHTML = createPlaceholder("Failed to load editor's picks.");
-            }
-        }
     }
 
     async renderHomeArtists(forceRefresh = false, providedSeeds = null) {
@@ -4351,15 +3178,11 @@ export class UIRenderer {
         const artistsContainer = document.getElementById('search-artists-container');
         const albumsContainer = document.getElementById('search-albums-container');
         const playlistsContainer = document.getElementById('search-playlists-container');
-        const communityPlaylistsContainer = document.getElementById('search-community-playlists-container');
-        const podcastsContainer = document.getElementById('search-podcasts-container');
 
         tracksContainer.innerHTML = this.createSkeletonTracks(8, true);
         artistsContainer.innerHTML = this.createSkeletonCards(6, true);
         albumsContainer.innerHTML = this.createSkeletonCards(6, false);
         playlistsContainer.innerHTML = this.createSkeletonCards(6, false);
-        communityPlaylistsContainer.innerHTML = this.createSkeletonCards(6, false);
-        podcastsContainer.innerHTML = this.createSkeletonCards(6, true);
 
         if (this.searchAbortController) {
             this.searchAbortController.abort();
@@ -4377,7 +3200,6 @@ export class UIRenderer {
             artists: null,
             albums: null,
             playlists: null,
-            communityPlaylists: null,
             artistsEnriched: false,
             rendered: {},
         };
@@ -4392,7 +3214,7 @@ export class UIRenderer {
         page.dataset.lazyBound = 'true';
         page.querySelectorAll('.search-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
-                this.renderSearchTab(tab.dataset.tab);
+                void this.renderSearchTab(tab.dataset.tab);
             });
         });
     }
@@ -4413,7 +3235,7 @@ export class UIRenderer {
                             true
                         );
                         const result = await this.api.searchTracks(state.query, fetchOptions);
-                        state.tracks = (result.items || []).filter((t) => !_isBlockedCopyright(t.copyright));
+                        state.tracks = result.items || [];
                     }
                     await this._renderSearchTracks(state);
                     break;
@@ -4425,7 +3247,7 @@ export class UIRenderer {
                             false
                         );
                         const result = await this.api.searchAlbums(state.query, fetchOptions);
-                        let albums = (result.items || []).filter((a) => !_isBlockedCopyright(a.copyright));
+                        let albums = result.items || [];
                         if (albums.length === 0 && state.tracks?.length > 0) {
                             const albumMap = new Map();
                             state.tracks.forEach((track) => {
@@ -4481,12 +3303,6 @@ export class UIRenderer {
                     await this._renderSearchPlaylists(state);
                     break;
                 }
-                case 'community-playlists':
-                    await this._renderSearchCommunityPlaylists(state);
-                    break;
-                case 'podcasts':
-                    await this.renderPodcastSearchResults(state.query);
-                    break;
             }
         } catch (error) {
             if (error.name === 'AbortError') return;
@@ -4496,7 +3312,6 @@ export class UIRenderer {
                 albums: 'search-albums-container',
                 artists: 'search-artists-container',
                 playlists: 'search-playlists-container',
-                'community-playlists': 'search-community-playlists-container',
             };
             const container = document.getElementById(containerIds[tabName]);
             if (container) {
@@ -4532,7 +3347,7 @@ export class UIRenderer {
         const artistsContainer = document.getElementById('search-artists-container');
         if (!state.artistsEnriched && state.artists.length) {
             try {
-                state.artists = await this.api.tidalAPI.enrichArtistsWithPicture(state.artists);
+                state.artists = await this.api.enrichArtistsWithPicture(state.artists);
             } catch (e) {
                 console.warn('Artist enrichment failed:', e);
             }
@@ -4557,25 +3372,6 @@ export class UIRenderer {
             : createPlaceholder('No playlists found.');
         for (const playlist of state.playlists) {
             const el = playlistsContainer.querySelector(`[data-playlist-id="${playlist.uuid}"]`);
-            if (el) {
-                trackDataStore.set(el, playlist);
-                await this.updateLikeState(el, 'playlist', playlist.uuid);
-            }
-        }
-    }
-
-    async _renderSearchCommunityPlaylists(state) {
-        const container = document.getElementById('search-community-playlists-container');
-
-        if (!state.communityPlaylists) {
-            container.innerHTML = this.createSkeletonCards(6, false);
-            state.communityPlaylists = await searchCommunityPlaylists(state.query, state.signal);
-        }
-        container.innerHTML = state.communityPlaylists.length
-            ? state.communityPlaylists.map((playlist) => this.createPlaylistCardHTML(playlist)).join('')
-            : createPlaceholder('No community playlists found.');
-        for (const playlist of state.communityPlaylists) {
-            const el = container.querySelector(`[data-playlist-id="${playlist.uuid}"]`);
             if (el) {
                 trackDataStore.set(el, playlist);
                 await this.updateLikeState(el, 'playlist', playlist.uuid);
@@ -4681,8 +3477,6 @@ export class UIRenderer {
         const titleEl = document.getElementById('album-detail-title');
         const metaEl = document.getElementById('album-detail-meta');
         const prodEl = document.getElementById('album-detail-producer');
-        const rateCriticsEl = document.getElementById('album-detail-ratings-critics');
-        const rateUsersEl = document.getElementById('album-detail-ratings-users');
         const tracklistContainer = document.getElementById('album-detail-tracklist');
         const playBtn = document.getElementById('play-album-btn');
         if (playBtn) playBtn.innerHTML = `${SVG_PLAY(20)}<span>Play Album</span>`;
@@ -4700,8 +3494,6 @@ export class UIRenderer {
         imageEl.style.backgroundColor = 'var(--muted)';
         metaEl.innerHTML = '<div class="skeleton" style="height: 16px; width: 200px; max-width: 80%;"></div>';
         prodEl.innerHTML = '<div class="skeleton" style="height: 16px; width: 200px; max-width: 80%;"></div>';
-        rateCriticsEl.innerHTML = '<div class="skeleton" style="height: 16px; width: 200px; max-width: 80%;"></div>';
-        rateUsersEl.innerHTML = '<div class="skeleton" style="height: 16px; width: 200px; max-width: 80%;"></div>';
         tracklistContainer.innerHTML = `
             <div class="track-list-header">
                 <span style="width: 40px; text-align: center;">#</span>
@@ -4715,22 +3507,6 @@ export class UIRenderer {
         try {
             const { album, tracks } = await this.api.getAlbum(albumId, provider);
             this.currentAlbumId = albumId;
-
-            if (_isBlockedCopyright(album.copyright)) {
-                imageEl.src = '';
-                imageEl.style.backgroundColor = 'transparent';
-                titleEl.textContent = '';
-                metaEl.textContent = '';
-                prodEl.textContent = '';
-                rateCriticsEl.textContent = '';
-                rateUsersEl.textContent = '';
-                tracklistContainer.innerHTML = '';
-                if (playBtn) playBtn.style.display = 'none';
-                if (dlBtn) dlBtn.style.display = 'none';
-                document.getElementById('page-album').innerHTML =
-                    '<p style="padding: 2rem; color: var(--muted-foreground);">This content is unavailable due to a DMCA notice.</p>';
-                return;
-            }
 
             const videoCoverUrl = album.videoCoverUrl || null;
 
@@ -4829,109 +3605,6 @@ export class UIRenderer {
             prodEl.innerHTML =
                 `By <a href="/artist/${album.artist.id}">${album.artist.name}</a>` +
                 (firstCopyright ? ` • ${firstCopyright}` : '');
-
-            fetchAOTY(`/album?artist=${encodeURIComponent(album.artist.name)}&name=${encodeURIComponent(album.title)}`)
-                .then((data) => {
-                    const aotyUrl = data.url
-                        ? data.url.startsWith('http')
-                            ? data.url
-                            : `https://www.albumoftheyear.org${data.url}`
-                        : null;
-
-                    // Must Hear badge (from cached index built by the AOTY tab)
-                    if (checkAOTYMustHear(album.artist.name, album.title)) {
-                        const badge = document.createElement('span');
-                        badge.textContent = 'MUST HEAR';
-                        badge.style.cssText =
-                            'background:var(--primary);color:var(--primary-foreground);font-size:0.6rem;font-weight:700;padding:3px 8px;border-radius:3px;margin-left:10px;vertical-align:middle;letter-spacing:0.05em;cursor:pointer;';
-                        badge.title = 'View Must Hear albums on AOTY';
-                        badge.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            navigate('/');
-                            setTimeout(() => {
-                                document.querySelector('.home-tab[data-tab="aoty"]')?.click();
-                                setTimeout(() => {
-                                    document.querySelector('.aoty-subnav-btn[data-aoty-tab="musthear"]')?.click();
-                                }, 80);
-                            }, 80);
-                        });
-                        titleEl.appendChild(badge);
-                    }
-
-                    // Label — append to producer line
-                    if (data.label) {
-                        const labelUrl = data.labelUrl
-                            ? data.labelUrl.startsWith('http')
-                                ? data.labelUrl
-                                : `https://www.albumoftheyear.org${data.labelUrl}`
-                            : null;
-                        const labelLink = labelUrl
-                            ? `<a href="${labelUrl}" target="_blank" rel="noopener">${escapeHtml(data.label)}</a>`
-                            : escapeHtml(data.label);
-                        prodEl.innerHTML += ` · ${labelLink}`;
-                    }
-
-                    // Critic score
-                    const critScore = data.criticScore;
-                    const critCount = data.criticCount;
-                    const reviews = data.reviews || [];
-                    if (!critScore || critScore === 'NR') {
-                        rateCriticsEl.innerHTML = `<span style="color:var(--muted-foreground);">Critic Score: NR</span>`;
-                    } else {
-                        rateCriticsEl.innerHTML = `<a href="javascript:void(0)" style="color:var(--muted-foreground);cursor:pointer;">Critic Score: ${critScore}${critCount ? ` · <span style="text-decoration:underline;">${critCount} reviews</span>` : ''}</a>`;
-                        rateCriticsEl.querySelector('a').onclick = () => {
-                            const con = document.createElement('div');
-                            con.style.cssText = 'display:flex;flex-direction:column;gap:1.5rem;';
-                            if (reviews.length === 0) {
-                                con.innerHTML =
-                                    '<div style="text-align:center;padding:2rem;color:var(--muted-foreground);">No reviews found.</div>';
-                            }
-                            for (const review of reviews) {
-                                const reviewdiv = document.createElement('div');
-                                reviewdiv.style.cssText =
-                                    'display:flex;gap:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border);';
-                                const publication = decodeHtml(review.publication || 'Unknown Publication');
-                                const author = decodeHtml(review.author || '');
-                                const quote = decodeHtml(review.text || 'No review text available.');
-                                reviewdiv.innerHTML = `
-                                <img crossorigin="anonymous" src="${review.image || ''}" width="50" height="50" style="border-radius:8px;object-fit:cover;background:var(--highlight);flex-shrink:0;"
-                                     onerror="this.src='images/navichrome_logo.svg';this.onerror=null;" loading="lazy" referrerpolicy="no-referrer">
-                                <div style="flex:1;">
-                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem;">
-                                        <div class="pub-name" style="font-weight:600;color:var(--foreground);"></div>
-                                        <div style="font-weight:bold;color:var(--primary-foreground);background:var(--primary);padding:2px 10px;border-radius:6px;font-size:0.85rem;">${review.score || ''}</div>
-                                    </div>
-                                    <div class="author-name" style="font-size:0.8rem;color:var(--muted-foreground);margin-bottom:0.5rem;"></div>
-                                    <div class="quote-text" style="font-size:0.95rem;line-height:1.5;color:var(--muted-foreground);font-style:italic;"></div>
-                                </div>`;
-                                reviewdiv.querySelector('.pub-name').textContent = publication;
-                                if (author) reviewdiv.querySelector('.author-name').textContent = `By ${author}`;
-                                else reviewdiv.querySelector('.author-name').remove();
-                                reviewdiv.querySelector('.quote-text').textContent = `"${quote}"`;
-                                con.appendChild(reviewdiv);
-                            }
-                            createModal({
-                                title: `Critic Reviews · ${critScore}`,
-                                content: con,
-                                className: 'extra-wide',
-                            });
-                        };
-                    }
-
-                    // User score
-                    const userScore = data.userScore;
-                    const userCount = data.userCount;
-                    if (!userScore || userScore === 'NR') {
-                        rateUsersEl.innerHTML = `<span style="color:var(--muted-foreground);">User Score: NR</span>`;
-                    } else {
-                        const userLink = aotyUrl ? `href="${aotyUrl}" target="_blank" rel="noopener"` : '';
-                        rateUsersEl.innerHTML = `<a ${userLink} style="color:var(--muted-foreground);">User Score: <span style="text-decoration:underline;">${userScore}</span>${userCount ? ` · ${userCount} ratings` : ''}</a>`;
-                    }
-                })
-                .catch(() => {
-                    rateCriticsEl.innerHTML = `<span style="color:var(--muted-foreground);">Unable to fetch critic score</span>`;
-                    rateUsersEl.innerHTML = `<span style="color:var(--muted-foreground);">Unable to fetch user score</span>`;
-                });
 
             tracklistContainer.innerHTML = `
                 <div class="track-list-header">
@@ -5243,12 +3916,12 @@ export class UIRenderer {
                 ownedPlaylist = await db.getPlaylist(playlistId);
                 playlistData = ownedPlaylist;
 
-                // If not in local DB, check if it's a public Pocketbase playlist
+                // If not in local storage, allow the compatibility hook to resolve it.
                 if (!playlistData) {
                     try {
                         playlistData = await syncManager.getPublicPlaylist(playlistId);
                     } catch (e) {
-                        console.warn('Failed to check public pocketbase playlists:', e);
+                        console.warn('Failed to resolve shared playlist:', e);
                     }
                 }
             }
@@ -5493,7 +4166,7 @@ export class UIRenderer {
                     deleteBtn.style.display = 'none';
                 }
 
-                // Hide recommended songs section for tidal playlists
+                // Server playlists do not expose client-side recommendations.
                 const recommendedSection = document.getElementById('playlist-section-recommended');
                 if (recommendedSection) {
                     recommendedSection.style.display = 'none';
@@ -5733,35 +4406,6 @@ export class UIRenderer {
     }
 
     async renderArtistPage(artistId, provider = null) {
-        if (contentBlockingSettings?.isHardcodedBlockedArtist(artistId)) {
-            await this.showPage('artist');
-            this.currentArtistId = artistId;
-            const nameEl = document.getElementById('artist-detail-name');
-            const metaEl = document.getElementById('artist-detail-meta');
-            const imageEl = document.getElementById('artist-detail-image');
-            if (nameEl) nameEl.textContent = '';
-            if (metaEl) metaEl.textContent = '';
-            if (imageEl) {
-                imageEl.src = '';
-                imageEl.style.backgroundColor = 'var(--muted)';
-            }
-            [
-                'artist-detail-bio',
-                'artist-detail-tracks',
-                'artist-detail-albums',
-                'artist-detail-eps',
-                'artist-detail-similar',
-                'artist-detail-in-library',
-            ].forEach((id) => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = '';
-            });
-            ['artist-section-eps', 'artist-section-similar', 'artist-section-in-library'].forEach((id) => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-            return;
-        }
         await this.showPage('artist');
         this.currentArtistId = artistId;
 
@@ -6093,10 +4737,6 @@ export class UIRenderer {
                 }
             });
 
-            artist.tracks = artist.tracks.filter((t) => !_isBlockedCopyright(t.copyright));
-            artist.albums = artist.albums.filter((t) => !_isBlockedCopyright(t.copyright));
-            if (artist.eps) artist.eps = artist.eps.filter((t) => !_isBlockedCopyright(t.copyright));
-
             await this.renderListWithTracks(tracksContainer, artist.tracks, true);
 
             // "In your library" section: find liked tracks and playlist tracks for this artist
@@ -6406,8 +5046,6 @@ export class UIRenderer {
 
     createSocialLinkHTML(link) {
         const url = link.url;
-
-        if (url.includes('tidal.com')) return '';
 
         let icon = SVG_GLOBE(24);
         let title = 'Website';
@@ -6823,79 +5461,6 @@ export class UIRenderer {
         ).element;
     }
 
-    renderApiSettings() {
-        const container = document.getElementById('api-instance-list');
-        Promise.allSettled([this.api.settings.getInstances('api'), this.api.settings.getInstances('streaming')])
-            .then((results) => {
-                const apiInstances = results[0].status === 'fulfilled' ? results[0].value : [];
-                const streamingInstances = results[1].status === 'fulfilled' ? results[1].value : [];
-                const renderGroup = (instances, type) => {
-                    const groupLabels = {
-                        api: 'API Instances',
-                        streaming: 'Streaming Instances',
-                    };
-
-                    const listHtml = (instances || [])
-                        .map((instance, index) => {
-                            const isObject = instance && typeof instance === 'object';
-                            const instanceUrl = isObject ? instance.url || '' : String(instance || '');
-                            const instanceName = isObject
-                                ? instance.name || instance.displayName || instance.id || instanceUrl
-                                : instanceUrl;
-                            const instanceVersion = isObject && instance.version ? String(instance.version) : '';
-                            const isUser = isObject && instance.isUser;
-                            const safeName = escapeHtml(instanceName || 'Unknown instance');
-                            const safeUrl = escapeHtml(instanceUrl || '');
-                            const safeVersion = escapeHtml(instanceVersion);
-
-                            return `
-                        <li data-index="${index}" data-type="${type}" data-url="${safeUrl}">
-                            <div style="flex: 1; min-width: 0;">
-                                <div class="instance-url">${safeName} ${isUser ? '<span style="font-size: 0.6rem; opacity: 0.7; background: var(--muted); padding: 1px 4px; border-radius: 3px; margin-left: 4px; vertical-align: middle;">U</span>' : ''}</div>
-                                ${safeUrl && safeUrl !== safeName ? `<div style="font-size: 0.8rem; color: var(--muted-foreground); margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${safeUrl}</div>` : ''}
-                                ${safeVersion ? `<div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.1rem;">v${safeVersion}</div>` : ''}
-                            </div>
-                            <div class="controls">
-                                ${
-                                    isUser
-                                        ? `
-                                <button class="delete-instance" title="Delete Instance">
-                                    ${SVG_TRASH(16)}
-                                </button>`
-                                        : ''
-                                }
-                            </div>
-                        </li>
-                    `;
-                        })
-                        .join('');
-
-                    return `
-                    <li class="group-header" style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; padding: 1rem 0 0.5rem; background: transparent; border: none;">
-                        <span>${groupLabels[type] || type + ' Instances'}</span>
-                        <button class="add-instance" data-type="${type}" title="Add Custom Instance" style="background: var(--primary); color: var(--primary-foreground); border: none; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; pointer-events: auto;">
-                            Add
-                        </button>
-                    </li>
-                    ${listHtml}
-                `;
-                };
-
-                container.innerHTML =
-                    renderGroup(apiInstances, 'api') +
-                    (streamingInstances && streamingInstances.length > 0
-                        ? renderGroup(streamingInstances, 'streaming')
-                        : '');
-
-                const stats = this.api.getCacheStats();
-                const cacheInfo = document.getElementById('cache-info');
-                if (cacheInfo) {
-                    cacheInfo.textContent = `Cache: ${stats.memoryEntries}/${stats.maxSize} entries`;
-                }
-            })
-            .catch(console.error);
-    }
-
     async renderTrackPage(trackId, provider = null) {
         await this.showPage('track');
 
@@ -6942,12 +5507,6 @@ export class UIRenderer {
             let track;
             track = await this.api.getTrackMetadata(trackId);
             this.currentTrackPageId = track.id;
-
-            if (_isBlockedCopyright(track.copyright)) {
-                document.getElementById('page-track').innerHTML =
-                    '<p style="padding: 2rem; color: var(--muted-foreground);">This content is unavailable due to a DMCA notice.</p>';
-                return;
-            }
 
             let videoCoverUrl = track.videoUrl || track.videoCoverUrl || track.album?.videoCoverUrl || null;
 
@@ -7076,209 +5635,5 @@ export class UIRenderer {
             titleEl.textContent = 'Track not found';
             artistEl.innerHTML = '';
         }
-    }
-
-    async renderPodcastsBrowsePage() {
-        await this.showPage('podcasts-browse');
-        const trendingContainer = document.getElementById('podcasts-trending-container');
-        const recentContainer = document.getElementById('podcasts-recent-container');
-        trendingContainer.innerHTML = this.createSkeletonCards(12, true);
-        recentContainer.innerHTML = this.createSkeletonCards(12, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const trendingResult = await podcastsAPI.getTrendingPodcasts({ max: 24 });
-            if (trendingResult.items.length > 0) {
-                trendingContainer.innerHTML = trendingResult.items
-                    .map((podcast) => this.createPodcastCardHTML(podcast))
-                    .join('');
-                this.attachPodcastCardListeners(trendingContainer, trendingResult.items);
-            } else {
-                trendingContainer.innerHTML = createPlaceholder('No trending podcasts found.');
-            }
-        } catch (error) {
-            console.error('Failed to load trending podcasts:', error);
-            trendingContainer.innerHTML = createPlaceholder('Failed to load trending podcasts.');
-        }
-
-        document.title = 'Podcasts - Navichrome';
-    }
-
-    cleanupPodcastState() {
-        this.podcastState = null;
-    }
-
-    async renderPodcastPage(podcastId) {
-        this.cleanupPodcastState();
-        await this.showPage('podcasts');
-
-        this.podcastState = {
-            id: podcastId,
-            episodes: [],
-            offset: 0,
-            hasMore: true,
-            isLoading: false,
-        };
-
-        const nameEl = document.getElementById('podcasts-detail-name');
-        const metaEl = document.getElementById('podcasts-detail-meta');
-        const imageEl = document.getElementById('podcasts-detail-image');
-        const episodesContainer = document.getElementById('podcasts-episodes-container');
-
-        nameEl.textContent = 'Loading...';
-        metaEl.textContent = '';
-        episodesContainer.innerHTML = this.createSkeletonTracks(8, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const podcastResult = await podcastsAPI.getPodcastById(podcastId);
-
-            if (podcastResult) {
-                nameEl.textContent = podcastResult.title;
-                metaEl.textContent = `${podcastResult.episodeCount} episodes • ${podcastResult.author}`;
-                if (podcastResult.image) {
-                    imageEl.src = podcastResult.image;
-                    this.setPageBackground(podcastResult.image);
-                }
-
-                this.podcastState.podcastTitle = podcastResult.title;
-                const _playBtn = document.getElementById('play-podcasts-btn');
-            } else {
-                this.podcastState.podcastTitle = 'Unknown Podcast';
-            }
-
-            document.title = `${podcastResult?.title || 'Podcast'} - Navichrome`;
-
-            episodesContainer.innerHTML = '';
-            await this.loadAllPodcastEpisodes();
-        } catch (error) {
-            console.error('Failed to load podcast:', error);
-            nameEl.textContent = 'Podcast not found';
-            episodesContainer.innerHTML = createPlaceholder('Failed to load podcast.');
-        }
-    }
-
-    async loadAllPodcastEpisodes() {
-        this.podcastState.isLoading = true;
-        const episodesContainer = document.getElementById('podcasts-episodes-container');
-        episodesContainer.innerHTML = this.createSkeletonTracks(8, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const result = await podcastsAPI.getPodcastEpisodes(this.podcastState.id, {
-                max: 10000,
-            });
-
-            this.podcastState.episodes = result.items;
-            this.podcastState.hasMore = false;
-
-            const podcastTitle = this.podcastState.podcastTitle || 'Unknown Podcast';
-            const tracks = result.items.map((ep) => this.transformPodcastEpisodeToTrack(ep, podcastTitle));
-            await this.renderListWithTracks(episodesContainer, tracks, true);
-
-            const playBtn = document.getElementById('play-podcasts-btn');
-            if (playBtn && result.items.length > 0) {
-                playBtn.onclick = () => {
-                    const tracksToPlay = this.podcastState.episodes.map((ep) =>
-                        this.transformPodcastEpisodeToTrack(ep, podcastTitle)
-                    );
-                    if (this.player) {
-                        this.player.setQueue(tracksToPlay, 0);
-                        this.player.playTrackFromQueue();
-                    }
-                };
-            }
-        } catch (error) {
-            console.error('Failed to load podcast episodes:', error);
-            episodesContainer.innerHTML = createPlaceholder('Failed to load episodes.');
-        }
-
-        this.podcastState.isLoading = false;
-    }
-
-    async renderPodcastSearchResults(query) {
-        const podcastsContainer = document.getElementById('search-podcasts-container');
-        podcastsContainer.innerHTML = this.createSkeletonCards(12, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const result = await podcastsAPI.searchPodcasts(query, { max: 20 });
-
-            if (result.items.length > 0) {
-                podcastsContainer.innerHTML = result.items
-                    .map((podcast) => this.createPodcastCardHTML(podcast))
-                    .join('');
-                this.attachPodcastCardListeners(podcastsContainer, result.items);
-            } else {
-                podcastsContainer.innerHTML = createPlaceholder('No podcasts found.');
-            }
-        } catch (error) {
-            console.error('Podcast search failed:', error);
-            podcastsContainer.innerHTML = createPlaceholder('Failed to search podcasts.');
-        }
-    }
-
-    createPodcastCardHTML(podcast) {
-        const title = escapeHtml(podcast.title || 'Unknown Podcast');
-        const author = escapeHtml(podcast.author || '');
-        const image = podcast.image || '';
-        const description = escapeHtml((podcast.description || '').substring(0, 120));
-        const episodeCount = podcast.episodeCount || 0;
-
-        return `
-            <div class="card" data-podcast-id="${podcast.id}">
-                <div class="card-image-container">
-                    <img crossorigin="anonymous" referrerpolicy="no-referrer" src="${image}" alt="${title}" loading="lazy" onerror="this.style.display='none'" />
-                    <div class="card-image-placeholder" ${image ? 'style="display:none"' : ''}>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23333" width="100" height="100"/><circle cx="50" cy="45" r="20" fill="%23666"/><rect x="35" y="70" width="30" height="15" rx="3" fill="%23666"/></svg>
-                    </div>
-                </div>
-                <div class="card-info">
-                    <h3 class="card-title">${title}</h3>
-                    <p class="card-subtitle">${author}</p>
-                    <p class="card-description">${description}${podcast.description?.length > 120 ? '...' : ''}</p>
-                    <span class="card-meta">${episodeCount} episodes</span>
-                </div>
-            </div>
-        `;
-    }
-
-    attachPodcastCardListeners(container, podcasts) {
-        const cards = container.querySelectorAll('.card[data-podcast-id]');
-        cards.forEach((card) => {
-            const podcastId = card.dataset.podcastId;
-            const podcast = podcasts.find((p) => p.id === podcastId);
-            if (podcast) {
-                card.addEventListener('click', () => {
-                    navigate(`/podcasts/${podcastId}`);
-                });
-            }
-        });
-    }
-
-    transformPodcastEpisodeToTrack(episode, podcastTitle = 'Unknown Podcast') {
-        return {
-            id: `podcast_${episode.id}`,
-            title: episode.title,
-            artist: { id: null, name: podcastTitle },
-            artists: [{ id: null, name: podcastTitle }],
-            album: {
-                id: null,
-                title: podcastTitle,
-                cover: episode.image || episode.feedImage || '',
-            },
-            duration: episode.duration,
-            explicit: episode.explicit,
-            dateAdded: episode.datePublished,
-            isPodcast: true,
-            enclosureUrl: episode.enclosureUrl,
-            enclosureType: episode.enclosureType,
-            enclosureLength: episode.enclosureLength,
-            episodeNumber: episode.episode,
-            episodeType: episode.episodeType,
-            season: episode.season,
-            description: episode.description,
-            podcastEpisode: episode,
-        };
     }
 }

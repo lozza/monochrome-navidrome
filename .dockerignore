@@ -28,5 +28,11 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 
+# Test and tool output
+.lighthouseci
+.vite
+playwright-report
+test-results
+
 # Other
 *.log

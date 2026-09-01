@@ -1,11 +1,4 @@
-import {
-    getCoverBlob,
-    getTrackTitle,
-    getFullArtistString,
-    getMimeType,
-    getTrackCoverId,
-    getFullArtistArray,
-} from './utils.js';
+import { getCoverBlob, getTrackTitle, getMimeType, getTrackCoverId, getFullArtistArray } from './utils.js';
 import { addMetadataWithTagLib, getMetadataWithTagLib } from './taglib.ts';
 import { LyricsManager } from './lyrics.js';
 import { Mp4Stik } from './taglib.types.ts';
@@ -62,12 +55,7 @@ export async function addMetadataToAudio(audioBlob, track, _api, _quality, prefe
         data.explicit = Boolean(track.explicit);
         data.stik = track.type?.toLowerCase().includes('video') ? Mp4Stik.MusicVideo : Mp4Stik.Normal;
         data.extra = {
-            TIDAL_TRACK_ID: track.id ? String(track.id) : undefined,
-            TIDAL_ALBUM_ID: track.album?.id ? String(track.album?.id) : undefined,
-            TIDAL_TRACK_URL: track.url?.trim() || undefined,
-            TIDAL_ALBUM_URL: track.album?.url?.trim() || undefined,
             ALBUM_RELEASE_DATE: track.album?.releaseDate?.trim() || undefined,
-            TIDAL_DATA: JSON.stringify(track, null, 2).replace(/\n/g, '\r\n'),
         };
 
         if (track.bpm != null) {
@@ -192,69 +180,6 @@ export async function readTrackMetadata(file, { filename = file?.name || 'Unknow
             metadata.isrc = data.isrc || metadata.isrc;
             metadata.copyright = data.copyright || metadata.copyright;
             metadata.explicit = !!data.explicit;
-
-            // parse TIDAL_DATA if present
-            if (data.extra?.TIDAL_DATA) {
-                try {
-                    // parse as JSON if it's a string and then filter it
-                    const parsed = JSON.parse(data.extra.TIDAL_DATA);
-                    metadata.tidalData = filterTidalTrack(parsed);
-                } catch {
-                    // filter TIDAL_DATA if it's already an object
-                    if (typeof data.extra.TIDAL_DATA === 'object') {
-                        metadata.tidalData = filterTidalTrack(data.extra.TIDAL_DATA);
-                    } else {
-                        metadata.tidalData = data.extra.TIDAL_DATA; // raw string fallback
-                        console.warn('TIDAL_DATA is not valid JSON or object, storing as raw string');
-                    }
-                }
-            }
-
-            // Reusable filtering function
-            // if you want to add more fields in the future, just add them to this function
-            // it will be applied to both parsed and raw TIDAL_DATA
-            function filterTidalTrack(full) {
-                return {
-                    id: full.id,
-                    title: full.title,
-                    duration: full.duration,
-                    replayGain: full.replayGain,
-                    peak: full.peak,
-                    djReady: full.djReady,
-                    stemReady: full.stemReady,
-                    streamStartDate: full.streamStartDate,
-                    trackNumber: full.trackNumber,
-                    volumeNumber: full.volumeNumber,
-                    version: full.version,
-                    popularity: full.popularity,
-                    copyright: full.copyright,
-                    bpm: full.bpm,
-                    key: full.key,
-                    keyScale: full.keyScale,
-                    url: full.url,
-                    isrc: full.isrc,
-                    explicit: full.explicit,
-                    audioQuality: full.audioQuality,
-                    audioModes: full.audioModes,
-                    mediaMetadata: full.mediaMetadata,
-                    spotlighted: full.spotlighted,
-                    ai: full.ai,
-                    artist: full.artist,
-                    artists: full.artists,
-                    mixes: full.mixes,
-                    album: full.album
-                        ? {
-                              id: full.album.id,
-                              title: full.album.title,
-                              cover: full.album.cover,
-                              vibrantColor: full.album.vibrantColor,
-                              videoCover: full.album.videoCover,
-                              releaseDate: full.album.releaseDate,
-                              albumURL: full.album.url,
-                          }
-                        : undefined,
-                };
-            }
         }
     } catch (e) {
         console.warn('Error reading metadata for', filename, e);

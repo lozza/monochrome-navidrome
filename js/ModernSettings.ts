@@ -204,7 +204,7 @@ export enum BulkDownloadMethod {
 }
 
 export const modernSettings = new ModernSettings()
-    .addProperty('bulkDownloadFolder', null as FileSystemDirectoryHandle | null)
+    .addProperty('bulkDownloadFolder', null)
     .addProperty('forceZipBlob', false, {
         legacy: {
             key: 'bulk-download-force-zip-blob',

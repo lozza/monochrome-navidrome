@@ -7,7 +7,17 @@ import { defineConfig } from 'eslint/config';
 
 export default defineConfig(
     {
-        ignores: ['**/dist/**', '**/node_modules/**', '**/legacy/**', '**/bin/**', '**/www/**', '**/public/lib/**'],
+        ignores: [
+            '**/dist/**',
+            '**/dev-dist/**',
+            '**/test-results/**',
+            '**/playwright-report/**',
+            '**/node_modules/**',
+            '**/legacy/**',
+            '**/bin/**',
+            '**/www/**',
+            '**/public/lib/**',
+        ],
     },
     js.configs.recommended,
     prettierConfig,
@@ -50,7 +60,7 @@ export default defineConfig(
         },
     },
     {
-        files: ['**/*.js'],
+        files: ['**/*.{js,mjs}'],
         rules: {
             '@typescript-eslint/no-unsafe-assignment': 'off',
             '@typescript-eslint/no-unsafe-call': 'off',

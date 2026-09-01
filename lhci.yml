@@ -20,6 +20,7 @@ upload:
     target: temporary-public-storage
 
 collect:
+    staticDistDir: ./dist
     numberOfRuns: 3
     settings:
         preset: desktop

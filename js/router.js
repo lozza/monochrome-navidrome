@@ -1,12 +1,10 @@
 //router.js
 import { getTrackArtists } from './utils.js';
-import { loadProfile } from './profile.js';
 import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
 import { prepareNavidromePlaylistsLayout, promoteNavidromePlaylists } from './navidrome-library-playlists.js';
 import './navidrome-migration-compat.js';
 import './navidrome-starred-compat.js';
 import './navidrome-cover-recovery.js';
-import './lyrics-component-bootstrap.js';
 
 export function navigate(path) {
     if (path === window.location.pathname) {
@@ -36,54 +34,24 @@ export function createRouter(ui) {
         const page = parts[0];
         const param = parts.slice(1).join('/');
 
-        // Helper to extract provider prefix and ID from params
-        // Supports formats like: /track/t/123 (Tidal), /track/123 (default)
-        const extractProviderAndId = (p) => {
-            if (p.startsWith('t/')) {
-                return { provider: 'tidal', id: p.slice(2) };
-            }
-            return { provider: null, id: p };
-        };
-
         switch (page) {
-            case 'parties':
-                await ui.renderPartiesPage();
-                break;
-            case 'party':
-                await ui.renderPartyDetailPage(param);
-                break;
             case 'search':
                 await ui.renderSearchPage(decodeURIComponent(param));
                 break;
             case 'album': {
-                const { provider, id } = extractProviderAndId(param);
-                await ui.renderAlbumPage(id, provider);
+                await ui.renderAlbumPage(param, null);
                 break;
             }
             case 'artist': {
-                const { provider, id } = extractProviderAndId(param);
-                await ui.renderArtistPage(id, provider);
+                await ui.renderArtistPage(param, null);
                 break;
             }
             case 'playlist': {
-                const { provider, id } = extractProviderAndId(param);
-                await ui.renderPlaylistPage(id, 'api', provider);
-                break;
-            }
-            case 'userplaylist':
-                await ui.renderPlaylistPage(param, 'user');
-                break;
-            case 'folder':
-                await ui.renderFolderPage(param);
-                break;
-            case 'mix': {
-                const { provider, id } = extractProviderAndId(param);
-                await ui.renderMixPage(id, provider);
+                await ui.renderPlaylistPage(param, 'api', null);
                 break;
             }
             case 'track': {
-                const { provider, id } = extractProviderAndId(param);
-                await ui.renderTrackPage(id, provider);
+                await ui.renderTrackPage(param, null);
                 break;
             }
             case 'library': {
@@ -159,23 +127,16 @@ export function createRouter(ui) {
             case 'recent':
                 await ui.renderRecentPage();
                 break;
-            case 'podcasts':
-                if (param) {
-                    await ui.renderPodcastPage(param);
-                } else {
-                    await ui.renderPodcastsBrowsePage();
-                }
-                break;
             case 'home':
                 await ui.renderHomePage();
                 break;
-            case 'user':
-                if (param && param.startsWith('@') && !param.includes('/')) {
-                    await loadProfile(decodeURIComponent(param.slice(1)));
-                }
-                break;
             default:
-                ui.showPage(page);
+                if (['settings', 'about', 'account'].includes(page)) {
+                    ui.showPage(page);
+                } else {
+                    window.history.replaceState({}, '', '/');
+                    await ui.renderHomePage();
+                }
                 break;
         }
     };
