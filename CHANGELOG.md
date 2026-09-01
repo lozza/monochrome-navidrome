@@ -2,7 +2,7 @@
 
 All notable changes to Navichrome are documented here.
 
-## [0.1.0-beta.1] - Unreleased
+## [0.1.0-beta.1] - 2026-09-01
 
 ### Added
 
@@ -45,3 +45,16 @@ All notable changes to Navichrome are documented here.
 - Host/container ports: `3002:4173`
 - In-app server URL: `/navidrome`
 - Default proxy target: `NAVIDROME_URL=http://host.docker.internal:4533`
+
+## [0.1.0-alpha.1] - 2026-08-29
+
+This is a retrospective label for the early Navichrome preview at commit
+`94e47e6b855ba8f9298fe2c2a00cae21104b13e7`. That snapshot still carried the
+inherited application version `2.5.1` and predates the beta cleanup, security
+work, and large-library Singles testing. Its Docker image is retained for
+comparison and rollback; new installations should use the beta.
+
+Docker image: `ghcr.io/lozza/monochrome-navidrome:sha-94e47e6`
+
+[0.1.0-beta.1]: https://github.com/lozza/monochrome-navidrome/compare/v0.1.0-alpha.1...v0.1.0-beta.1
+[0.1.0-alpha.1]: https://github.com/lozza/monochrome-navidrome/releases/tag/v0.1.0-alpha.1

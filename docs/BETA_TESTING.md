@@ -51,8 +51,8 @@ suite or the current real deployment; unchecked items still need a short manual 
 
 ### Build and deployment
 
-- [x] GitHub formatting, lint, test and production-build checks pass for commit `21ba7ae9e598`.
-- [x] The candidate image reports Navichrome `0.1.0-beta.1` and revision `21ba7ae9e598cec78c044ca080dcd6a5468b6efd`.
+- [x] GitHub formatting, lint, test and production-build checks passed for the merged beta candidate.
+- [x] The candidate image reports Navichrome `0.1.0-beta.1` and a real build revision.
 - [x] The existing Portainer stack runs healthy on host port `3002` and internal port `4173`.
 - [x] The stack still uses container name `monochrome-navidrome`, the configured Navidrome URL and the host-gateway
       mapping.
@@ -116,8 +116,8 @@ suite or the current real deployment; unchecked items still need a short manual 
 - [ ] Record any remaining limitation in the pull request and changelog.
 - [ ] Confirm no credentials, tokens, personal hostnames or private library details appear in the final diff or logs.
 - [ ] Confirm all required GitHub checks are green on the final commit.
-- [ ] Only after every required item is satisfied: merge PR #3 and promote the existing GHCR image name to `latest`.
-- [ ] Do not publish a GitHub release or semantic beta image tag until the separate release decision is made.
+- [ ] Only after every required item is satisfied: merge the release-readiness follow-up PR, verify its Docker workflow, then publish the reviewed prereleases.
+- [ ] Do not publish a stable release. The alpha and beta prereleases must remain marked as prereleases, and the historical alpha must continue to refer to `sha-94e47e6`.
 
 ## Issue #2: large Singles acceptance
 

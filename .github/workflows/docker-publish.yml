@@ -34,6 +34,14 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
+            - name: Read application version
+              id: app
+              shell: bash
+              run: |
+                  version="$(jq -er '.version' package.json)"
+                  test "$version" = '0.1.0-beta.1'
+                  printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
             - name: Create image metadata
               id: meta
               uses: docker/metadata-action@v6
@@ -44,7 +52,37 @@ jobs:
                       type=sha,format=short
                       type=semver,pattern={{version}}
 
+            - name: Build image for metadata verification
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: docker/Dockerfile
+                  platforms: linux/amd64
+                  load: true
+                  push: false
+                  tags: navichrome-metadata-check:${{ github.sha }}
+                  labels: |
+                      org.opencontainers.image.title=Navichrome
+                      org.opencontainers.image.version=${{ steps.app.outputs.version }}
+                      org.opencontainers.image.revision=${{ github.sha }}
+                      org.opencontainers.image.source=https://github.com/lozza/monochrome-navidrome
+                  build-args: |
+                      BUILD_COMMIT=${{ github.sha }}
+                  cache-from: type=gha
+
+            - name: Verify image metadata before publishing
+              shell: bash
+              env:
+                  CHECK_IMAGE: navichrome-metadata-check:${{ github.sha }}
+                  EXPECTED_VERSION: ${{ steps.app.outputs.version }}
+              run: |
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.title" }}' "$CHECK_IMAGE")" = 'Navichrome'
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$CHECK_IMAGE")" = "$EXPECTED_VERSION"
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$CHECK_IMAGE")" = "$GITHUB_SHA"
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$CHECK_IMAGE")" = 'https://github.com/lozza/monochrome-navidrome'
+
             - name: Build and publish image
+              id: publish
               uses: docker/build-push-action@v7
               with:
                   context: .
@@ -52,8 +90,24 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
-                  labels: ${{ steps.meta.outputs.labels }}
+                  labels: |
+                      org.opencontainers.image.title=Navichrome
+                      org.opencontainers.image.version=${{ steps.app.outputs.version }}
+                      org.opencontainers.image.revision=${{ github.sha }}
+                      org.opencontainers.image.source=https://github.com/lozza/monochrome-navidrome
                   build-args: |
                       BUILD_COMMIT=${{ github.sha }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
+
+            - name: Verify published image metadata
+              shell: bash
+              env:
+                  PUBLISHED_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.publish.outputs.digest }}
+                  EXPECTED_VERSION: ${{ steps.app.outputs.version }}
+              run: |
+                  docker pull "$PUBLISHED_IMAGE"
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.title" }}' "$PUBLISHED_IMAGE")" = 'Navichrome'
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$PUBLISHED_IMAGE")" = "$EXPECTED_VERSION"
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PUBLISHED_IMAGE")" = "$GITHUB_SHA"
+                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$PUBLISHED_IMAGE")" = 'https://github.com/lozza/monochrome-navidrome'
