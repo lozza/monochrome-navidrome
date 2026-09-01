@@ -87,6 +87,10 @@ jobs:
                   done
                   test "$status" = 'healthy'
                   curl --fail --silent --show-error http://localhost:3002/ > /dev/null
+                  test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.title" }}' monochrome)" = 'Navichrome'
+                  test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' monochrome)" = "$(jq -er '.version' package.json)"
+                  test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' monochrome)" = "$BUILD_COMMIT"
+                  test "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' monochrome)" = 'https://github.com/lozza/monochrome-navidrome'
                   docker exec monochrome nginx -T 2>&1 | grep -F 'location ^~ /navidrome/'
                   docker exec monochrome nginx -T 2>&1 | grep -F 'proxy_pass http://host.docker.internal:4533/;'
 
