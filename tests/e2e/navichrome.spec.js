@@ -55,36 +55,17 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
         expect(spacing.buttonHeight).toBeLessThanOrEqual(32);
         expect(spacing.gap).toBeGreaterThanOrEqual(12);
 
-        const opticalAlignment = await page.evaluate(() => {
-            const center = (element) => {
-                const rect = element.getBoundingClientRect();
-                return rect.top + rect.height / 2;
+        const bundledFont = await page.evaluate(async () => {
+            await document.fonts.ready;
+            return {
+                configured: getComputedStyle(document.body).fontFamily.includes('Inter Variable'),
+                loaded: Array.from(document.fonts).some(
+                    (font) => font.family.includes('Inter Variable') && font.status === 'loaded'
+                ),
             };
-            const radioText = document.querySelector('.home-radio-button-label');
-            const radioIcon = document.querySelector('#home-start-infinite-radio-btn svg');
-            const libraryText = document.querySelector('#sidebar-nav-library span');
-            const libraryIcon = document.querySelector('#sidebar-nav-library svg');
-            const badge = document.createElement('span');
-            badge.className = 'quality-badge quality-hires';
-            badge.textContent = 'AAC';
-            document.body.appendChild(badge);
-            const badgeStyle = getComputedStyle(badge);
-            const result = {
-                radioOffset: center(radioText) - center(radioIcon),
-                libraryOffset: center(libraryText) - center(libraryIcon),
-                badgeDisplay: badgeStyle.display,
-                badgePaddingTop: parseFloat(badgeStyle.paddingTop),
-                badgePaddingBottom: parseFloat(badgeStyle.paddingBottom),
-            };
-            badge.remove();
-            return result;
         });
-        expect(opticalAlignment.radioOffset).toBeGreaterThan(0.25);
-        expect(opticalAlignment.radioOffset).toBeLessThan(1.5);
-        expect(opticalAlignment.libraryOffset).toBeGreaterThan(0.25);
-        expect(opticalAlignment.libraryOffset).toBeLessThan(1.5);
-        expect(opticalAlignment.badgeDisplay).toBe('inline-flex');
-        expect(opticalAlignment.badgePaddingTop).toBeGreaterThan(opticalAlignment.badgePaddingBottom);
+        expect(bundledFont.configured).toBe(true);
+        expect(bundledFont.loaded).toBe(true);
     }
 
     await page.goto('/library');

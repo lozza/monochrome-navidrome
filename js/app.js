@@ -1,4 +1,5 @@
 //js/app.js
+import '@fontsource-variable/inter';
 import { hapticLight } from './haptics.js';
 import { MusicAPI } from './music-api.js';
 import {

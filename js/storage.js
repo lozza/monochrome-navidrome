@@ -2349,7 +2349,8 @@ export const fontSettings = {
             weights: [400, 500, 600, 700, 800],
         });
 
-        const fontValue = family === 'monospace' ? 'monospace' : `'${family}', ${this.NOTO_FALLBACK}`;
+        const resolvedFamily = family === 'Inter' ? 'Inter Variable' : family;
+        const fontValue = resolvedFamily === 'monospace' ? 'monospace' : `'${resolvedFamily}', ${this.NOTO_FALLBACK}`;
         document.documentElement.style.setProperty('--font-family', fontValue);
     },
 
