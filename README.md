@@ -12,7 +12,7 @@ account.
 
 ## Beta scope
 
-Confirmed beta journeys include:
+The beta currently covers:
 
 - Navidrome/OpenSubsonic sign-in, sign-out, and invalid-server handling
 - Home and server-backed recently played content
@@ -25,8 +25,8 @@ Confirmed beta journeys include:
 - installable PWA behavior with versioned cache cleanup
 - Docker/Portainer deployment, the `/navidrome` reverse proxy, and Cloudflare Tunnel compatibility
 
-Desktop Chromium and a mobile-sized Chromium browser are covered by automated smoke tests. Firefox and Safari remain
-important manual beta targets.
+Automated smoke tests cover desktop Chromium and a mobile-sized Chromium browser. Firefox and Safari still need manual
+testing.
 
 ### Known limitations
 
