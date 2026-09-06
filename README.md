@@ -48,7 +48,7 @@ The supported beta installation is the existing container image:
 
 `ghcr.io/lozza/monochrome-navidrome:latest`
 
-For a pinned beta deployment, use `ghcr.io/lozza/monochrome-navidrome:0.1.0-beta.2`.
+For a pinned beta deployment, use `ghcr.io/lozza/monochrome-navidrome:0.1.0-beta.2`. For the current test build, use `ghcr.io/lozza/monochrome-navidrome:beta`.
 Release notes and the historical alpha snapshot are listed on the [GitHub Releases page](https://github.com/lozza/monochrome-navidrome/releases).
 
 The repository and image names are retained for compatibility; the displayed product name is **Navichrome**.
