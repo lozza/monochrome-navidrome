@@ -1,30 +1,40 @@
 import { NavidromeAPI } from './navidrome-api.js';
 
+function normalize(value) {
+    return String(value || '')
+        .trim()
+        .toLocaleLowerCase();
+}
+
 function dedupeTracks(tracks = []) {
-    const seen = new Set();
+    const seenIds = new Set();
+    const seenPaths = new Set();
+    const seenMetadata = new Set();
     const unique = [];
 
     for (const track of tracks) {
         if (!track) continue;
 
         const id = String(track.id || '').trim();
-        const fallbackKey = [
-            String(track.title || '')
-                .trim()
-                .toLocaleLowerCase(),
-            String(track.artist?.id || track.artist?.name || '')
-                .trim()
-                .toLocaleLowerCase(),
-            String(track.album?.id || track.album?.title || '')
-                .trim()
-                .toLocaleLowerCase(),
-            String(track.trackNumber || ''),
-            String(track.duration || ''),
+        const path = normalize(track.navidrome?.path || track.path);
+        const metadataKey = [
+            normalize(track.title),
+            normalize(track.artist?.name || track.artists?.[0]?.name),
+            normalize(track.album?.title || track.album?.name),
+            String(track.volumeNumber || track.discNumber || 1),
+            String(track.trackNumber || track.track || ''),
+            String(Math.round(Number(track.duration) || 0)),
         ].join('\u0000');
-        const key = id ? `id:${id}` : `meta:${fallbackKey}`;
 
-        if (seen.has(key)) continue;
-        seen.add(key);
+        const duplicateById = id && seenIds.has(id);
+        const duplicateByPath = path && seenPaths.has(path);
+        const duplicateByMetadata = metadataKey && seenMetadata.has(metadataKey);
+
+        if (duplicateById || duplicateByPath || duplicateByMetadata) continue;
+
+        if (id) seenIds.add(id);
+        if (path) seenPaths.add(path);
+        if (metadataKey) seenMetadata.add(metadataKey);
         unique.push(track);
     }
 
