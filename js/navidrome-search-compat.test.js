@@ -5,7 +5,7 @@ import './navidrome-search-compat.js';
 describe('Navidrome search compatibility', () => {
     it('hides duplicate search rows for the same song even when Navidrome gives them different ids', async () => {
         const api = Object.create(NavidromeAPI.prototype);
-        const originalSearch = NavidromeAPI.prototype.search;
+        const originalSearch = Reflect.get(NavidromeAPI.prototype, 'search');
 
         NavidromeAPI.prototype.search = async () => ({
             tracks: {
