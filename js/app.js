@@ -1,5 +1,4 @@
 //js/app.js
-import './sentry.js';
 import { isIos, isSafari } from './platform-detection.js';
 import { hapticLight } from './haptics.js';
 import { MusicAPI } from './music-api.js';
