@@ -31,7 +31,7 @@ function dedupeTracks(tracks = []) {
     return unique;
 }
 
-const originalSearchTracks = NavidromeAPI.prototype.searchTracks;
+const originalSearchTracks = Reflect.get(NavidromeAPI.prototype, 'searchTracks');
 NavidromeAPI.prototype.searchTracks = async function (query, options = {}) {
     const result = await originalSearchTracks.call(this, query, options);
     const items = dedupeTracks(result?.items || []);
