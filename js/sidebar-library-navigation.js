@@ -57,9 +57,15 @@ function ensureSidebarItems() {
         document.getElementById('sidebar-nav-recent'),
     ];
 
-    for (const item of orderedItems) {
-        if (item) mainList.appendChild(item);
-    }
+    // Keep the visible order deterministic even if another part of the app
+    // later moves one of these nodes in the DOM.
+    mainList.style.display = 'flex';
+    mainList.style.flexDirection = 'column';
+    orderedItems.forEach((item, index) => {
+        if (!item) return;
+        item.style.order = String(index - orderedItems.length);
+        mainList.appendChild(item);
+    });
 
     const settingsItem = document.getElementById('sidebar-nav-settings');
     const bottomList = document.querySelector('.sidebar-nav.bottom ul');
