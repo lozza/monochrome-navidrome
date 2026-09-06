@@ -1,0 +1,105 @@
+name: Publish GitHub release
+
+on:
+    workflow_run:
+        workflows:
+            - Lint Codebase
+            - Run Tests
+            - Publish Docker image
+        types:
+            - completed
+
+concurrency:
+    group: release-${{ github.event.workflow_run.head_sha }}
+    cancel-in-progress: false
+
+jobs:
+    release:
+        if: >-
+            github.event.workflow_run.event == 'push' &&
+            github.event.workflow_run.head_branch == 'main' &&
+            github.event.workflow_run.conclusion == 'success'
+        runs-on: ubuntu-latest
+        permissions:
+            actions: read
+            contents: write
+
+        steps:
+            - name: Check out the finished build
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ github.event.workflow_run.head_sha }}
+                  fetch-depth: 0
+
+            - name: Check all release gates are green
+              id: gates
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+              run: |
+                  runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${RELEASE_SHA}&per_page=100")"
+
+                  for required in 'Lint Codebase' 'Run Tests' 'Publish Docker image'; do
+                      conclusion="$(jq -r --arg name "$required" --arg sha "$RELEASE_SHA" '
+                          [.workflow_runs[] | select(.name == $name and .head_sha == $sha)]
+                          | sort_by(.run_number)
+                          | last
+                          | .conclusion // ""
+                      ' <<< "$runs")"
+
+                      if [ "$conclusion" != 'success' ]; then
+                          echo "$required is not green yet, so no release will be made from this run."
+                          echo 'ready=false' >> "$GITHUB_OUTPUT"
+                          exit 0
+                      fi
+                  done
+
+                  echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+            - name: Read version
+              if: steps.gates.outputs.ready == 'true'
+              id: app
+              shell: bash
+              run: |
+                  version="$(jq -er '.version' package.json)"
+                  printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+                  printf 'tag=v%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+            - name: Create tag and GitHub release
+              if: steps.gates.outputs.ready == 'true'
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+                  VERSION: ${{ steps.app.outputs.version }}
+                  TAG: ${{ steps.app.outputs.tag }}
+              run: |
+                  if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+                      echo "$TAG is already published."
+                      exit 0
+                  fi
+
+                  if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+                      git config user.name 'github-actions[bot]'
+                      git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+                      git tag -a "$TAG" "$RELEASE_SHA" -m "Navichrome $VERSION"
+                      git push origin "$TAG"
+                  fi
+
+                  notes_file="docs/releases/${VERSION}.md"
+                  if [ -f "$notes_file" ]; then
+                      gh release create "$TAG" \
+                          --repo "$GITHUB_REPOSITORY" \
+                          --title "Navichrome $VERSION" \
+                          --prerelease \
+                          --verify-tag \
+                          --notes-file "$notes_file"
+                  else
+                      gh release create "$TAG" \
+                          --repo "$GITHUB_REPOSITORY" \
+                          --title "Navichrome $VERSION" \
+                          --prerelease \
+                          --verify-tag \
+                          --generate-notes
+                  fi

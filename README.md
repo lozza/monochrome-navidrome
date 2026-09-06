@@ -4,8 +4,8 @@
 
 # Navichrome
 
-> **Beta:** Navichrome `0.1.0-beta.1` is the first controlled beta of this self-hosted Navidrome/OpenSubsonic web
-> player. Back up anything important, expect rough edges, and report reproducible problems.
+> **Beta:** Navichrome `0.1.0-beta.2` is the current beta of this self-hosted Navidrome/OpenSubsonic web player.
+> Back up anything important, expect rough edges, and report reproducible problems.
 
 Navichrome connects directly to a server you control. It does not require a Navichrome, Monochrome, or Samidy
 account.
@@ -48,7 +48,7 @@ The supported beta installation is the existing container image:
 
 `ghcr.io/lozza/monochrome-navidrome:latest`
 
-For a pinned beta deployment, use `ghcr.io/lozza/monochrome-navidrome:0.1.0-beta.1`.
+For a pinned beta deployment, use `ghcr.io/lozza/monochrome-navidrome:0.1.0-beta.2`.
 Release notes and the historical alpha snapshot are listed on the [GitHub Releases page](https://github.com/lozza/monochrome-navidrome/releases).
 
 The repository and image names are retained for compatibility; the displayed product name is **Navichrome**.

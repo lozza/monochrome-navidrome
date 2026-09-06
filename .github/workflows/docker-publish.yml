@@ -39,7 +39,7 @@ jobs:
               shell: bash
               run: |
                   version="$(jq -er '.version' package.json)"
-                  test "$version" = '0.1.0-beta.1'
+                  test -n "$version"
                   printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
             - name: Create image metadata
@@ -49,6 +49,7 @@ jobs:
                   images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
                   tags: |
                       type=raw,value=latest,enable={{is_default_branch}}
+                      type=raw,value=${{ steps.app.outputs.version }},enable={{is_default_branch}}
                       type=sha,format=short
                       type=semver,pattern={{version}}
 
