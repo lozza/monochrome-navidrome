@@ -9,9 +9,15 @@ function dedupeTracks(tracks = []) {
 
         const id = String(track.id || '').trim();
         const fallbackKey = [
-            String(track.title || '').trim().toLocaleLowerCase(),
-            String(track.artist?.id || track.artist?.name || '').trim().toLocaleLowerCase(),
-            String(track.album?.id || track.album?.title || '').trim().toLocaleLowerCase(),
+            String(track.title || '')
+                .trim()
+                .toLocaleLowerCase(),
+            String(track.artist?.id || track.artist?.name || '')
+                .trim()
+                .toLocaleLowerCase(),
+            String(track.album?.id || track.album?.title || '')
+                .trim()
+                .toLocaleLowerCase(),
             String(track.trackNumber || ''),
             String(track.duration || ''),
         ].join('\u0000');
