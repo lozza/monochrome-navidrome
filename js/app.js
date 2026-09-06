@@ -28,7 +28,6 @@ import { showNotification } from './downloads.js';
 import { syncManager } from './accounts/pocketbase.js';
 import { registerSW } from 'virtual:pwa-register';
 import { navidromeSettings } from './navidrome-settings.js';
-import { ThemeStore } from './themeStore.js';
 import './commandPalette.js';
 import { initAnalytics } from './analytics.js';
 import {
@@ -516,8 +515,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (aboutEl) aboutEl.innerHTML = html;
         if (settingsEl) settingsEl.innerHTML = html;
     }
-
-    new ThemeStore();
 
     try {
         await HiFiClient.initialize({
