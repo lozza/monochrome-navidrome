@@ -3,6 +3,7 @@ import { getTrackArtists } from './utils.js';
 import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
 import { prepareNavidromePlaylistsLayout, promoteNavidromePlaylists } from './navidrome-library-playlists.js';
 import './navidrome-migration-compat.js';
+import './navidrome-search-compat.js';
 import './navidrome-starred-compat.js';
 import './navidrome-cover-recovery.js';
 
