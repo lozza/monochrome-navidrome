@@ -1,7 +1,12 @@
 //router.js
 import { getTrackArtists } from './utils.js';
 import { prepareLibrarySingles, renderLibrarySingles } from './library-singles.js';
-import { prepareNavidromePlaylistsLayout, promoteNavidromePlaylists } from './navidrome-library-playlists.js';
+import {
+    ensureLibraryNavigation,
+    renderPlaylistsPage,
+    renderRecentlyAddedLibrary,
+    renderStarredPage,
+} from './sidebar-library-navigation.js';
 import './navidrome-migration-compat.js';
 import './navidrome-search-compat.js';
 import './navidrome-starred-compat.js';
@@ -17,6 +22,8 @@ export function navigate(path) {
 
 export function createRouter(ui) {
     const router = async () => {
+        ensureLibraryNavigation();
+
         if (window.location.hash && window.location.hash.length > 1) {
             const hash = window.location.hash.substring(1);
             if (hash.includes('/')) {
@@ -55,6 +62,12 @@ export function createRouter(ui) {
                 await ui.renderTrackPage(param, null);
                 break;
             }
+            case 'playlists':
+                await renderPlaylistsPage(ui);
+                break;
+            case 'starred':
+                await renderStarredPage(ui);
+                break;
             case 'library': {
                 const singlesContainer = document.getElementById('library-singles-container');
                 const singlesTabButton = document.querySelector('#page-library .search-tab[data-tab="singles"]');
@@ -64,12 +77,8 @@ export function createRouter(ui) {
                     singlesContainer.setAttribute('aria-busy', 'true');
                 }
 
-                // Load My Playlists independently so the top of Library becomes
-                // interactive without waiting for heavier library sections.
-                prepareNavidromePlaylistsLayout(ui);
-
                 await ui.renderLibraryPage();
-                promoteNavidromePlaylists();
+                await renderRecentlyAddedLibrary(ui);
 
                 // The legacy library renderer still fills this container with
                 // release cards. Clear those immediately, but do not build the
