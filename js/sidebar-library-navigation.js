@@ -4,13 +4,30 @@ import { createPlaceholder, trackDataStore } from './utils.js';
 let navigationPrepared = false;
 let recentlyAddedLoaded = false;
 
+const SIDEBAR_ICONS = {
+    playlists: `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15V6"></path>
+            <path d="M18.5 18.5a2.5 2.5 0 1 0 2.5-2.5V8"></path>
+            <path d="M3 6h8"></path>
+            <path d="M3 12h8"></path>
+            <path d="M3 18h8"></path>
+        </svg>
+    `,
+    starred: `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path>
+        </svg>
+    `,
+};
+
 function makeSidebarItem(id, href, icon, label) {
     const item = document.createElement('li');
     item.className = 'nav-item';
     item.id = id;
     item.innerHTML = `
         <a href="${href}">
-            <use svg="!lucide/${icon}.svg" size="24" />
+            ${icon}
             <span>${label}</span>
         </a>
     `;
@@ -18,16 +35,35 @@ function makeSidebarItem(id, href, icon, label) {
 }
 
 function ensureSidebarItems() {
-    const recentItem = document.getElementById('sidebar-nav-recent');
-    if (!recentItem) return;
+    const mainList = document.querySelector('.sidebar-nav.main ul');
+    if (!mainList) return;
 
-    if (!document.getElementById('sidebar-nav-playlists')) {
-        recentItem.before(makeSidebarItem('sidebar-nav-playlists', '/playlists', 'list-music', 'Playlists'));
+    let playlistsItem = document.getElementById('sidebar-nav-playlists');
+    let starredItem = document.getElementById('sidebar-nav-starred');
+
+    if (!playlistsItem) {
+        playlistsItem = makeSidebarItem('sidebar-nav-playlists', '/playlists', SIDEBAR_ICONS.playlists, 'Playlists');
     }
 
-    if (!document.getElementById('sidebar-nav-starred')) {
-        recentItem.before(makeSidebarItem('sidebar-nav-starred', '/starred', 'heart', 'Starred'));
+    if (!starredItem) {
+        starredItem = makeSidebarItem('sidebar-nav-starred', '/starred', SIDEBAR_ICONS.starred, 'Starred');
     }
+
+    const orderedItems = [
+        document.getElementById('sidebar-nav-home'),
+        document.getElementById('sidebar-nav-library'),
+        playlistsItem,
+        starredItem,
+        document.getElementById('sidebar-nav-recent'),
+    ];
+
+    for (const item of orderedItems) {
+        if (item) mainList.appendChild(item);
+    }
+
+    const settingsItem = document.getElementById('sidebar-nav-settings');
+    const bottomList = document.querySelector('.sidebar-nav.bottom ul');
+    if (settingsItem && bottomList) bottomList.prepend(settingsItem);
 }
 
 function ensureStandalonePages() {
