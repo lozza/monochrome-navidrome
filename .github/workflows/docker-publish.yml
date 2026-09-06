@@ -69,6 +69,7 @@ jobs:
                       org.opencontainers.image.source=https://github.com/lozza/monochrome-navidrome
                   build-args: |
                       BUILD_COMMIT=${{ github.sha }}
+                      APP_VERSION=${{ steps.app.outputs.version }}
                   cache-from: type=gha
 
             - name: Verify image metadata before publishing
@@ -98,6 +99,7 @@ jobs:
                       org.opencontainers.image.source=https://github.com/lozza/monochrome-navidrome
                   build-args: |
                       BUILD_COMMIT=${{ github.sha }}
+                      APP_VERSION=${{ steps.app.outputs.version }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
 

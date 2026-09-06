@@ -21,9 +21,10 @@ RUN npm run build
 FROM nginx:1.28.2-alpine
 
 ARG BUILD_COMMIT
+ARG APP_VERSION=dev
 ENV NGINX_ENVSUBST_FILTER='^(NAVIDROME_URL)$'
 LABEL org.opencontainers.image.title="Navichrome" \
-      org.opencontainers.image.version="0.1.0-beta.1" \
+      org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.revision="${BUILD_COMMIT}" \
       org.opencontainers.image.source="https://github.com/lozza/monochrome-navidrome"
 

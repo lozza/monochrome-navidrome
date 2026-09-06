@@ -6,6 +6,7 @@ services:
             dockerfile: docker/Dockerfile
             args:
                 BUILD_COMMIT: '${BUILD_COMMIT:?Set BUILD_COMMIT to the current git commit SHA}'
+                APP_VERSION: '${APP_VERSION:-dev}'
         container_name: monochrome
         ports:
             - '${MONOCHROME_PORT:-3002}:4173'

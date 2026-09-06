@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from 'playwright/test';
 import { installNavidromeMock } from './navidrome-mock.js';
+
+const packageVersion = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 
 async function waitForReady(page) {
     await expect(page.locator('html')).toHaveAttribute('data-navichrome-ready', 'true', { timeout: 30_000 });
@@ -142,7 +145,7 @@ test('missing artwork falls back safely and a failed optional service cannot bre
     await expect.poll(() => state.optionalRequests.length).toBeGreaterThan(0);
     await page.goto('/about');
     await expect(page.locator('#page-about')).toHaveClass(/active/);
-    await expect(page.locator('#about-commit-info')).toContainText('Navichrome 0.1.0-beta.1');
+    await expect(page.locator('#about-commit-info')).toContainText(`Navichrome ${packageVersion}`);
     await expect(page.locator('#about-commit-info')).not.toContainText('unknown');
     await page.goto('/library');
     await expect(page.locator('#page-library')).toHaveClass(/active/);

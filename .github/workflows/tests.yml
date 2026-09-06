@@ -69,7 +69,9 @@ jobs:
                   jq -e '.services["monochrome-navidrome"].extra_hosts[] == "host.docker.internal=host-gateway"' /tmp/navichrome-compose.json
 
             - name: Build and start the production container
-              run: docker compose -f docker/docker-compose.yml up -d --build monochrome
+              run: |
+                  export APP_VERSION="$(jq -er '.version' package.json)"
+                  docker compose -f docker/docker-compose.yml up -d --build monochrome
 
             - name: Verify health and the Navidrome proxy
               run: |
