@@ -74,10 +74,29 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
     await page.goto('/library');
     await waitForReady(page);
 
-    await expect(page.getByRole('heading', { name: 'My Playlists' })).toBeVisible();
-    await expect(page.locator('#library-tracks-container [data-track-id="track-1"]')).toBeVisible();
-    await expect(page.locator('#my-playlists-container [data-playlist-id="playlist-1"]')).toBeVisible();
+    await expect(page.locator('#sidebar-nav-playlists a')).toHaveAttribute('href', '/playlists');
+    await expect(page.locator('#sidebar-nav-starred a')).toHaveAttribute('href', '/starred');
+    await expect(page.locator('#page-library .search-tab[data-tab="recently-added"]')).toBeVisible();
+    await expect(page.locator('#page-library .search-tab[data-tab="recently-added"]')).toHaveClass(/active/);
+    await expect(page.locator('#library-recently-added-container [data-album-id="album-1"]')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'My Playlists' })).toBeHidden();
+    await expect(page.locator('#page-library .search-tab[data-tab="tracks"]')).toHaveCount(0);
+    await expect(page.locator('#page-library .search-tab[data-tab="playlists"]')).toHaveCount(0);
 
+    await page.goto('/starred');
+    await waitForReady(page);
+    await expect(page.locator('#page-starred')).toHaveClass(/active/);
+    await expect(page.getByRole('heading', { name: 'Starred' })).toBeVisible();
+    await expect(page.locator('#starred-page-container [data-track-id="track-1"]')).toBeVisible();
+
+    await page.goto('/playlists');
+    await waitForReady(page);
+    await expect(page.locator('#page-playlists')).toHaveClass(/active/);
+    await expect(page.getByRole('heading', { name: 'Playlists' })).toBeVisible();
+    await expect(page.locator('#playlists-page-container [data-playlist-id="playlist-1"]')).toBeVisible();
+
+    await page.goto('/library');
+    await waitForReady(page);
     await page.locator('#page-library .search-tab[data-tab="albums"]').click();
     const firstAlbum = page.locator('#library-albums-container [data-album-id="album-1"]');
     await expect(firstAlbum).toBeVisible();
