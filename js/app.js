@@ -2582,11 +2582,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // PWA Update Logic
-    let isNativeApp = false;
-    try {
-        const { Capacitor } = await import('@capacitor/core');
-        isNativeApp = Capacitor.isNativePlatform();
-    } catch {}
+    // Navichrome is delivered as a self-hosted PWA. Do not require an optional
+    // native Capacitor runtime just to decide whether to register the service worker.
+    const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
 
     if (isNativeApp) {
         console.log('[Amazon SW Decrypter] PWA disabled for native app shell');
