@@ -1,8 +1,10 @@
 //js/app.js
-import '@fontsource-variable/inter';
+import './sentry.js';
+import { isIos, isSafari } from './platform-detection.js';
 import { hapticLight } from './haptics.js';
 import { MusicAPI } from './music-api.js';
 import {
+    apiSettings,
     themeManager,
     nowPlayingSettings,
     fullscreenCoverClickSettings,
@@ -11,6 +13,7 @@ import {
     pwaUpdateSettings,
     modalSettings,
     keyboardShortcuts,
+    unifiedPlaybackSettings,
 } from './storage.js';
 import { UIRenderer } from './ui.js';
 import { Player } from './player.js';
@@ -23,12 +26,21 @@ import { debounce, getShareUrl, normalizeQualityToken, sanitizeForFilename } fro
 import { sidePanelManager } from './side-panel.js';
 import { db } from './db.js';
 import { showNotification } from './downloads.js';
-import { syncManager } from './local-sync-compat.js';
+import { syncManager } from './accounts/pocketbase.js';
 import { registerSW } from 'virtual:pwa-register';
 import { navidromeSettings } from './navidrome-settings.js';
-import { removeStalePwaRuntimeCaches } from './pwa-cache.js';
+import { ThemeStore } from './themeStore.js';
 import './commandPalette.js';
-import { parseJSPF, parseXSPF, parseXML, parseM3U, parseDynamicCSV, importToLibrary } from './playlist-importer.js';
+import { initAnalytics } from './analytics.js';
+import {
+    parseCSV,
+    parseJSPF,
+    parseXSPF,
+    parseXML,
+    parseM3U,
+    parseDynamicCSV,
+    importToLibrary,
+} from './playlist-importer.js';
 import { generateFullCSV, generateFullJSON } from './playlist-generator.js';
 import { modernSettings } from './ModernSettings.js';
 import {
@@ -40,6 +52,38 @@ import {
     SVG_CLOSE,
     SVG_RESET,
 } from './icons.js';
+import { HiFiClient } from './HiFi.js';
+
+const AMAZON_DECRYPTER_SW_VERSION = '2026-08-09-atmos-v11';
+
+// Capture real iOS state before spoofing (needed for background audio)
+if (typeof window !== 'undefined') {
+    const _ua = navigator.userAgent.toLowerCase();
+    // Spoof User-Agent to bypass Google's embedded browser check
+    Object.defineProperty(navigator, 'userAgent', {
+        get: function () {
+            return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        },
+    });
+
+    // analytics
+    const plausibleScript = document.createElement('script');
+    plausibleScript.async = true;
+    plausibleScript.src = 'https://plausible.canine.tools/js/pa-dCMvQpiD1-AJmi8o3xviO.js';
+    document.head.appendChild(plausibleScript);
+
+    window.plausible =
+        window.plausible ||
+        function () {
+            (window.plausible.q = window.plausible.q || []).push(arguments);
+        };
+    window.plausible.init =
+        window.plausible.init ||
+        function (i) {
+            window.plausible.o = i || {};
+        };
+    window.plausible.init();
+}
 
 // Lazy-loaded modules
 let settingsModule = null;
@@ -58,6 +102,59 @@ async function loadDownloadsModule() {
         downloadsModule = await import('./downloads.js');
     }
     return downloadsModule;
+}
+
+let contributorsLoaded = false;
+
+async function fetchcontributors() {
+    if (contributorsLoaded) return;
+    contributorsLoaded = true;
+    try {
+        const response = await fetch('https://api.samidy.com/api/contributors');
+        if (!response.ok) {
+            contributorsLoaded = false;
+            return;
+        }
+        const data1 = await response.json();
+        if (!Array.isArray(data1)) {
+            contributorsLoaded = false;
+            return;
+        }
+
+        let data = data1.filter(
+            (user) => user.type !== 'Bot' && user.login !== 'edidealt' && user.login !== 'satanyahoo'
+        );
+
+        const edideaur = data.find((user) => user.login === 'edideaur');
+        if (edideaur) {
+            edideaur.contributions += data1.find((u) => u.login === 'edidealt')?.contributions || 0;
+            edideaur.contributions += data1.find((u) => u.login === 'satanyahoo')?.contributions || 0;
+        }
+
+        data.sort((a, b) => b.contributions - a.contributions);
+
+        const con = document.querySelector('.about-contributors');
+        if (!con) return;
+
+        data.forEach((user) => {
+            const userDIV = document.createElement('div');
+            userDIV.innerHTML = `
+            <a href="${user.html_url}" target="_blank">
+            <img crossorigin="anonymous" referrerpolicy="no-referrer" src="${user.avatar_url}&s=50" alt="${user.login}" width="50" height="50" style="border-radius: 50%;" loading="lazy">
+            <span>${user.login}</span>
+            <span class="contrib">Contributions: ${user.contributions}</span>
+            </a>
+            `;
+            con.appendChild(userDIV);
+        });
+    } catch (e) {
+        contributorsLoaded = false;
+        const con = document.querySelector('.about-contributors-failed');
+        if (!con) return;
+        con.innerHTML = `
+        <h4 style="text-align: center; color: var(--muted-foreground);">Failed to Fetch Contributor List</h4>
+        `;
+    }
 }
 
 async function loadMetadataModule() {
@@ -277,19 +374,109 @@ function hideOfflineNotification() {
     }
 }
 
-async function clearOldPwaRuntimeCaches() {
+async function disablePwaForAuthGate() {
+    if (!('serviceWorker' in navigator)) return;
+
     try {
-        // eslint-disable-next-line no-undef
-        const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'development';
-        await removeStalePwaRuntimeCaches('caches' in window ? window.caches : null, version, import.meta.env.DEV);
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
     } catch (error) {
-        console.warn('Failed to remove stale PWA runtime caches:', error);
+        console.warn('Failed to unregister service workers:', error);
+    }
+
+    if ('caches' in window) {
+        try {
+            const cacheKeys = await caches.keys();
+            await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+        } catch (error) {
+            console.warn('Failed to clear caches:', error);
+        }
+    }
+}
+
+async function clearDevPwaRuntimeCaches() {
+    if (!import.meta.env.DEV || !('caches' in window)) return;
+
+    try {
+        await Promise.all(['scripts', 'static-resources', 'images', 'media'].map((key) => caches.delete(key)));
+    } catch (error) {
+        console.warn('Failed to clear dev PWA runtime caches:', error);
+    }
+}
+
+function getAmazonDecrypterServiceWorkerUrl() {
+    const baseUrl =
+        import.meta.env.DEV && isSafari ? '/sw-amazon.js' : import.meta.env.DEV ? '/dev-dist/sw.js' : '/sw.js';
+    return `${baseUrl}?amazon-sw=${AMAZON_DECRYPTER_SW_VERSION}`;
+}
+
+async function registerAmazonDecrypterServiceWorkerFallback() {
+    const diagnostic = {
+        origin: window.location.origin,
+        protocol: window.location.protocol,
+        isSecureContext: window.isSecureContext,
+        hasServiceWorkerApi: 'serviceWorker' in navigator,
+        authGate: !!window.__AUTH_GATE__,
+        dev: import.meta.env.DEV,
+        safari: isSafari,
+    };
+
+    console.log('[Amazon SW Decrypter] SW registration probe', diagnostic);
+
+    if (!('serviceWorker' in navigator)) {
+        console.warn('[Amazon SW Decrypter] Service Worker API unavailable.', diagnostic);
+        return null;
+    }
+
+    if (!window.isSecureContext) {
+        console.warn('[Amazon SW Decrypter] Service Worker blocked because this is not a secure context.', diagnostic);
+        return null;
+    }
+
+    const swUrl = getAmazonDecrypterServiceWorkerUrl();
+
+    try {
+        const registration = await navigator.serviceWorker.register(swUrl, {
+            scope: '/',
+            updateViaCache: 'none',
+        });
+
+        await registration.update().catch((error) => {
+            console.warn('[Amazon SW Decrypter] Manual SW update failed:', error);
+        });
+
+        console.log('[Amazon SW Decrypter] Manual SW registration succeeded', {
+            swUrl,
+            scope: registration.scope,
+            active: !!registration.active,
+            installing: !!registration.installing,
+            waiting: !!registration.waiting,
+            controlled: !!navigator.serviceWorker.controller,
+        });
+
+        if (!navigator.serviceWorker.controller) {
+            console.info(
+                '[Amazon SW Decrypter] SW registered but this page is not controlled yet; reload manually if playback is not intercepted.',
+                {
+                    swVersion: AMAZON_DECRYPTER_SW_VERSION,
+                }
+            );
+        }
+
+        return registration;
+    } catch (error) {
+        console.warn('[Amazon SW Decrypter] Manual SW registration failed', {
+            swUrl,
+            errorName: error?.name,
+            errorMessage: error?.message,
+            ...diagnostic,
+        });
+        return null;
     }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
     await modernSettings.waitPending();
-    await clearOldPwaRuntimeCaches();
 
     // Request persistent storage to reduce risk of browser wiping data on updates or cleanup
     if (navigator.storage && navigator.storage.persist) {
@@ -299,7 +486,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (import.meta.env.DEV) {
-        window.navichrome = {
+        window.monochrome = {
+            HiFiClient,
             LyricsManager,
             MusicAPI,
             Player,
@@ -310,30 +498,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Haptic feedback on every click
     document.addEventListener('click', () => hapticLight(), { capture: true });
 
+    // Initialize analytics
+    initAnalytics();
+
     // Populate commit info
     {
         const repo = 'https://github.com/lozza/monochrome-navidrome';
         // eslint-disable-next-line no-undef
         const hash = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev';
-        // eslint-disable-next-line no-undef
-        const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'development';
         const commitLink =
             hash !== 'dev' && hash !== 'unknown'
                 ? `<a href="${repo}/commit/${hash}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">${hash}</a>`
                 : hash;
         const repoLink = `<a href="${repo}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">lozza/monochrome-navidrome</a>`;
-        const html = `Navichrome ${version} · Commit ${commitLink} · ${repoLink}`;
+        const html = `Commit ${commitLink} · ${repoLink}`;
         const aboutEl = document.getElementById('about-commit-info');
         const settingsEl = document.getElementById('settings-commit-info');
         if (aboutEl) aboutEl.innerHTML = html;
         if (settingsEl) settingsEl.innerHTML = html;
     }
 
-    await MusicAPI.initialize();
+    new ThemeStore();
+
+    try {
+        await HiFiClient.initialize({
+            storage: [
+                localStorage,
+                ...(import.meta.env.DEV
+                    ? [
+                          {
+                              setItem: (key, value) => console.debug(`HiFiClient storage set: ${key} = ${value}`),
+                              removeItem: (key) => console.debug(`HiFiClient storage remove: ${key}`),
+                          },
+                      ]
+                    : []),
+            ],
+            token: localStorage.getItem('hifi_token') || undefined,
+            tokenExpiry: parseInt(localStorage.getItem('hifi_token_expiry') || '0'),
+        });
+    } catch (err) {
+        console.error('Failed to initialize HiFiClient:', err);
+    }
+
+    await MusicAPI.initialize(apiSettings);
+    // Navidrome is the source of truth for playlists. The IndexedDB adapter
+    // remains available for unconfigured/local development sessions, but once
+    // the server credentials are present all playlist mutations go through the
+    // OpenSubsonic API and are visible on every device.
+    db.setPlaylistProvider(MusicAPI.instance);
+
+    if (unifiedPlaybackSettings.isEnabled() && unifiedPlaybackSettings.getApiToken().trim()) {
+        MusicAPI.instance.tidalAPI.getUnifiedTurnstileJwt().catch(() => null);
+    }
 
     const audioPlayer = document.getElementById('audio-player');
 
-    // WebKit uses the direct lossless playback path.
+    // i love ios and macos!!!! webkit fucking SUCKS BULLSHIT sorry ios/macos heads yall getting lossless only playback
     const storedQuality = localStorage.getItem('playback-quality') || 'HI_RES_LOSSLESS';
     const currentQuality = normalizeQualityToken(storedQuality) || storedQuality;
     if (currentQuality !== storedQuality) localStorage.setItem('playback-quality', currentQuality);
@@ -382,6 +602,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         await router();
+        if (window.location.pathname.replace(/\/+$/, '') === '/about') {
+            fetchcontributors();
+        }
         updateTabTitle(Player.instance);
     };
 
@@ -397,7 +620,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             !link.hasAttribute('download')
         ) {
             event.preventDefault();
-            navigate(link.pathname);
+            navigate(`${link.pathname}${link.search}${link.hash}`);
         }
     });
 
@@ -513,7 +736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     scanLocalMediaFolder().catch(console.error);
 
     const scrobbler = new MultiScrobbler();
-    window.navichromeScrobbler = scrobbler;
+    window.monochromeScrobbler = scrobbler;
 
     const lyricsManager = await LyricsManager.initialize(MusicAPI.instance);
     UIRenderer.instance.lyricsManager = lyricsManager;
@@ -534,6 +757,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load settings module and initialize
     const { initializeSettings } = await loadSettingsModule();
     await initializeSettings(scrobbler, Player.instance, MusicAPI.instance, UIRenderer.instance);
+
+    // Track sidebar navigation clicks
+    document.querySelectorAll('.sidebar-nav a').forEach((link) => {
+        link.addEventListener('click', () => {
+            const href = link.getAttribute('href');
+            if (href && !href.startsWith('http')) {
+                const item = link.querySelector('span')?.textContent || href;
+            }
+        });
+    });
 
     await initializePlayerEvents(Player.instance, audioPlayer, scrobbler, UIRenderer.instance);
     initializeTrackInteractions(
@@ -562,6 +795,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const mode = nowPlayingSettings.getMode();
+
+        if (mode === 'lyrics') {
+            const isActive = sidePanelManager.isActive('lyrics');
+        } else if (mode === 'cover') {
+            const overlay = document.getElementById('fullscreen-cover-overlay');
+            if (overlay && overlay.style.display === 'flex') {
+            } else {
+            }
+        }
 
         if (mode === 'lyrics') {
             const isActive = sidePanelManager.isActive('lyrics');
@@ -615,7 +857,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         switch (action) {
             case 'exit':
-                void closeFullscreenOverlay();
+                closeFullscreenOverlay();
                 break;
             case 'hide-ui':
                 if (overlay) {
@@ -657,7 +899,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             case 'nothing':
                 break;
             default:
-                void closeFullscreenOverlay();
+                closeFullscreenOverlay();
         }
     });
 
@@ -701,6 +943,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (importType !== 'm3u') document.getElementById('m3u-file-input').value = '';
         });
     });
+    const spotifyBtn = document.getElementById('csv-spotify-btn');
+    const appleBtn = document.getElementById('csv-apple-btn');
+    const ytmBtn = document.getElementById('csv-ytm-btn');
+    const spotifyGuide = document.getElementById('csv-spotify-guide');
+    const appleGuide = document.getElementById('csv-apple-guide');
+    const ytmGuide = document.getElementById('csv-ytm-guide');
+    const inputContainer = document.getElementById('csv-input-container');
+
+    if (spotifyBtn && appleBtn && ytmBtn) {
+        spotifyBtn.addEventListener('click', () => {
+            spotifyBtn.classList.remove('btn-secondary');
+            spotifyBtn.classList.add('btn-primary');
+            spotifyBtn.style.opacity = '1';
+
+            appleBtn.classList.remove('btn-primary');
+            appleBtn.classList.add('btn-secondary');
+            appleBtn.style.opacity = '0.7';
+
+            ytmBtn.classList.remove('btn-primary');
+            ytmBtn.classList.add('btn-secondary');
+            ytmBtn.style.opacity = '0.7';
+
+            spotifyGuide.style.display = 'block';
+            appleGuide.style.display = 'none';
+            ytmGuide.style.display = 'none';
+            inputContainer.style.display = 'block';
+        });
+
+        appleBtn.addEventListener('click', () => {
+            appleBtn.classList.remove('btn-secondary');
+            appleBtn.classList.add('btn-primary');
+            appleBtn.style.opacity = '1';
+
+            spotifyBtn.classList.remove('btn-primary');
+            spotifyBtn.classList.add('btn-secondary');
+            spotifyBtn.style.opacity = '0.7';
+
+            ytmBtn.classList.remove('btn-primary');
+            ytmBtn.classList.add('btn-secondary');
+            ytmBtn.style.opacity = '0.7';
+
+            appleGuide.style.display = 'block';
+            spotifyGuide.style.display = 'none';
+            ytmGuide.style.display = 'none';
+            inputContainer.style.display = 'block';
+        });
+
+        ytmBtn.addEventListener('click', () => {
+            ytmBtn.classList.remove('btn-secondary');
+            ytmBtn.classList.add('btn-primary');
+            ytmBtn.style.opacity = '1';
+
+            spotifyBtn.classList.remove('btn-primary');
+            spotifyBtn.classList.add('btn-secondary');
+            spotifyBtn.style.opacity = '0.7';
+
+            appleBtn.classList.remove('btn-primary');
+            appleBtn.classList.add('btn-secondary');
+            appleBtn.style.opacity = '0.7';
+
+            ytmGuide.style.display = 'block';
+            spotifyGuide.style.display = 'none';
+            appleGuide.style.display = 'none';
+            inputContainer.style.display = 'none';
+        });
+    }
+
     document.getElementById('nav-back')?.addEventListener('click', () => {
         window.history.back();
     });
@@ -1024,6 +1333,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             modal.dataset.editingId = '';
             document.getElementById('import-section').style.display = 'block';
             document.getElementById('csv-file-input').value = '';
+            document.getElementById('ytm-url-input').value = '';
+            document.getElementById('ytm-status').textContent = '';
             document.getElementById('jspf-file-input').value = '';
             document.getElementById('xspf-file-input').value = '';
             document.getElementById('xml-file-input').value = '';
@@ -1136,11 +1447,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                             playlist.cover = cover;
                             playlist.description = description;
                             await handlePublicStatus(playlist);
-                            await db.performTransaction('user_playlists', 'readwrite', (store) => store.put(playlist));
+                            if (db.usesRemotePlaylists()) {
+                                await db.updatePlaylist(playlist);
+                            } else {
+                                await db.performTransaction('user_playlists', 'readwrite', (store) =>
+                                    store.put(playlist)
+                                );
+                            }
                             await syncManager.syncUserPlaylist(playlist, 'update');
                             UIRenderer.instance.renderLibraryPage();
                             // Also update current page if we are on it
-                            if (window.location.pathname === `/userplaylist/${editingId}`) {
+                            if (
+                                window.location.pathname === `/userplaylist/${editingId}` ||
+                                window.location.pathname === `/playlist/${editingId}`
+                            ) {
                                 UIRenderer.instance.renderPlaylistPage(editingId, 'user');
                             }
                             modal.classList.remove('active');
@@ -1158,6 +1478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const importOptions = { strictArtistMatch: true, strictAlbumMatch: isStrictAlbumMatch };
 
                     let tracks = [];
+                    let importSource = 'manual';
                     let cover = document.getElementById('playlist-cover-input').value.trim();
 
                     // Helper function for import progress
@@ -1178,8 +1499,100 @@ document.addEventListener('DOMContentLoaded', async () => {
                         };
                     };
 
-                    if (jspfFileInput.files.length > 0) {
+                    const isYTMActive = document.getElementById('csv-ytm-btn')?.classList.contains('btn-primary');
+                    const ytmUrlInput = document.getElementById('ytm-url-input');
+
+                    if (isYTMActive && ytmUrlInput.value.trim()) {
+                        importSource = 'ytm_import';
+                        const url = ytmUrlInput.value.trim();
+                        const playlistId = url.split('list=')[1]?.split('&')[0];
+
+                        const workerUrl = `https://ytmimport.samidy.workers.dev?playlistId=${playlistId}`;
+
+                        if (!playlistId) {
+                            alert("Invalid URL. Make sure it has 'list=' in it.");
+                            return;
+                        }
+
+                        const {
+                            progressElement,
+                            progressFill,
+                            progressCurrent,
+                            progressTotal,
+                            currentTrackElement,
+                            currentArtistElement,
+                        } = setupProgressElements();
+
+                        try {
+                            progressElement.style.display = 'block';
+                            progressFill.style.width = '0%';
+                            progressCurrent.textContent = '0';
+                            currentTrackElement.textContent = 'Fetching from YouTube...';
+                            if (currentArtistElement) currentArtistElement.textContent = '';
+
+                            const response = await fetch(workerUrl);
+                            const songs = await response.json();
+
+                            if (songs.error) throw new Error(songs.error);
+
+                            currentTrackElement.textContent = `Processing ${songs.length} songs...`;
+
+                            const headers = 'Title,Artist,URL\n';
+                            const csvText =
+                                headers +
+                                songs
+                                    .map(
+                                        (s) =>
+                                            `"${s.title.replace(/"/g, '""')}","${s.artist.replace(/"/g, '""')}","${s.url}"`
+                                    )
+                                    .join('\n');
+
+                            const totalTracks = songs.length;
+                            progressTotal.textContent = totalTracks.toString();
+
+                            const result = await parseCSV(
+                                csvText,
+                                MusicAPI.instance,
+                                (progress) => {
+                                    const percentage = totalTracks > 0 ? (progress.current / totalTracks) * 100 : 0;
+                                    progressFill.style.width = `${Math.min(percentage, 100)}%`;
+                                    progressCurrent.textContent = progress.current.toString();
+                                    currentTrackElement.textContent = progress.currentTrack;
+                                    if (currentArtistElement)
+                                        currentArtistElement.textContent = progress.currentArtist || '';
+                                },
+                                importOptions
+                            );
+
+                            tracks = result.tracks;
+                            const missingTracks = result.missingTracks;
+
+                            if (tracks.length === 0) {
+                                alert('No valid tracks found in the YouTube playlist!');
+                                progressElement.style.display = 'none';
+                                return;
+                            }
+
+                            console.log(`Imported ${tracks.length} tracks from YouTube`);
+
+                            if (missingTracks.length > 0) {
+                                setTimeout(() => {
+                                    showMissingTracksNotification(missingTracks, name || 'Untitled');
+                                }, 500);
+                            }
+                        } catch (err) {
+                            console.error('YTM Import Error:', err);
+                            alert(`Error importing from YouTube: ${err.message}`);
+                            progressElement.style.display = 'none';
+                            return;
+                        } finally {
+                            setTimeout(() => {
+                                progressElement.style.display = 'none';
+                            }, 1000);
+                        }
+                    } else if (jspfFileInput.files.length > 0) {
                         // Import from JSPF
+                        importSource = 'jspf_import';
                         const file = jspfFileInput.files[0];
                         const {
                             progressElement,
@@ -1233,6 +1646,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     cover = playlist.image;
                                 }
                             }
+
+                            // Track JSPF import
+                            const jspfPlaylist = result.jspfData?.playlist;
+                            const jspfCreator =
+                                jspfPlaylist?.creator ||
+                                jspfPlaylist?.extension?.['https://musicbrainz.org/doc/jspf#playlist']?.creator ||
+                                'unknown';
 
                             if (missingTracks.length > 0) {
                                 setTimeout(() => {
@@ -1363,6 +1783,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     } else if (xspfFileInput.files.length > 0) {
                         // Import from XSPF
+                        importSource = 'xspf_import';
                         const file = xspfFileInput.files[0];
                         const {
                             progressElement,
@@ -1419,6 +1840,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     } else if (xmlFileInput.files.length > 0) {
                         // Import from XML
+                        importSource = 'xml_import';
                         const file = xmlFileInput.files[0];
                         const {
                             progressElement,
@@ -1475,6 +1897,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     } else if (m3uFileInput.files.length > 0) {
                         // Import from M3U/M3U8
+                        importSource = 'm3u_import';
                         const file = m3uFileInput.files[0];
                         const {
                             progressElement,
@@ -1542,8 +1965,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     await db.createPlaylist(name, tracks, cover, description).then(async (playlist) => {
                         await handlePublicStatus(playlist);
-                        // Update DB again with isPublic flag
-                        await db.performTransaction('user_playlists', 'readwrite', (store) => store.put(playlist));
+                        // Navidrome owns the playlist when configured. The
+                        // local write is retained only for legacy local mode.
+                        if (db.usesRemotePlaylists()) {
+                            await db.updatePlaylist(playlist);
+                        } else {
+                            await db.performTransaction('user_playlists', 'readwrite', (store) => store.put(playlist));
+                        }
                         await syncManager.syncUserPlaylist(playlist, 'create');
                         UIRenderer.instance.renderLibraryPage();
                         modal.classList.remove('active');
@@ -1573,7 +2001,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const publicToggle = document.getElementById('playlist-public-toggle');
                     const shareBtn = document.getElementById('playlist-share-btn');
 
-                    // Resolve public state through the local compatibility hook.
+                    // Check if actually public in Pocketbase to be sure (async) or trust local flag
                     // We trust local flag for UI speed, but could verify.
                     if (publicToggle) publicToggle.checked = !!playlist.isPublic;
 
@@ -1716,7 +2144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (userPlaylist) {
                     tracks = userPlaylist.tracks;
                 } else {
-                    // Try the local library first, then the compatibility hook.
+                    // Try API, if fail, try Public Pocketbase
                     try {
                         const { tracks: apiTracks } = await MusicAPI.instance.getPlaylist(playlistId);
                         tracks = apiTracks;
@@ -2014,6 +2442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Local Files Logic lollll
         if (e.target.closest('#select-local-folder-btn') || e.target.closest('#change-local-folder-btn')) {
+            const isChange = e.target.closest('#change-local-folder-btn') !== null;
             try {
                 const handle = await window.showDirectoryPicker({
                     id: 'music-folder',
@@ -2030,8 +2459,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     btn.disabled = true;
                 }
 
-                await scanLocalMediaFolder(true);
-                await UIRenderer.instance.renderLibraryPage();
+                const tracks = scanLocalMediaFolder(true);
+                UIRenderer.instance.renderLibraryPage();
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     console.error('Error selecting folder:', err);
@@ -2065,7 +2494,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 3000);
 
-    const handleExternalLink = () => false;
+    const handleExternalLink = (query) => {
+        const isExternalLink =
+            query.includes('monochrome.tf/') ||
+            query.includes('monochrome.samidy.com/') ||
+            query.includes('tidal.com/');
+
+        if (isExternalLink) {
+            const url = query.startsWith('http') ? query : 'https://' + query;
+            try {
+                const urlObj = new URL(url);
+                let path = urlObj.pathname;
+                path = path.replace(/\/+$/, '');
+                const segments = path.split('/').filter((s) => s);
+                if (segments.length >= 2) {
+                    path = '/' + segments[0] + '/' + segments[1];
+                }
+                navigate(path);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+        return false;
+    };
 
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
@@ -2130,31 +2582,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // PWA Update Logic
-    const updateSW = registerSW({
-        onRegisteredSW(swScriptUrl, registration) {
-            console.log('Service Worker registered:', swScriptUrl, registration?.scope, {
-                controlled: !!navigator.serviceWorker.controller,
-            });
-        },
-        onRegisterError(error) {
-            console.warn('Service Worker registration failed:', error);
-        },
-        onNeedRefresh() {
-            if (import.meta.env.DEV) {
-                console.log('Service Worker update available in dev; reload manually when ready.');
-                return;
-            }
+    let isNativeApp = false;
+    try {
+        const { Capacitor } = await import('@capacitor/core');
+        isNativeApp = Capacitor.isNativePlatform();
+    } catch {}
 
-            if (pwaUpdateSettings.isAutoUpdateEnabled()) {
-                updateSW(true);
-            } else {
-                showUpdateNotification(() => updateSW(true));
-            }
-        },
-        onOfflineReady() {
-            console.log('App shell is cached for offline use.');
-        },
-    });
+    if (isNativeApp) {
+        console.log('[Amazon SW Decrypter] PWA disabled for native app shell');
+        await disablePwaForAuthGate().catch(console.error);
+    } else if (window.__AUTH_GATE__) {
+        console.log('[Amazon SW Decrypter] PWA disabled for auth gate');
+        await disablePwaForAuthGate().catch(console.error);
+    } else {
+        await clearDevPwaRuntimeCaches();
+
+        if (import.meta.env.DEV && isSafari) {
+            await registerAmazonDecrypterServiceWorkerFallback();
+        }
+
+        if (import.meta.env.DEV && isSafari) {
+            console.log('[Amazon SW Decrypter] Using dedicated root-scope SW in Safari dev mode');
+        } else {
+            const updateSW = registerSW({
+                onRegisteredSW(swScriptUrl, registration) {
+                    console.log('Service Worker registered:', swScriptUrl, registration?.scope, {
+                        controlled: !!navigator.serviceWorker.controller,
+                    });
+                },
+                onRegisterError(error) {
+                    console.warn('Service Worker registration failed:', error);
+                },
+                onNeedRefresh() {
+                    if (import.meta.env.DEV) {
+                        console.info('Service Worker update available in dev; reload manually when ready.');
+                        return;
+                    }
+
+                    if (pwaUpdateSettings.isAutoUpdateEnabled()) {
+                        // Auto-update: immediately activate the new service worker
+                        updateSW(true);
+                    } else {
+                        // Show notification with Update button and dismiss option
+                        showUpdateNotification(() => {
+                            updateSW(true);
+                        });
+                    }
+                },
+                onOfflineReady() {
+                    console.log('App ready to work offline');
+                },
+            });
+        }
+    }
 
     document.getElementById('show-shortcuts-btn')?.addEventListener('click', () => {
         showKeyboardShortcuts();
@@ -2178,7 +2658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Listener for local library updates
+    // Listener for Pocketbase Sync updates
     window.addEventListener('library-changed', () => {
         const path = window.location.pathname;
         if (path === '/library') {
@@ -2279,8 +2759,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? `Navidrome: ${navidromeSettings.getUsername()}`
             : 'Sign in to Navidrome';
     }
-
-    document.documentElement.dataset.navichromeReady = 'true';
 });
 
 function showUpdateNotification(updateCallback) {

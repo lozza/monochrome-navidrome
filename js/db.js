@@ -13,6 +13,22 @@ export class MusicDatabase {
         this.dbName = 'MonochromeDB';
         this.version = 11;
         this.db = null;
+        // When Navidrome is configured, playlists are owned by Navidrome. The
+        // IndexedDB playlist store remains only as a migration/fallback path
+        // for an unconfigured local development session.
+        this.remotePlaylistProvider = null;
+    }
+
+    setPlaylistProvider(provider) {
+        this.remotePlaylistProvider = provider || null;
+    }
+
+    usesRemotePlaylists() {
+        return Boolean(
+            this.remotePlaylistProvider &&
+            (typeof this.remotePlaylistProvider.isConfigured !== 'function' ||
+                this.remotePlaylistProvider.isConfigured() === true)
+        );
     }
 
     async open() {
@@ -140,6 +156,9 @@ export class MusicDatabase {
     }
 
     async getAll(storeName) {
+        if (storeName === 'user_playlists' && this.usesRemotePlaylists()) {
+            return this.getPlaylists(true);
+        }
         return this.performTransaction(storeName, 'readonly', (store) => store.getAll());
     }
 
@@ -659,6 +678,13 @@ export class MusicDatabase {
 
     // User Playlists API
     async createPlaylist(name, tracks = [], cover = '', description = '') {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.createPlaylist(name, tracks, description);
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'create', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return playlist;
+        }
+
         const id = crypto.randomUUID();
         const playlist = {
             id: id,
@@ -682,6 +708,13 @@ export class MusicDatabase {
     }
 
     async addTrackToPlaylist(playlistId, track) {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.addTracksToPlaylist(playlistId, [track]);
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return playlist;
+        }
+
         const playlist = await this.performTransaction('user_playlists', 'readonly', (store) => store.get(playlistId));
         if (!playlist) throw new Error('Playlist not found');
         playlist.tracks = playlist.tracks || [];
@@ -700,6 +733,13 @@ export class MusicDatabase {
     }
 
     async addTracksToPlaylist(playlistId, tracks) {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.addTracksToPlaylist(playlistId, tracks);
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return playlist;
+        }
+
         const playlist = await this.performTransaction('user_playlists', 'readonly', (store) => store.get(playlistId));
         if (!playlist) throw new Error('Playlist not found');
         playlist.tracks = playlist.tracks || [];
@@ -725,6 +765,13 @@ export class MusicDatabase {
     }
 
     async removeTrackFromPlaylist(playlistId, trackId, trackType = null) {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.removeTracksFromPlaylist(playlistId, [trackId]);
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return playlist;
+        }
+
         const playlist = await this.performTransaction('user_playlists', 'readonly', (store) => store.get(playlistId));
         if (!playlist) throw new Error('Playlist not found');
         playlist.tracks = playlist.tracks || [];
@@ -744,7 +791,32 @@ export class MusicDatabase {
         return playlist;
     }
 
+    async removeTracksFromPlaylist(playlistId, tracks = []) {
+        const ids = Array.isArray(tracks) ? tracks.map((track) => track?.id ?? track).filter(Boolean) : [];
+        if (!ids.length) return this.getPlaylist(playlistId);
+
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.removeTracksFromPlaylist(playlistId, ids);
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return playlist;
+        }
+
+        let playlist = await this.getPlaylist(playlistId);
+        if (!playlist) throw new Error('Playlist not found');
+        for (const id of ids) playlist = await this.removeTrackFromPlaylist(playlistId, id);
+        return playlist;
+    }
+
     async deletePlaylist(playlistId) {
+        if (this.usesRemotePlaylists()) {
+            await this.remotePlaylistProvider.deletePlaylist(playlistId);
+            const playlist = { id: playlistId, uuid: playlistId, isNavidromePlaylist: true };
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'delete', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return;
+        }
+
         await this.performTransaction('user_playlists', 'readwrite', (store) => store.delete(playlistId));
 
         // TRIGGER SYNC (but for deleting)
@@ -753,10 +825,26 @@ export class MusicDatabase {
     }
 
     async getPlaylist(playlistId) {
+        if (this.usesRemotePlaylists() && !String(playlistId).startsWith('VL')) {
+            const result = await this.remotePlaylistProvider.getPlaylist(playlistId);
+            return result?.playlist || result;
+        }
         return await this.performTransaction('user_playlists', 'readonly', (store) => store.get(playlistId));
     }
 
     async updatePlaylist(playlist) {
+        if (this.usesRemotePlaylists()) {
+            const updated = await this.remotePlaylistProvider.updatePlaylist(playlist.id || playlist.uuid, {
+                name: playlist.name || playlist.title,
+                description: playlist.description,
+                isPublic: playlist.isPublic,
+            });
+            window.dispatchEvent(
+                new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist: updated } })
+            );
+            return updated;
+        }
+
         playlist.updatedAt = Date.now();
         this._updatePlaylistMetadata(playlist);
         await this.performTransaction('user_playlists', 'readwrite', (store) => store.put(playlist));
@@ -817,6 +905,17 @@ export class MusicDatabase {
     }
 
     async getPlaylists(includeTracks = false) {
+        if (this.usesRemotePlaylists()) {
+            const playlists = await this.remotePlaylistProvider.getPlaylists();
+            if (!includeTracks) return playlists;
+            return Promise.all(
+                playlists.map(async (playlist) => {
+                    const result = await this.remotePlaylistProvider.getPlaylist(playlist.id || playlist.uuid);
+                    return result?.playlist || result;
+                })
+            );
+        }
+
         return this._retryTransaction((db) => {
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction('user_playlists', 'readwrite'); // Changed to readwrite for lazy migration
@@ -865,6 +964,12 @@ export class MusicDatabase {
     }
 
     async updatePlaylistName(playlistId, newName) {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.updatePlaylist(playlistId, { name: newName });
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            return playlist;
+        }
+
         const playlist = await this.performTransaction('user_playlists', 'readonly', (store) => store.get(playlistId));
         if (!playlist) throw new Error('Playlist not found');
         playlist.name = newName;
@@ -874,6 +979,14 @@ export class MusicDatabase {
     }
 
     async updatePlaylistDescription(playlistId, newDescription) {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.updatePlaylist(playlistId, {
+                description: newDescription,
+            });
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            return playlist;
+        }
+
         const playlist = await this.performTransaction('user_playlists', 'readonly', (store) => store.get(playlistId));
         if (!playlist) throw new Error('Playlist not found');
         playlist.description = newDescription;
@@ -886,6 +999,13 @@ export class MusicDatabase {
     }
 
     async updatePlaylistTracks(playlistId, tracks) {
+        if (this.usesRemotePlaylists()) {
+            const playlist = await this.remotePlaylistProvider.replacePlaylistTracks(playlistId, tracks);
+            window.dispatchEvent(new CustomEvent('sync-playlist-change', { detail: { action: 'update', playlist } }));
+            window.dispatchEvent(new CustomEvent('playlist-tracks-changed'));
+            return playlist;
+        }
+
         return this._retryTransaction((db) => {
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction('user_playlists', 'readwrite');

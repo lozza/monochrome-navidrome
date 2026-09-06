@@ -2,7 +2,7 @@ import md5 from './md5.js';
 import { navidromeSettings } from './navidrome-settings.js';
 
 const API_VERSION = '1.16.1';
-const CLIENT_NAME = 'navichrome';
+const CLIENT_NAME = 'monochrome-navidrome';
 
 const emptyResult = () => ({ items: [], limit: 0, offset: 0, totalNumberOfItems: 0 });
 
@@ -206,17 +206,24 @@ export class NavidromeAPI {
     }
 
     mapPlaylist(raw = {}) {
+        const createdAt = raw.created ? Date.parse(raw.created) : Number(raw.createdAt || 0);
+        const updatedAt = raw.changed ? Date.parse(raw.changed) : Number(raw.updatedAt || 0);
         return {
             ...raw,
             id: String(raw.id || ''),
             uuid: String(raw.id || ''),
             name: raw.name || 'Untitled Playlist',
             title: raw.name || 'Untitled Playlist',
-            description: raw.comment || '',
+            description: raw.comment || raw.description || '',
             duration: raw.duration || 0,
             numberOfTracks: raw.songCount || asArray(raw.entry).length,
             cover: raw.coverArt || null,
             squareImage: raw.coverArt || null,
+            isPublic: raw.public === true || raw.public === 'true',
+            owner: raw.owner ? { name: raw.owner } : undefined,
+            createdAt: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : undefined,
+            updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : undefined,
+            isNavidromePlaylist: true,
             type: 'PLAYLIST',
         };
     }
@@ -296,13 +303,17 @@ export class NavidromeAPI {
         return asArray(root.albumList2?.album).map((album) => this.mapAlbum(album));
     }
 
-    async getAllAlbums(pageSize = 500) {
+    async getAllAlbums(pageSize = 500, onBatch) {
         const albums = [];
         let offset = 0;
 
         while (true) {
             const batch = await this.getAlbums('alphabeticalByName', pageSize, offset);
             albums.push(...batch);
+            // Let browse views paint each page as it arrives. A large library
+            // should never leave the user staring at an empty Singles page
+            // until every album has been fetched.
+            await onBatch?.(batch, albums);
             if (batch.length < pageSize) break;
             offset += batch.length;
         }
@@ -341,11 +352,6 @@ export class NavidromeAPI {
             submission,
             time: Date.now(),
         });
-    }
-
-    async getLyricsBySongId(id) {
-        const root = await this.request('getLyricsBySongId', { id });
-        return root.lyricsList || null;
     }
 
     async getArtists() {
@@ -411,6 +417,100 @@ export class NavidromeAPI {
         return { playlist: { ...playlist, tracks }, tracks };
     }
 
+    /**
+     * Navidrome exposes playlist mutations through the standard OpenSubsonic
+     * playlist endpoints. Keep the mutations here so every UI surface uses the
+     * server as the source of truth rather than creating a second local
+     * playlist database.
+     */
+    async createPlaylist(name, tracks = [], description = '') {
+        const cleanName = String(name || '').trim();
+        if (!cleanName) throw new Error('Playlist name is required');
+
+        const songIds = asArray(tracks)
+            .map((track) => String(track?.id || ''))
+            .filter(Boolean);
+        const root = await this.request('createPlaylist', {
+            name: cleanName,
+            songId: songIds,
+        });
+
+        let playlist = root.playlist ? this.mapPlaylist(root.playlist) : null;
+        // Navidrome returns the created playlist on current versions. Older
+        // OpenSubsonic-compatible servers return an empty success response, so
+        // fall back to the refreshed playlist list and match the newest name.
+        if (!playlist?.id) {
+            const candidates = await this.getPlaylists();
+            playlist = candidates
+                .filter((item) => item.name === cleanName)
+                .sort((a, b) => (b.createdAt || b.updatedAt || 0) - (a.createdAt || a.updatedAt || 0))[0];
+        }
+        if (!playlist?.id) throw new Error('Navidrome did not return the created playlist');
+
+        if (description && !root.playlist?.comment) {
+            await this.updatePlaylist(playlist.id, { description });
+        }
+        return (await this.getPlaylist(playlist.id)).playlist;
+    }
+
+    async updatePlaylist(playlistId, changes = {}) {
+        const params = { playlistId: String(playlistId) };
+        if (changes.name !== undefined) params.name = String(changes.name).trim();
+        if (changes.description !== undefined) params.comment = String(changes.description || '');
+        if (changes.isPublic !== undefined) params.public = Boolean(changes.isPublic);
+        if (changes.songIdToAdd) params.songIdToAdd = asArray(changes.songIdToAdd).map(String);
+        if (changes.songIndexToRemove) {
+            params.songIndexToRemove = asArray(changes.songIndexToRemove).map((index) => Number(index));
+        }
+        await this.request('updatePlaylist', params);
+        return (await this.getPlaylist(String(playlistId))).playlist;
+    }
+
+    async addTracksToPlaylist(playlistId, tracks = []) {
+        const current = (await this.getPlaylist(playlistId)).tracks;
+        const existing = new Set(current.map((track) => String(track.id)));
+        const songIds = [];
+        for (const track of asArray(tracks)) {
+            const id = String(track?.id || '');
+            if (id && !existing.has(id)) {
+                existing.add(id);
+                songIds.push(id);
+            }
+        }
+        if (!songIds.length) return (await this.getPlaylist(playlistId)).playlist;
+        return this.updatePlaylist(playlistId, { songIdToAdd: songIds });
+    }
+
+    async removeTracksFromPlaylist(playlistId, trackIds = []) {
+        const ids = new Set(asArray(trackIds).map(String));
+        const current = (await this.getPlaylist(playlistId)).tracks;
+        const indexes = current
+            .map((track, index) => (ids.has(String(track.id)) ? index : -1))
+            .filter((index) => index >= 0)
+            .sort((a, b) => b - a);
+        if (!indexes.length) return (await this.getPlaylist(playlistId)).playlist;
+        return this.updatePlaylist(playlistId, { songIndexToRemove: indexes });
+    }
+
+    async replacePlaylistTracks(playlistId, tracks = []) {
+        const current = (await this.getPlaylist(playlistId)).tracks;
+        const indexes = current.map((_track, index) => index).sort((a, b) => b - a);
+        if (indexes.length)
+            await this.request('updatePlaylist', { playlistId: String(playlistId), songIndexToRemove: indexes });
+
+        const songIds = asArray(tracks)
+            .map((track) => String(track?.id || ''))
+            .filter(Boolean);
+        if (songIds.length)
+            await this.request('updatePlaylist', { playlistId: String(playlistId), songIdToAdd: songIds });
+        return (await this.getPlaylist(playlistId)).playlist;
+    }
+
+    async deletePlaylist(playlistId) {
+        await this.request('deletePlaylist', { id: String(playlistId) });
+        return true;
+    }
+
     async getArtistInfo(id) {
         const root = await this.request('getArtistInfo2', { id, count: 20, includeNotPresent: false });
         return root.artistInfo2 || {};
@@ -418,7 +518,7 @@ export class NavidromeAPI {
 
     async getArtistBiography(id) {
         const info = await this.getArtistInfo(id).catch(() => null);
-        return info?.biography ? { text: info.biography, source: 'Navidrome metadata' } : null;
+        return info?.biography ? { text: info.biography, source: 'Navidrome / Last.fm' } : null;
     }
 
     async getSimilarArtists(id) {
@@ -441,10 +541,49 @@ export class NavidromeAPI {
     async getTrackRecommendations(id) {
         const track = await this.getTrackMetadata(id);
         if (!track.artist?.id) return [];
-        const root = await this.request('getSimilarSongs2', { id: track.artist.id, count: 25 }).catch(() => null);
-        return asArray(root?.similarSongs2?.song)
+        const root = await this.request('getSimilarSongs2', { id: track.id, count: 25 }).catch(() => null);
+        const similar = asArray(root?.similarSongs2?.song)
             .filter((song) => String(song.id) !== String(id))
             .map((song) => this.mapTrack(song));
+        if (similar.length) return similar;
+
+        // Some Navidrome installations do not have an external similarity
+        // agent enabled. Keep radio useful by falling back to the user's own
+        // library: same-album tracks first, then tracks from the same artist.
+        const fallback = [];
+        const seen = new Set([String(track.id)]);
+        const addTracks = (items) => {
+            for (const candidate of asArray(items)) {
+                const mapped = candidate?.id
+                    ? candidate.type === 'track'
+                        ? candidate
+                        : this.mapTrack(candidate)
+                    : null;
+                if (!mapped || seen.has(String(mapped.id))) continue;
+                seen.add(String(mapped.id));
+                fallback.push(mapped);
+                if (fallback.length >= 25) break;
+            }
+        };
+
+        if (track.album?.id) {
+            const album = await this.getAlbum(track.album.id).catch(() => null);
+            addTracks(album?.tracks?.filter((candidate) => String(candidate.id) !== String(track.id)));
+        }
+
+        if (fallback.length < 25 && track.artist?.id) {
+            const artist = await this.getArtist(track.artist.id).catch(() => null);
+            addTracks(artist?.tracks || artist?.topTracks);
+            if (fallback.length < 25 && artist?.albums?.length) {
+                for (const album of artist.albums.slice(0, 8)) {
+                    const result = await this.getAlbum(album.id).catch(() => null);
+                    addTracks(result?.tracks);
+                    if (fallback.length >= 25) break;
+                }
+            }
+        }
+
+        return fallback;
     }
 
     async getRecommendedTracksForPlaylist(tracks, limit = 20) {

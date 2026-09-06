@@ -8,21 +8,29 @@ import {
     getShareUrl,
     escapeHtml,
 } from './utils.js';
-import { waveformSettings, silenceRemovalSettings, crossfadeSettings, keyboardShortcuts } from './storage.js';
+import {
+    lastFMStorage,
+    libreFmSettings,
+    listenBrainzSettings,
+    waveformSettings,
+    silenceRemovalSettings,
+    crossfadeSettings,
+    keyboardShortcuts,
+} from './storage.js';
 import { showNotification, downloadTrackWithMetadata, downloadAlbum, downloadPlaylist } from './downloads.js';
 import { downloadQualitySettings } from './storage.js';
 import { updateTabTitle, navigate } from './router.js';
 import { db } from './db.js';
-import { syncManager } from './local-sync-compat.js';
+import { syncManager } from './accounts/pocketbase.js';
 import { waveformGenerator } from './waveform.js';
 import { audioContextManager } from './audio-context.js';
 import { hapticLongPress, hapticMedium, hapticLight } from './haptics.js';
 import { SVG_BIN, SVG_MUTE, SVG_PAUSE, SVG_PLAY, SVG_VOLUME, SVG_CHECKBOX, SVG_CHECKBOX_CHECKED } from './icons.js';
+import { partyManager } from './listening-party.js';
 import { MusicAPI } from './music-api.js';
 import { LyricsManager } from './lyrics.js';
 import { Player } from './player.js';
 import { UIRenderer } from './ui.js';
-import { getSinglesVirtualController } from './library-singles.js';
 
 let currentTrackIdForWaveform = null;
 let copiedTracks = [];
@@ -418,7 +426,7 @@ async function handleSelectionAction(action) {
                     await downloadTrackWithMetadata(
                         track,
                         downloadQualitySettings.getQuality(),
-                        MusicAPI.instance,
+                        MusicAPI.instance.tidalAPI,
                         LyricsManager.instance
                     );
                 }
@@ -661,7 +669,7 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
                 !player.isFallbackRetry;
 
             if (canFallback) {
-                console.warn('Hi-Res playback failed because the DASH stream could not be loaded.');
+                console.warn('Hi-Res failed due to DASH.js Error (FUCK DASH)');
             }
 
             if (player.currentTrack && error && error.code !== 1) {
@@ -1321,7 +1329,7 @@ export async function handleTrackAction(
     lyricsManager,
     type = 'track',
     ui = null,
-    _scrobbler = null,
+    scrobbler = null,
     extraData = null
 ) {
     if (!item) return;
@@ -1340,6 +1348,15 @@ export async function handleTrackAction(
         return;
     }
 
+    if (action === 'request-song') {
+        if (partyManager.currentParty) {
+            await partyManager.requestSong(item);
+        } else {
+            showNotification('You are not in a listening party');
+        }
+        return;
+    }
+
     if (action === 'start-radio' || action === 'start-infinite-radio') {
         let tracks = [];
         if (type === 'track') {
@@ -1349,6 +1366,13 @@ export async function handleTrackAction(
         } else if (type === 'album') {
             const data = await api.getAlbum(item.id);
             tracks = data.tracks;
+        } else if (type === 'artist') {
+            const data = await api.getArtist(item.id);
+            tracks = data.tracks || data.topTracks || [];
+            if (!tracks.length && data.albums?.length) {
+                const albumResults = await Promise.all(data.albums.slice(0, 8).map((album) => api.getAlbum(album.id)));
+                tracks = albumResults.flatMap((result) => result.tracks || []);
+            }
         } else if (type === 'playlist') {
             const data = await api.getPlaylist(item.uuid);
             tracks = data.tracks;
@@ -1358,9 +1382,10 @@ export async function handleTrackAction(
         }
 
         if (tracks.length > 0) {
-            player.setQueue(tracks, 0);
-            player.playAtIndex(0);
-            player.enableRadio(tracks);
+            // enableRadio owns the queue lifecycle. Calling setQueue/play here
+            // first caused the selected song to start twice and could briefly
+            // leave stale queue entries behind.
+            await player.enableRadio(tracks);
             showNotification(`Started radio based on ${type}: ${item.title || item.name}`);
         } else {
             showNotification('Could not start infinite radio: No tracks found');
@@ -1549,6 +1574,18 @@ export async function handleTrackAction(
         }
         await syncManager.syncLibraryItem(type, item, added);
 
+        if (added && type === 'track' && scrobbler) {
+            if (lastFMStorage.isEnabled() && lastFMStorage.shouldLoveOnLike()) {
+                scrobbler.loveTrack(item);
+            }
+            if (libreFmSettings.isEnabled() && libreFmSettings.shouldLoveOnLike()) {
+                scrobbler.loveTrack(item);
+            }
+            if (listenBrainzSettings.isEnabled() && listenBrainzSettings.shouldLoveOnLike()) {
+                scrobbler.loveTrack(item);
+            }
+        }
+
         // Update all instances of this item's like button on the page
         const id = type === 'playlist' ? item.uuid : item.id;
         const selector =
@@ -1685,19 +1722,21 @@ export async function handleTrackAction(
         const overlay = modal.querySelector('.modal-overlay');
         if (!overlay) return;
 
+        const tracksToAdd =
+            type === 'album' ? (await api.getAlbum(item.id)).tracks : type === 'track' ? [item] : [item];
+        if (!tracksToAdd.length) {
+            showNotification('No tracks found for this item');
+            return;
+        }
         const renderModal = async () => {
             const playlists = await db.getPlaylists(true);
             // Removed empty check to allow creating new playlist
 
-            const trackId = item.id;
-            const trackType = item.type || 'track';
             const playlistsWithTrack = new Set();
 
             for (const playlist of playlists) {
-                if (
-                    playlist.tracks &&
-                    playlist.tracks.some((t) => t.id == trackId && (t.type || 'track') === trackType)
-                ) {
+                const playlistTrackIds = new Set((playlist.tracks || []).map((track) => String(track.id)));
+                if (tracksToAdd.every((track) => playlistTrackIds.has(String(track.id)))) {
                     playlistsWithTrack.add(playlist.id);
                 }
             }
@@ -1764,8 +1803,10 @@ export async function handleTrackAction(
                     coverToggleUrlBtn.title = 'Switch to URL input';
                 }
 
-                // Pass track
-                createModal._pendingTracks = [item];
+                // Pass the selected track or the complete album track list to
+                // the existing create modal without introducing another local
+                // playlist implementation.
+                createModal._pendingTracks = tracksToAdd;
 
                 createModal.classList.add('active');
                 document.getElementById('playlist-name-input').focus();
@@ -1776,18 +1817,22 @@ export async function handleTrackAction(
 
             if (removeBtn) {
                 e.stopPropagation();
-                await db.removeTrackFromPlaylist(playlistId, item.id);
+                await db.removeTracksFromPlaylist(playlistId, tracksToAdd);
                 const updatedPlaylist = await db.getPlaylist(playlistId);
                 await syncManager.syncUserPlaylist(updatedPlaylist, 'update');
-                showNotification(`Removed from playlist: ${option.querySelector('span').textContent}`);
+                showNotification(
+                    `Removed ${tracksToAdd.length > 1 ? `${tracksToAdd.length} tracks from` : 'track from'} playlist: ${option.querySelector('span').textContent}`
+                );
                 await renderModal();
             } else {
                 if (option.classList.contains('already-contains')) return;
 
-                await db.addTrackToPlaylist(playlistId, item);
+                await db.addTracksToPlaylist(playlistId, tracksToAdd);
                 const updatedPlaylist = await db.getPlaylist(playlistId);
                 await syncManager.syncUserPlaylist(updatedPlaylist, 'update');
-                showNotification(`Added to playlist: ${option.querySelector('span').textContent}`);
+                showNotification(
+                    `Added ${tracksToAdd.length > 1 ? `${tracksToAdd.length} tracks to` : 'track to'} playlist: ${option.querySelector('span').textContent}`
+                );
                 closeModal();
             }
         };
@@ -1805,7 +1850,11 @@ export async function handleTrackAction(
         modal.classList.add('active');
     } else if (action === 'go-to-artist') {
         const artistId = extraData?.artistId || item.artist?.id || item.artists?.[0]?.id;
-        if (artistId) {
+        const trackerSheetId = extraData?.trackerSheetId || (item.isTracker ? item.trackerInfo?.sheetId : null);
+
+        if (trackerSheetId) {
+            navigate(`/unreleased/${trackerSheetId}`);
+        } else if (artistId) {
             navigate(`/artist/${artistId}`);
         }
     } else if (action === 'go-to-album') {
@@ -1835,15 +1884,93 @@ export async function handleTrackAction(
 
         window.open(url, '_blank');
     } else if (action === 'open-in-harmony') {
-        showNotification('External catalogue lookup is not available in Navichrome.');
+        const albumId = item.id;
+        const harmonyUrl = `https://harmony.pulsewidth.org.uk/release?url=${encodeURIComponent(`https://tidal.com/album/${albumId}`)}&gtin=&region=&musicbrainz=&deezer=&itunes=&spotify=&tidal=&beatport=`;
+        window.open(harmonyUrl, '_blank');
     } else if (action === 'track-info') {
         // Show detailed track info modal
-        const releaseDate = item.album?.releaseDate || item.streamStartDate;
-        const dateDisplay = releaseDate ? new Date(releaseDate).toLocaleDateString() : 'Unknown';
-        const quality = item.audioQuality || 'Unknown';
-        const bitrate = item.bitrate ? `${item.bitrate} kbps` : '';
+        const isTracker = item.isTracker;
+        let infoHTML = '';
 
-        const infoHTML = `
+        if (isTracker && item.trackerInfo) {
+            // Detailed unreleased/tracker track info
+            const releaseDate = item.trackerInfo.releaseDate || item.streamStartDate;
+            const dateDisplay = releaseDate ? new Date(releaseDate).toLocaleDateString() : 'Unknown';
+            const addedDate = item.trackerInfo.addedDate
+                ? new Date(item.trackerInfo.addedDate).toLocaleDateString()
+                : 'Unknown';
+
+            infoHTML = `
+                <div style="padding: 1.5rem; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-bottom: 1rem; font-size: 1.3rem; font-weight: 600;">${escapeHtml(item.title)}</h3>
+                    <div style="color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.8;">
+                        <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--accent); border-radius: 8px;">
+                            <p style="color: var(--primary); font-weight: 500;">Unreleased Track</p>
+                        </div>
+
+                        <div style="display: grid; gap: 0.5rem;">
+                            ${item.artists ? `<p><strong style="color: var(--foreground);">Artist:</strong> ${escapeHtml(Array.isArray(item.artists) ? item.artists.map((a) => a.name || a).join(', ') : item.artists)}</p>` : ''}
+                            ${item.trackerInfo.artist ? `<p><strong style="color: var(--foreground);">Tracked Artist:</strong> ${escapeHtml(item.trackerInfo.artist)}</p>` : ''}
+                            ${item.trackerInfo.project ? `<p><strong style="color: var(--foreground);">Project:</strong> ${escapeHtml(item.trackerInfo.project)}</p>` : ''}
+                            ${item.trackerInfo.era ? `<p><strong style="color: var(--foreground);">Era:</strong> ${escapeHtml(item.trackerInfo.era)}</p>` : ''}
+                            ${item.trackerInfo.timeline ? `<p><strong style="color: var(--foreground);">Timeline:</strong> ${escapeHtml(item.trackerInfo.timeline)}</p>` : ''}
+                            ${item.trackerInfo.category ? `<p><strong style="color: var(--foreground);">Category:</strong> ${escapeHtml(item.trackerInfo.category)}</p>` : ''}
+                            ${item.trackerInfo.trackNumber ? `<p><strong style="color: var(--foreground);">Track Number:</strong> ${escapeHtml(String(item.trackerInfo.trackNumber))}</p>` : ''}
+                            <p><strong style="color: var(--foreground);">Duration:</strong> ${escapeHtml(formatTime(item.duration))}</p>
+                            ${releaseDate !== 'Unknown' ? `<p><strong style="color: var(--foreground);">Release Date:</strong> ${escapeHtml(dateDisplay)}</p>` : ''}
+                            ${item.trackerInfo.addedDate ? `<p><strong style="color: var(--foreground);">Added to Tracker:</strong> ${escapeHtml(addedDate)}</p>` : ''}
+                            ${item.trackerInfo.leakedDate ? `<p><strong style="color: var(--foreground);">Leak Date:</strong> ${escapeHtml(new Date(item.trackerInfo.leakedDate).toLocaleDateString())}</p>` : ''}
+                            ${item.trackerInfo.recordingDate ? `<p><strong style="color: var(--foreground);">Recording Date:</strong> ${escapeHtml(new Date(item.trackerInfo.recordingDate).toLocaleDateString())}</p>` : ''}
+                        </div>
+
+                        ${
+                            item.trackerInfo.description
+                                ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--accent); border-radius: 8px;">
+                                <p style="color: var(--foreground); font-weight: 500; margin-bottom: 0.5rem;">Description</p>
+                                <p style="font-size: 0.85rem; line-height: 1.6;">${escapeHtml(item.trackerInfo.description)}</p>
+                            </div>
+                        `
+                                : ''
+                        }
+
+                        ${
+                            item.trackerInfo.notes
+                                ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--accent); border-radius: 8px;">
+                                <p style="color: var(--foreground); font-weight: 500; margin-bottom: 0.5rem;">Notes</p>
+                                <p style="font-size: 0.85rem; line-height: 1.6;">${escapeHtml(item.trackerInfo.notes)}</p>
+                            </div>
+                        `
+                                : ''
+                        }
+
+                        ${
+                            item.trackerInfo.sourceUrl
+                                ? `
+                            <div style="margin-top: 1rem;">
+                                <p style="margin-bottom: 0.5rem;"><strong style="color: var(--foreground);">Source URL:</strong></p>
+                                <a href="${escapeHtml(item.trackerInfo.sourceUrl)}" target="_blank" style="color: var(--primary); word-break: break-all; font-size: 0.85rem; display: block; padding: 0.5rem; background: var(--accent); border-radius: 6px; text-decoration: none;">
+                                    ${escapeHtml(item.trackerInfo.sourceUrl)}
+                                </a>
+                            </div>
+                        `
+                                : ''
+                        }
+
+                        ${item.id ? `<p style="margin-top: 1rem; font-size: 0.8rem; color: var(--muted);"><strong>Track ID:</strong> ${escapeHtml(item.id)}</p>` : ''}
+                    </div>
+                    <button class="btn-primary track-info-close-btn" style="margin-top: 1.5rem; width: 100%;">Close</button>
+                </div>
+            `;
+        } else {
+            // Detailed normal track info
+            const releaseDate = item.album?.releaseDate || item.streamStartDate;
+            const dateDisplay = releaseDate ? new Date(releaseDate).toLocaleDateString() : 'Unknown';
+            const quality = item.audioQuality || 'Unknown';
+            const bitrate = item.bitrate ? `${item.bitrate} kbps` : '';
+
+            infoHTML = `
                 <div style="padding: 1.5rem; max-width: 500px; max-height: 80vh; overflow-y: auto;">
                     <h3 style="margin-bottom: 1rem; font-size: 1.3rem; font-weight: 600;">${escapeHtml(item.title)}</h3>
                     <div style="color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.8;">
@@ -1897,6 +2024,7 @@ export async function handleTrackAction(
                     <button class="btn-primary track-info-close-btn" style="margin-top: 1.5rem; width: 100%;">Close</button>
                 </div>
             `;
+        }
 
         // Create and show modal
         const modal = document.createElement('div');
@@ -1912,6 +2040,21 @@ export async function handleTrackAction(
             closeBtn.onclick = () => modal.remove();
         }
         document.body.appendChild(modal);
+    } else if (action === 'open-original-url') {
+        // Open the original source URL for the track
+        let url = null;
+
+        if (item.isTracker && item.trackerInfo && item.trackerInfo.sourceUrl) {
+            url = item.trackerInfo.sourceUrl;
+        } else if (item.remoteUrl) {
+            url = item.remoteUrl;
+        }
+
+        if (url) {
+            window.open(url, '_blank');
+        } else {
+            showNotification('No original URL available for this track.');
+        }
     } else if (action === 'block-track') {
         const { contentBlockingSettings } = await import('./storage.js');
         if (contentBlockingSettings.isTrackBlocked(item.id)) {
@@ -1962,6 +2105,7 @@ export async function handleTrackAction(
             showNotification(`Blocked artist: ${artistName || 'Unknown Artist'}`);
         }
     } else if (action === 'delete-user-playlist') {
+        const contextMenu = document.getElementById('context-menu');
         const playlistId = item.id || item.uuid;
         if (confirm('Are you sure you want to delete this playlist?')) {
             await db.deletePlaylist(playlistId);
@@ -1998,6 +2142,13 @@ async function updateContextMenuLikeState(contextMenu, contextTrack) {
     if (trackMixItem) {
         const hasMix = contextTrack.mixes && contextTrack.mixes.TRACK_MIX;
         trackMixItem.style.display = hasMix ? 'block' : 'none';
+    }
+
+    // Show/hide "Open Original URL" only for unreleased/tracker tracks
+    const openOriginalUrlItem = contextMenu.querySelector('li[data-action="open-original-url"]');
+    if (openOriginalUrlItem) {
+        const isUnreleased = contextTrack.isTracker || (contextTrack.trackerInfo && contextTrack.trackerInfo.sourceUrl);
+        openOriginalUrlItem.style.display = isUnreleased ? 'block' : 'none';
     }
 
     // Update block/unblock labels
@@ -2038,7 +2189,11 @@ async function updateContextMenuLikeState(contextMenu, contextTrack) {
         } else {
             item.style.display = 'block';
         }
-        if (item.dataset.action === 'request-song') item.style.display = 'none';
+        if (item.dataset.action === 'request-song') {
+            if (!partyManager.currentParty) {
+                item.style.display = 'none';
+            }
+        }
 
         // Update labels for Like/Save
         if (item.dataset.action === 'toggle-like') {
@@ -2070,6 +2225,7 @@ async function updateContextMenuLikeState(contextMenu, contextTrack) {
             artistItem.dataset.hasMultipleArtists = 'false';
             artistItem.textContent = artists.length > 1 ? 'Go to artists' : 'Go to artist';
             delete artistItem.dataset.artistId;
+            delete artistItem.dataset.trackerSheetId;
         }
     }
 }
@@ -2283,12 +2439,8 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
                 }
             } else {
                 const parentList = trackItem.closest('.track-list');
-                const singlesContainer = trackItem.closest('#library-singles-container');
-                const virtualSingles = singlesContainer ? getSinglesVirtualController(singlesContainer) : null;
-                const allTrackElements = parentList ? Array.from(parentList.querySelectorAll('.track-item')) : [];
-                const trackList = virtualSingles
-                    ? virtualSingles.getTracks()
-                    : allTrackElements.map((el) => trackDataStore.get(el)).filter(Boolean);
+                const allTrackElements = Array.from(parentList.querySelectorAll('.track-item'));
+                const trackList = allTrackElements.map((el) => trackDataStore.get(el)).filter(Boolean);
 
                 if (trackList.length > 0) {
                     const startIndex = trackList.findIndex((t) => t.id == clickedTrackId);
@@ -2310,7 +2462,10 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
         if (artistLink) {
             e.stopPropagation();
             const artistId = artistLink.dataset.artistId;
-            if (artistId) {
+            const trackerSheetId = artistLink.dataset.trackerSheetId;
+            if (trackerSheetId) {
+                navigate(`/unreleased/${trackerSheetId}`);
+            } else if (artistId) {
                 navigate(`/artist/${artistId}`);
             }
             return;
@@ -2620,7 +2775,11 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
         if (link) {
             e.stopPropagation();
             const artistId = link.dataset.artistId;
-            if (artistId) {
+            const trackerSheetId = link.dataset.trackerSheetId;
+            if (trackerSheetId) {
+                // Navigate to tracker artist page
+                navigate(`/unreleased/${trackerSheetId}`);
+            } else if (artistId) {
                 navigate(`/artist/${artistId}`);
             }
             return;
@@ -2628,8 +2787,14 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
 
         // Fallback for non-link clicks (e.g. separators) or single artist legacy
         const track = player.currentTrack;
-        if (track?.artist?.id) {
-            navigate(`/artist/${track.artist.id}`);
+        if (track) {
+            // Check if this is a tracker track
+            const isTracker = track.isTracker || (track.id && String(track.id).startsWith('tracker-'));
+            if (isTracker && track.trackerInfo?.sheetId) {
+                navigate(`/unreleased/${track.trackerInfo.sheetId}`);
+            } else if (track.artist?.id) {
+                navigate(`/artist/${track.artist.id}`);
+            }
         }
     });
 

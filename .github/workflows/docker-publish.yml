@@ -4,17 +4,15 @@ on:
     push:
         branches:
             - main
-        tags:
-            - 'v*'
+            - beta
     workflow_dispatch:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME: lozza/monochrome-navidrome
+    IMAGE_NAME: ${{ github.repository }}
 
 jobs:
     publish:
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         runs-on: ubuntu-latest
         permissions:
             contents: read
@@ -34,14 +32,6 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Read application version
-              id: app
-              shell: bash
-              run: |
-                  version="$(jq -er '.version' package.json)"
-                  test -n "$version"
-                  printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
-
             - name: Create image metadata
               id: meta
               uses: docker/metadata-action@v6
@@ -49,42 +39,10 @@ jobs:
                   images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
                   tags: |
                       type=raw,value=latest,enable={{is_default_branch}}
-                      type=raw,value=${{ steps.app.outputs.version }},enable={{is_default_branch}}
+                      type=raw,value=beta,enable=${{ github.ref == 'refs/heads/beta' }}
                       type=sha,format=short
-                      type=semver,pattern={{version}}
-
-            - name: Build image for metadata verification
-              uses: docker/build-push-action@v7
-              with:
-                  context: .
-                  file: docker/Dockerfile
-                  platforms: linux/amd64
-                  load: true
-                  push: false
-                  tags: navichrome-metadata-check:${{ github.sha }}
-                  labels: |
-                      org.opencontainers.image.title=Navichrome
-                      org.opencontainers.image.version=${{ steps.app.outputs.version }}
-                      org.opencontainers.image.revision=${{ github.sha }}
-                      org.opencontainers.image.source=https://github.com/lozza/monochrome-navidrome
-                  build-args: |
-                      BUILD_COMMIT=${{ github.sha }}
-                      APP_VERSION=${{ steps.app.outputs.version }}
-                  cache-from: type=gha
-
-            - name: Verify image metadata before publishing
-              shell: bash
-              env:
-                  CHECK_IMAGE: navichrome-metadata-check:${{ github.sha }}
-                  EXPECTED_VERSION: ${{ steps.app.outputs.version }}
-              run: |
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.title" }}' "$CHECK_IMAGE")" = 'Navichrome'
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$CHECK_IMAGE")" = "$EXPECTED_VERSION"
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$CHECK_IMAGE")" = "$GITHUB_SHA"
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$CHECK_IMAGE")" = 'https://github.com/lozza/monochrome-navidrome'
 
             - name: Build and publish image
-              id: publish
               uses: docker/build-push-action@v7
               with:
                   context: .
@@ -92,25 +50,6 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
-                  labels: |
-                      org.opencontainers.image.title=Navichrome
-                      org.opencontainers.image.version=${{ steps.app.outputs.version }}
-                      org.opencontainers.image.revision=${{ github.sha }}
-                      org.opencontainers.image.source=https://github.com/lozza/monochrome-navidrome
-                  build-args: |
-                      BUILD_COMMIT=${{ github.sha }}
-                      APP_VERSION=${{ steps.app.outputs.version }}
+                  labels: ${{ steps.meta.outputs.labels }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
-
-            - name: Verify published image metadata
-              shell: bash
-              env:
-                  PUBLISHED_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.publish.outputs.digest }}
-                  EXPECTED_VERSION: ${{ steps.app.outputs.version }}
-              run: |
-                  docker pull "$PUBLISHED_IMAGE"
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.title" }}' "$PUBLISHED_IMAGE")" = 'Navichrome'
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$PUBLISHED_IMAGE")" = "$EXPECTED_VERSION"
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PUBLISHED_IMAGE")" = "$GITHUB_SHA"
-                  test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$PUBLISHED_IMAGE")" = 'https://github.com/lozza/monochrome-navidrome'
