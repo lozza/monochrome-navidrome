@@ -12,6 +12,7 @@ import {
     enhanceNavidromePlaylistsPage,
     installNavidromePlaylistUI,
 } from './navidrome-playlist-controller.js';
+import { ensureNavidromePlaylistOwnedActions } from './navidrome-playlist-owned-actions.js';
 import './navidrome-migration-compat.js';
 import './navidrome-search-compat.js';
 import './navidrome-starred-compat.js';
@@ -63,6 +64,7 @@ export function createRouter(ui) {
             }
             case 'playlist': {
                 await ui.renderPlaylistPage(param, 'api', null);
+                await ensureNavidromePlaylistOwnedActions(ui, param);
                 await enhanceNavidromePlaylistPage(ui, param);
                 break;
             }
