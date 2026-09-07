@@ -11,7 +11,7 @@ import {
     enhanceNavidromePlaylistPage,
     enhanceNavidromePlaylistsPage,
     installNavidromePlaylistUI,
-} from './navidrome-playlist-ui.js';
+} from './navidrome-playlist-controller.js';
 import './navidrome-migration-compat.js';
 import './navidrome-search-compat.js';
 import './navidrome-starred-compat.js';
