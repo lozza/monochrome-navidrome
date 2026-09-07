@@ -7,6 +7,12 @@ import {
     renderRecentlyAddedLibrary,
     renderStarredPage,
 } from './sidebar-library-navigation.js';
+import {
+    enhanceNavidromePlaylistPage,
+    enhanceNavidromePlaylistsPage,
+    installNavidromePlaylistUI,
+} from './navidrome-playlist-controller.js';
+import { ensureNavidromePlaylistOwnedActions } from './navidrome-playlist-owned-actions.js';
 import './navidrome-migration-compat.js';
 import './navidrome-search-compat.js';
 import './navidrome-starred-compat.js';
@@ -21,6 +27,8 @@ export function navigate(path) {
 }
 
 export function createRouter(ui) {
+    installNavidromePlaylistUI(ui);
+
     const router = async () => {
         ensureLibraryNavigation();
 
@@ -56,6 +64,8 @@ export function createRouter(ui) {
             }
             case 'playlist': {
                 await ui.renderPlaylistPage(param, 'api', null);
+                await ensureNavidromePlaylistOwnedActions(ui, param);
+                await enhanceNavidromePlaylistPage(ui, param);
                 break;
             }
             case 'track': {
@@ -64,6 +74,7 @@ export function createRouter(ui) {
             }
             case 'playlists':
                 await renderPlaylistsPage(ui);
+                enhanceNavidromePlaylistsPage();
                 break;
             case 'starred':
                 await renderStarredPage(ui);
