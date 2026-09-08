@@ -199,16 +199,18 @@ function enhanceQueueControls() {
     const addToPlaylist = controls.querySelector('#add-queue-to-playlist-btn');
     if (addToPlaylist) addToPlaylist.title = 'Add queue to Navidrome playlist';
 
-    if (!controls.querySelector('#save-queue-as-playlist-btn')) {
-        const save = document.createElement('button');
+    let save = controls.querySelector('#save-queue-as-playlist-btn');
+    if (!save) {
+        save = document.createElement('button');
         save.id = 'save-queue-as-playlist-btn';
         save.className = 'btn-icon';
         save.type = 'button';
-        save.title = 'Save queue as a new playlist';
-        save.setAttribute('aria-label', 'Save queue as a new playlist');
-        save.innerHTML = SVG_LIST(18);
         controls.insertBefore(save, controls.querySelector('#clear-queue-btn'));
     }
+    save.classList.add('btn-icon');
+    save.title = 'Save queue as a new playlist';
+    save.setAttribute('aria-label', 'Save queue as a new playlist');
+    save.innerHTML = SVG_LIST(18);
 
     if (!controls.querySelector('#jump-to-playing-queue-btn')) {
         const jump = document.createElement('button');
