@@ -4,6 +4,7 @@ import { openCreateNavidromePlaylist } from './navidrome-playlist-controller.js'
 import { createNavidromePlaylistService } from './navidrome-playlist-service.js';
 import { sidePanelManager } from './side-panel.js';
 import { escapeHtml, positionMenu } from './utils.js';
+import { SVG_LIST, SVG_MOVE_DOWN } from './icons.js';
 
 import { PLAYABLE_CONTEXT_TYPES, shouldConfirmQueueClear, contextActionSupportsType } from './queue-rules.js';
 
@@ -204,7 +205,8 @@ function enhanceQueueControls() {
         save.className = 'btn-icon';
         save.type = 'button';
         save.title = 'Save queue as a new playlist';
-        save.textContent = 'Save';
+        save.setAttribute('aria-label', 'Save queue as a new playlist');
+        save.innerHTML = SVG_LIST(18);
         controls.insertBefore(save, controls.querySelector('#clear-queue-btn'));
     }
 
@@ -214,7 +216,8 @@ function enhanceQueueControls() {
         jump.className = 'btn-icon';
         jump.type = 'button';
         jump.title = 'Jump to currently playing track';
-        jump.textContent = 'Current';
+        jump.setAttribute('aria-label', 'Jump to currently playing track');
+        jump.innerHTML = SVG_MOVE_DOWN(18);
         controls.insertBefore(jump, controls.querySelector('#clear-queue-btn'));
     }
 }
