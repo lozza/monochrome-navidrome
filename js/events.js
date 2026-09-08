@@ -692,7 +692,7 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
     });
     nextBtn.addEventListener('click', async () => {
         await hapticMedium();
-        player.playNext(0, { skipRepeatOne: true });
+        await player.playNext(0, { skipRepeatOne: true });
     });
     prevBtn.addEventListener('click', async () => {
         await hapticMedium();
