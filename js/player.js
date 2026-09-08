@@ -2082,6 +2082,7 @@ export class Player {
 
             if (
                 this.repeatMode === REPEAT_MODE.ONE &&
+                !options.skipRepeatOne &&
                 !currentQueue[this.currentQueueIndex]?.isUnavailable &&
                 !contentBlockingSettings.shouldHideTrack(currentQueue[this.currentQueueIndex])
             ) {
@@ -2160,6 +2161,12 @@ export class Player {
 
         this.radioEnabled = true;
         radioSettings.setEnabled(true);
+
+        // Radio must be able to move through its queue. Keep a user's queue-repeat
+        // setting, but clear repeat-one because it would replay the initial seed forever.
+        if (this.repeatMode === REPEAT_MODE.ONE) {
+            this.repeatMode = REPEAT_MODE.OFF;
+        }
 
         this.radioSeeds = uniqueSeeds;
         await this.wipeQueue();
