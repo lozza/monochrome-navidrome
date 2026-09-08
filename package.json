@@ -7,7 +7,7 @@
         "dev": "vite",
         "test": "npm run test:navidrome && npm run test:unit && npm run test:smoke",
         "test:navidrome": "vitest run js/navidrome-api.test.ts --config=vite.config.ts --browser.enabled=false --environment=node",
-        "test:unit": "vitest run js/navichrome-core.test.js js/navidrome-playlist-service.test.js js/queue-enhancements.test.js --config=vite.config.ts --browser.enabled=false --environment=node",
+        "test:unit": "vitest run js/navichrome-core.test.js js/navidrome-playlist-service.test.js js/queue-enhancements.test.js js/radio-utils.test.js --config=vite.config.ts --browser.enabled=false --environment=node",
         "test:smoke": "npm run build && playwright test",
         "test:watch": "vitest --config=vite.config.ts --browser.enabled=false",
         "install:playwright": "playwright install chromium",

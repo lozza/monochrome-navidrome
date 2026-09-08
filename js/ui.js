@@ -2036,7 +2036,7 @@ export class UIRenderer {
         };
 
         prevBtn.onclick = () => this.player.playPrev();
-        nextBtn.onclick = () => this.player.playNext();
+        nextBtn.onclick = async () => await this.player.playNext(0, { skipRepeatOne: true });
 
         shuffleBtn.onclick = () => {
             this.player.toggleShuffle();

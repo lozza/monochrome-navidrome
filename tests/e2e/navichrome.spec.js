@@ -94,6 +94,13 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
     await expect(page.locator('#page-playlists')).toHaveClass(/active/);
     await expect(page.getByRole('heading', { name: 'Playlists' })).toBeVisible();
     await expect(page.locator('#playlists-page-container [data-playlist-id="playlist-1"]')).toBeVisible();
+    const createPlaylistSpacing = await page.evaluate(() => {
+        const button = document.getElementById('navidrome-create-playlist-btn')?.getBoundingClientRect();
+        const grid = document.getElementById('playlists-page-container')?.getBoundingClientRect();
+        return button && grid ? grid.top - button.bottom : null;
+    });
+    expect(createPlaylistSpacing).not.toBeNull();
+    expect(createPlaylistSpacing).toBeGreaterThanOrEqual(12);
 
     await page.goto('/library');
     await waitForReady(page);
@@ -138,6 +145,44 @@ test('playback starts and next/previous move through the server-backed queue', a
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Beta Song');
     await page.locator('#prev-btn').click();
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
+
+    // Next should always advance, even when repeat-one is selected for natural track endings.
+    await page.locator('#repeat-btn').click();
+    await page.locator('#repeat-btn').click();
+    await expect(page.locator('#repeat-btn')).toHaveClass(/repeat-one/);
+    await page.locator('#next-btn').click();
+    await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Beta Song');
+
+    await page.locator('#queue-btn').click();
+    const starredQueueTrack = page.locator('.queue-track-item[data-track-id="track-1"] .queue-like-btn');
+    await expect(starredQueueTrack).toHaveClass(/active/);
+    await starredQueueTrack.click();
+    await expect(starredQueueTrack).not.toHaveClass(/active/);
+
+    const queueControlsFit = await page.evaluate(() => {
+        const panel = document.getElementById('side-panel');
+        const controls = document.getElementById('side-panel-controls');
+        if (!panel || !controls) return false;
+        const panelBounds = panel.getBoundingClientRect();
+        return [...controls.querySelectorAll('button')].every((button) => {
+            const bounds = button.getBoundingClientRect();
+            return bounds.left >= panelBounds.left && bounds.right <= panelBounds.right;
+        });
+    });
+    expect(queueControlsFit).toBe(true);
+
+    const radioStatusClearsPlayer = await page.evaluate(() => {
+        if (window.innerWidth > 768) return true;
+        const status = document.getElementById('radio-loading-indicator');
+        const player = document.querySelector('.now-playing-bar');
+        if (!status || !player) return false;
+        status.style.display = 'flex';
+        const statusBounds = status.getBoundingClientRect();
+        const playerBounds = player.getBoundingClientRect();
+        status.style.display = 'none';
+        return statusBounds.bottom <= playerBounds.top;
+    });
+    expect(radioStatusClearsPlayer).toBe(true);
 });
 
 test('missing artwork falls back safely and a failed optional service cannot break navigation', async ({ page }) => {
