@@ -94,6 +94,13 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
     await expect(page.locator('#page-playlists')).toHaveClass(/active/);
     await expect(page.getByRole('heading', { name: 'Playlists' })).toBeVisible();
     await expect(page.locator('#playlists-page-container [data-playlist-id="playlist-1"]')).toBeVisible();
+    const createPlaylistSpacing = await page.evaluate(() => {
+        const button = document.getElementById('navidrome-create-playlist-btn')?.getBoundingClientRect();
+        const grid = document.getElementById('playlists-page-container')?.getBoundingClientRect();
+        return button && grid ? grid.top - button.bottom : null;
+    });
+    expect(createPlaylistSpacing).not.toBeNull();
+    expect(createPlaylistSpacing).toBeGreaterThanOrEqual(12);
 
     await page.goto('/library');
     await waitForReady(page);
