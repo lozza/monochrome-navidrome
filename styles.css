@@ -7100,6 +7100,21 @@ img[src=''] {
         width: 100%;
     }
 
+    #radio-loading-indicator {
+        position: fixed;
+        top: auto;
+        bottom: calc(max(15px, env(safe-area-inset-bottom)) + var(--player-bar-height-mobile) + 8px);
+        max-width: calc(100vw - 2rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        z-index: 2150;
+    }
+
+    #radio-loading-indicator span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .player-controls .buttons {
         justify-content: center;
         gap: var(--spacing-lg);
