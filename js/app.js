@@ -1923,8 +1923,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         [allTracks[i], allTracks[j]] = [allTracks[j], allTracks[i]];
                     }
 
-                    Player.instance.setQueue(allTracks, 0);
-                    await Player.instance.playTrackFromQueue();
+                    await Player.instance.enableRadio(allTracks);
                 } else {
                     throw new Error('No tracks found across all albums');
                 }

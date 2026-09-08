@@ -447,17 +447,22 @@ export class NavidromeAPI {
             .map((song) => this.mapTrack(song));
     }
 
-    async getRecommendedTracksForPlaylist(tracks, limit = 20) {
-        const seen = new Set(asArray(tracks).map((track) => String(track.id)));
+    async getRecommendedTracksForPlaylist(tracks, limit = 20, options = {}) {
+        const maxRecommendations = Math.max(0, Number(limit) || 0);
+        if (maxRecommendations === 0) return [];
+        const knownTrackIds = options?.knownTrackIds;
+        const knownIds = knownTrackIds instanceof Set ? [...knownTrackIds] : asArray(knownTrackIds);
+        const seen = new Set([...asArray(tracks), ...knownIds].map((track) => String(track?.id ?? track)));
         const recommendations = [];
         for (const seed of asArray(tracks).slice(0, 3)) {
             const items = await this.getTrackRecommendations(seed.id).catch(() => []);
             for (const track of items) {
-                if (!seen.has(track.id)) {
-                    seen.add(track.id);
+                const trackId = String(track.id);
+                if (!seen.has(trackId)) {
+                    seen.add(trackId);
                     recommendations.push(track);
                 }
-                if (recommendations.length >= limit) return recommendations;
+                if (recommendations.length >= maxRecommendations) return recommendations;
             }
         }
         return recommendations;
