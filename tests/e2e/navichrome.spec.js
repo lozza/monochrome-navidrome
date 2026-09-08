@@ -154,6 +154,11 @@ test('playback starts and next/previous move through the server-backed queue', a
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Beta Song');
 
     await page.locator('#queue-btn').click();
+    const starredQueueTrack = page.locator('.queue-track-item[data-track-id="track-1"] .queue-like-btn');
+    await expect(starredQueueTrack).toHaveClass(/active/);
+    await starredQueueTrack.click();
+    await expect(starredQueueTrack).not.toHaveClass(/active/);
+
     const queueControlsFit = await page.evaluate(() => {
         const panel = document.getElementById('side-panel');
         const controls = document.getElementById('side-panel-controls');
@@ -165,6 +170,19 @@ test('playback starts and next/previous move through the server-backed queue', a
         });
     });
     expect(queueControlsFit).toBe(true);
+
+    const radioStatusClearsPlayer = await page.evaluate(() => {
+        if (window.innerWidth > 768) return true;
+        const status = document.getElementById('radio-loading-indicator');
+        const player = document.querySelector('.now-playing-bar');
+        if (!status || !player) return false;
+        status.style.display = 'flex';
+        const statusBounds = status.getBoundingClientRect();
+        const playerBounds = player.getBoundingClientRect();
+        status.style.display = 'none';
+        return statusBounds.bottom <= playerBounds.top;
+    });
+    expect(radioStatusClearsPlayer).toBe(true);
 });
 
 test('missing artwork falls back safely and a failed optional service cannot break navigation', async ({ page }) => {
