@@ -149,11 +149,13 @@ test('playback starts and next/previous move through the server-backed queue', a
     await page.locator('#queue-btn').click();
     const queueControlsFit = await page.evaluate(() => {
         const panel = document.getElementById('side-panel');
-        const save = document.getElementById('save-queue-as-playlist-btn');
-        if (!panel || !save) return false;
+        const controls = document.getElementById('side-panel-controls');
+        if (!panel || !controls) return false;
         const panelBounds = panel.getBoundingClientRect();
-        const saveBounds = save.getBoundingClientRect();
-        return saveBounds.left >= panelBounds.left && saveBounds.right <= panelBounds.right;
+        return [...controls.querySelectorAll('button')].every((button) => {
+            const bounds = button.getBoundingClientRect();
+            return bounds.left >= panelBounds.left && bounds.right <= panelBounds.right;
+        });
     });
     expect(queueControlsFit).toBe(true);
 });
