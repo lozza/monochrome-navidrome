@@ -138,6 +138,24 @@ test('playback starts and next/previous move through the server-backed queue', a
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Beta Song');
     await page.locator('#prev-btn').click();
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
+
+    // Next should always advance, even when repeat-one is selected for natural track endings.
+    await page.locator('#repeat-btn').click();
+    await page.locator('#repeat-btn').click();
+    await expect(page.locator('#repeat-btn')).toHaveClass(/repeat-one/);
+    await page.locator('#next-btn').click();
+    await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Beta Song');
+
+    await page.locator('#queue-btn').click();
+    const queueControlsFit = await page.evaluate(() => {
+        const panel = document.getElementById('side-panel');
+        const save = document.getElementById('save-queue-as-playlist-btn');
+        if (!panel || !save) return false;
+        const panelBounds = panel.getBoundingClientRect();
+        const saveBounds = save.getBoundingClientRect();
+        return saveBounds.left >= panelBounds.left && saveBounds.right <= panelBounds.right;
+    });
+    expect(queueControlsFit).toBe(true);
 });
 
 test('missing artwork falls back safely and a failed optional service cannot break navigation', async ({ page }) => {
