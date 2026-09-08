@@ -5,25 +5,11 @@ import { createNavidromePlaylistService } from './navidrome-playlist-service.js'
 import { sidePanelManager } from './side-panel.js';
 import { escapeHtml, positionMenu } from './utils.js';
 
-const PLAYABLE_CONTEXT_TYPES = new Set(['track', 'video', 'album', 'playlist', 'user-playlist', 'mix']);
+import { PLAYABLE_CONTEXT_TYPES, shouldConfirmQueueClear, contextActionSupportsType } from './queue-rules.js';
 
 let installed = false;
 let activeUI = null;
 let playlistService = null;
-
-export function shouldConfirmQueueClear(queue) {
-    return Array.isArray(queue) && queue.length > 0;
-}
-
-export function contextActionSupportsType(action, type) {
-    if (['play-card', 'play-next', 'add-to-queue'].includes(action)) {
-        return PLAYABLE_CONTEXT_TYPES.has(type);
-    }
-    if (action === 'toggle-like') {
-        return ['track', 'album', 'artist', 'playlist', 'user-playlist'].includes(type);
-    }
-    return true;
-}
 
 function normalizeContextMenu() {
     const menu = document.getElementById('context-menu');

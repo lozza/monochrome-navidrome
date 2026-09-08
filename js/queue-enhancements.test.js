@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { contextActionSupportsType, shouldConfirmQueueClear } from './queue-enhancements.js';
+import { contextActionSupportsType, shouldConfirmQueueClear } from './queue-rules.js';
 
 describe('queue enhancements', () => {
     test('only asks for clear confirmation when the queue is non-empty', () => {
