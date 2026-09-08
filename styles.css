@@ -5808,11 +5808,16 @@ input:checked + .slider::before {
     font-size: 1.25rem;
     font-weight: 600;
     padding-left: 0.5rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .panel-controls {
     display: flex;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 /* Lyrics timing adjustment controls */
@@ -6726,6 +6731,25 @@ img[src=''] {
 
 /* Mobile-specific overrides */
 @media (max-width: 768px) {
+    .panel-header {
+        gap: 0.25rem;
+        padding: 0.75rem 0.5rem;
+    }
+
+    .panel-header h3 {
+        padding-left: 0;
+    }
+
+    .panel-controls {
+        gap: 0.125rem;
+    }
+
+    .panel-controls .btn-icon {
+        width: 30px;
+        height: 30px;
+        padding: 0.375rem;
+    }
+
     .mobile-only {
         display: flex !important;
     }
