@@ -52,6 +52,31 @@ export function initializeUIInteractions(player, api, ui) {
     const queueBtn = document.getElementById('queue-btn');
     const libraryPage = document.getElementById('page-library');
 
+    const getTrackFavoriteStatus = async (track) => {
+        const localFavorite = await db.isFavorite('track', track.id);
+        if (!api.isFavorite) return localFavorite;
+
+        try {
+            const remoteFavorite = await api.isFavorite('track', track.id);
+            if (remoteFavorite !== localFavorite) {
+                await db.toggleFavorite('track', track);
+            }
+            return remoteFavorite;
+        } catch (error) {
+            console.warn('Unable to refresh favorite state from Navidrome:', error);
+            return localFavorite;
+        }
+    };
+
+    const setTrackFavoriteStatus = async (track, favorite) => {
+        await api.setFavorite?.('track', track.id, favorite);
+        const localFavorite = await db.isFavorite('track', track.id);
+        if (localFavorite !== favorite) {
+            await db.toggleFavorite('track', track);
+        }
+        return favorite;
+    };
+
     if (libraryPage) {
         libraryPage.addEventListener('dragstart', (e) => {
             const playlistCard = e.target.closest('.card.user-playlist');
@@ -170,9 +195,9 @@ export function initializeUIInteractions(player, api, ui) {
             likeBtn.addEventListener('click', async () => {
                 let addedCount = 0;
                 for (const track of currentQueue) {
-                    const wasAdded = await db.toggleFavorite('track', track);
-                    if (wasAdded) {
-                        await syncManager.syncLibraryItem('track', track, true);
+                    const isFavorite = await getTrackFavoriteStatus(track);
+                    if (!isFavorite) {
+                        await setTrackFavoriteStatus(track, true);
                         addedCount++;
                     }
                 }
@@ -343,14 +368,21 @@ export function initializeUIInteractions(player, api, ui) {
                 e.stopPropagation();
                 const track = player.getCurrentQueue()[index];
                 if (track) {
-                    const added = await db.toggleFavorite('track', track);
-                    await syncManager.syncLibraryItem('track', track, added);
+                    try {
+                        const added = !(await getTrackFavoriteStatus(track));
+                        await setTrackFavoriteStatus(track, added);
 
-                    likeBtn.classList.toggle('active', added);
-                    likeBtn.innerHTML = added ? SVG_HEART_FILLED(20) : SVG_HEART(20);
+                        likeBtn.classList.toggle('active', added);
+                        likeBtn.innerHTML = added ? SVG_HEART_FILLED(20) : SVG_HEART(20);
 
-                    await hapticSuccess();
-                    showNotification(added ? `Added to Liked: ${track.title}` : `Removed from Liked: ${track.title}`);
+                        await hapticSuccess();
+                        showNotification(
+                            added ? `Added to Liked: ${track.title}` : `Removed from Liked: ${track.title}`
+                        );
+                    } catch (error) {
+                        console.error('Failed to update favorite:', error);
+                        showNotification('Could not update starred track');
+                    }
                 }
                 return;
             }
@@ -371,7 +403,7 @@ export function initializeUIInteractions(player, api, ui) {
             if (contextMenu) {
                 const track = player.getCurrentQueue()[index];
                 if (track) {
-                    const isLiked = await db.isFavorite('track', track.id);
+                    const isLiked = await getTrackFavoriteStatus(track);
                     const likeItem = contextMenu.querySelector('li[data-action="toggle-like"]');
                     if (likeItem) {
                         likeItem.textContent = isLiked ? 'Unlike' : 'Like';
@@ -494,16 +526,18 @@ export function initializeUIInteractions(player, api, ui) {
             if (bottomObserver) bottomObserver.disconnect();
         }
 
-        container.querySelectorAll('.queue-track-item').forEach(async (item) => {
-            const index = parseInt(item.dataset.queueIndex);
-            const track = currentQueue[index];
-            const likeBtn = item.querySelector('.queue-like-btn');
-            if (likeBtn && track) {
-                const isLiked = await db.isFavorite('track', track.id);
-                likeBtn.classList.toggle('active', isLiked);
-                likeBtn.innerHTML = isLiked ? SVG_HEART_FILLED(20) : SVG_HEART(20);
-            }
-        });
+        await Promise.all(
+            [...container.querySelectorAll('.queue-track-item')].map(async (item) => {
+                const index = parseInt(item.dataset.queueIndex);
+                const track = currentQueue[index];
+                const likeBtn = item.querySelector('.queue-like-btn');
+                if (likeBtn && track) {
+                    const isLiked = await getTrackFavoriteStatus(track);
+                    likeBtn.classList.toggle('active', isLiked);
+                    likeBtn.innerHTML = isLiked ? SVG_HEART_FILLED(20) : SVG_HEART(20);
+                }
+            })
+        );
 
         isQueueRendering = false;
     };
