@@ -1717,6 +1717,10 @@ input[type='search']::-webkit-search-cancel-button {
     margin-bottom: 0;
 }
 
+#navidrome-create-playlist-btn {
+    margin-bottom: var(--spacing-lg);
+}
+
 #page-home .section-header-row {
     margin-bottom: var(--spacing-lg);
 }
@@ -6963,6 +6967,10 @@ img[src=''] {
 
     .section-title {
         font-size: 1.5rem;
+        margin-bottom: var(--spacing-md);
+    }
+
+    #navidrome-create-playlist-btn {
         margin-bottom: var(--spacing-md);
     }
 
