@@ -692,7 +692,7 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
     });
     nextBtn.addEventListener('click', async () => {
         await hapticMedium();
-        player.playNext();
+        player.playNext(0, { skipRepeatOne: true });
     });
     prevBtn.addEventListener('click', async () => {
         await hapticMedium();
@@ -706,13 +706,20 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
         if (window.renderQueueFunction) await window.renderQueueFunction();
     });
 
-    repeatBtn.addEventListener('click', async () => {
-        await hapticLight();
-        const mode = await player.toggleRepeat();
+    const syncRepeatButton = (mode = player.repeatMode) => {
         repeatBtn.classList.toggle('active', mode !== REPEAT_MODE.OFF);
         repeatBtn.classList.toggle('repeat-one', mode === REPEAT_MODE.ONE);
         repeatBtn.title =
             mode === REPEAT_MODE.OFF ? 'Repeat' : mode === REPEAT_MODE.ALL ? 'Repeat Queue' : 'Repeat One';
+        repeatBtn.setAttribute('aria-label', repeatBtn.title);
+    };
+
+    syncRepeatButton();
+
+    repeatBtn.addEventListener('click', async () => {
+        await hapticLight();
+        const mode = await player.toggleRepeat();
+        syncRepeatButton(mode);
     });
 
     window.addEventListener('radio-state-changed', (e) => {
