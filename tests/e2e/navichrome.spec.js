@@ -174,6 +174,11 @@ test('queue handle dragging saves a new order inside the nested queue wrapper', 
     await page.mouse.down();
     await expect(page.locator('.playlist-drag-ghost')).toBeVisible();
     await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('border-radius', '2px');
+    await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('opacity', '1');
+    await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('backdrop-filter', 'none');
+    expect(await page.locator('.playlist-drag-ghost').evaluate((row) => getComputedStyle(row).backgroundColor)).toMatch(
+        /^rgb\(\d+, \d+, \d+\)$/
+    );
     await page.mouse.move(handle.x + handle.width / 2, destination.y + destination.height - 4, { steps: 6 });
     await page.mouse.up();
     await expect(page.locator('.playlist-drag-ghost')).toHaveCount(0);
