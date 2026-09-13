@@ -2620,10 +2620,22 @@ body.track-reordering * {
 }
 
 .playlist-drag-placeholder {
-    border: 2px dashed var(--primary);
-    border-radius: var(--radius);
-    background: rgb(var(--highlight-rgb), 0.12);
+    position: relative;
+    border-radius: 12px;
+    background: rgb(var(--highlight-rgb), 0.05);
     box-sizing: border-box;
+}
+
+.playlist-drag-placeholder::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    right: 12px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--primary);
+    transform: translateY(-50%);
 }
 
 .playlist-drag-ghost {
@@ -2633,8 +2645,22 @@ body.track-reordering * {
     margin: 0;
     opacity: 1;
     transform: scale(1.07);
-    box-shadow: 0 12px 32px rgb(0 0 0 / 40%);
-    background: var(--card);
+    border: 1px solid rgb(var(--highlight-rgb), 0.65);
+    border-radius: 12px;
+    box-shadow:
+        0 18px 40px rgb(0 0 0 / 35%),
+        0 4px 12px rgb(0 0 0 / 20%);
+    background: var(--secondary);
+}
+
+.playlist-drag-ghost .playlist-drag-handle {
+    color: var(--primary);
+    background: rgb(var(--highlight-rgb), 0.18);
+    border-radius: 8px;
+}
+
+.playlist-drag-ghost .track-item-details .title {
+    color: var(--foreground);
 }
 
 .queue-track-item.drag-over,
