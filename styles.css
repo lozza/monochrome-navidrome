@@ -2632,7 +2632,7 @@ body.track-reordering * {
     pointer-events: none;
     margin: 0;
     opacity: 1;
-    transform: scale(1.045);
+    transform: scale(1.07);
     box-shadow: 0 12px 32px rgb(0 0 0 / 40%);
     background: var(--card);
 }

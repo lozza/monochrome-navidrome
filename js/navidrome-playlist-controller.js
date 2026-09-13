@@ -396,7 +396,7 @@ function enableReordering(container, playlistId) {
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const rowAnimations = new Map();
         if (!reducedMotion) {
-            ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.045)' }], {
+            ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], {
                 duration: 220,
                 easing: 'ease-out',
             });
@@ -446,7 +446,7 @@ function enableReordering(container, playlistId) {
                 const destination = placeholder.getBoundingClientRect();
                 const settle = ghost.animate(
                     [
-                        { transform: 'scale(1.045)' },
+                        { transform: 'scale(1.07)' },
                         {
                             transform: `translate(${destination.left - parseFloat(ghost.style.left)}px, ${destination.top - parseFloat(ghost.style.top)}px) scale(1)`,
                             opacity: 1,
