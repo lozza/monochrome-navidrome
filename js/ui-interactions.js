@@ -128,7 +128,7 @@ export function initializeUIInteractions(player, api, ui) {
 
     let draggedQueueIndex = null;
     let pointerDraggedQueueIndex = null;
-    let pointerQueueTargetIndex = null;
+    let pointerQueueCurrentIndex = null;
     let pointerQueueItem = null;
     let queueStartIndex = 0;
     let queueEndIndex = 1000;
@@ -467,7 +467,7 @@ export function initializeUIInteractions(player, api, ui) {
             if (!item || item.classList.contains('blocked')) return;
             e.preventDefault();
             pointerDraggedQueueIndex = Number(item.dataset.queueIndex);
-            pointerQueueTargetIndex = pointerDraggedQueueIndex;
+            pointerQueueCurrentIndex = pointerDraggedQueueIndex;
             pointerQueueItem = item;
             item.classList.add('dragging');
             handle.setPointerCapture?.(e.pointerId);
@@ -478,20 +478,32 @@ export function initializeUIInteractions(player, api, ui) {
             e.preventDefault();
             const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.queue-track-item');
             if (!target || !container.contains(target) || target.classList.contains('blocked')) return;
+            if (target === pointerQueueItem) return;
             container.querySelectorAll('.queue-track-item.drag-over').forEach((el) => el.classList.remove('drag-over'));
             target.classList.add('drag-over');
-            pointerQueueTargetIndex = Number(target.dataset.queueIndex);
+            const targetRect = target.getBoundingClientRect();
+            const insertAfter = e.clientY > targetRect.top + targetRect.height / 2;
+            target.parentNode.insertBefore(pointerQueueItem, insertAfter ? target.nextSibling : target);
+
+            // Keep the rendered queue in the same order as the finger. The
+            // actual player queue is updated once, on release.
+            const rendered = [...container.querySelectorAll('.queue-track-item')];
+            const firstIndex = Math.min(...rendered.map((el) => Number(el.dataset.queueIndex)).filter(Number.isFinite));
+            rendered.forEach((el, index) => {
+                el.dataset.queueIndex = String(firstIndex + index);
+            });
+            pointerQueueCurrentIndex = firstIndex + rendered.indexOf(pointerQueueItem);
         });
 
         const finishPointerQueueDrag = async (e, cancelled = false) => {
             if (pointerDraggedQueueIndex === null) return;
             e.preventDefault();
             const from = pointerDraggedQueueIndex;
-            const to = pointerQueueTargetIndex;
+            const to = pointerQueueCurrentIndex;
             pointerQueueItem?.classList.remove('dragging');
             container.querySelectorAll('.queue-track-item.drag-over').forEach((el) => el.classList.remove('drag-over'));
             pointerDraggedQueueIndex = null;
-            pointerQueueTargetIndex = null;
+            pointerQueueCurrentIndex = null;
             pointerQueueItem = null;
             if (!cancelled && Number.isInteger(to) && from !== to) {
                 await player.moveInQueue(from, to);

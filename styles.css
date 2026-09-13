@@ -4129,10 +4129,8 @@ input:checked + .slider::before {
 
 @media (max-width: 600px) {
     #context-menu {
-        width: min(320px, calc(100vw - 24px));
+        width: fit-content;
         max-width: calc(100vw - 24px);
-        max-height: 70dvh;
-        overflow-y: auto;
         overscroll-behavior: contain;
     }
 
@@ -4141,6 +4139,16 @@ input:checked + .slider::before {
         box-sizing: border-box;
         margin-right: 0;
     }
+}
+
+.queue-track-item.dragging {
+    opacity: 0.72;
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}
+
+.queue-track-item.drag-over {
+    border-top: 2px solid var(--primary);
 }
 
 #eq-node-context-menu li.eq-ctx-active {
