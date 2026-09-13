@@ -2653,10 +2653,18 @@ body.track-reordering * {
     background: var(--secondary);
 }
 
-.playlist-drag-ghost .playlist-drag-handle {
+.playlist-drag-ghost .playlist-drag-handle,
+.queue-track-item.playlist-drag-ghost .drag-handle {
     color: var(--primary);
     background: rgb(var(--highlight-rgb), 0.18);
     border-radius: 8px;
+}
+
+.queue-track-item.playlist-drag-ghost {
+    background: var(--secondary);
+    border: 1px solid rgb(var(--highlight-rgb), 0.65);
+    border-radius: 12px;
+    transition: none;
 }
 
 .playlist-drag-ghost .track-item-details .title {

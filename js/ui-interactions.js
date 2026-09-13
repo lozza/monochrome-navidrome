@@ -127,9 +127,7 @@ export function initializeUIInteractions(player, api, ui) {
     }
 
     let draggedQueueIndex = null;
-    let pointerDraggedQueueIndex = null;
-    let pointerQueueCurrentIndex = null;
-    let pointerQueueItem = null;
+    let queueTouchDragging = false;
     let queueStartIndex = 0;
     let queueEndIndex = 1000;
     let isQueueRendering = false;
@@ -464,63 +462,120 @@ export function initializeUIInteractions(player, api, ui) {
         container.addEventListener('pointerdown', (e) => {
             const handle = e.target.closest('.drag-handle');
             const item = handle?.closest('.queue-track-item');
-            if (!item || item.classList.contains('blocked')) return;
+            if (!item || item.classList.contains('blocked') || queueTouchDragging) return;
             e.preventDefault();
+            queueTouchDragging = true;
             document.body.classList.add('track-reordering');
             window.getSelection()?.removeAllRanges();
-            pointerDraggedQueueIndex = Number(item.dataset.queueIndex);
-            pointerQueueCurrentIndex = pointerDraggedQueueIndex;
-            pointerQueueItem = item;
-            item.classList.add('dragging');
-            handle.setPointerCapture?.(e.pointerId);
-        });
+            const from = Number(item.dataset.queueIndex);
+            const firstIndex = Math.min(
+                ...[...container.querySelectorAll('.queue-track-item')].map((row) => Number(row.dataset.queueIndex))
+            );
+            const originalNext = item.nextSibling;
+            const rect = item.getBoundingClientRect();
+            const placeholder = document.createElement('div');
+            placeholder.className = 'playlist-drag-placeholder';
+            placeholder.style.height = `${rect.height}px`;
+            item.before(placeholder);
+            const ghost = item.cloneNode(true);
+            ghost.classList.add('playlist-drag-ghost');
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.left = `${rect.left}px`;
+            ghost.style.top = `${rect.top}px`;
+            document.body.appendChild(ghost);
+            item.style.display = 'none';
+            const offsetX = e.clientX - rect.left;
+            const offsetY = e.clientY - rect.top;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const animations = new Map();
+            let scroller = container;
+            while (scroller.parentElement && scroller.scrollHeight <= scroller.clientHeight)
+                scroller = scroller.parentElement;
+            if (!reducedMotion)
+                ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], {
+                    duration: 220,
+                    easing: 'ease-out',
+                });
 
-        container.addEventListener('pointermove', (e) => {
-            if (pointerDraggedQueueIndex === null) return;
-            e.preventDefault();
-            const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.queue-track-item');
-            if (!target || !container.contains(target) || target.classList.contains('blocked')) return;
-            if (target === pointerQueueItem) return;
-            container.querySelectorAll('.queue-track-item.drag-over').forEach((el) => el.classList.remove('drag-over'));
-            target.classList.add('drag-over');
-            const targetRect = target.getBoundingClientRect();
-            const insertAfter = e.clientY > targetRect.top + targetRect.height / 2;
-            target.parentNode.insertBefore(pointerQueueItem, insertAfter ? target.nextSibling : target);
+            const move = (event) => {
+                if (event.pointerId !== e.pointerId) return;
+                event.preventDefault();
+                ghost.style.left = `${event.clientX - offsetX}px`;
+                ghost.style.top = `${event.clientY - offsetY}px`;
+                const scrollRect = scroller.getBoundingClientRect();
+                if (event.clientY < scrollRect.top + 64) scroller.scrollTop -= 14;
+                if (event.clientY > scrollRect.bottom - 64) scroller.scrollTop += 14;
+                const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.queue-track-item');
+                if (!target || target === item || !container.contains(target)) return;
+                const targetRect = target.getBoundingClientRect();
+                const after = event.clientY > targetRect.top + targetRect.height / 2;
+                const next = after ? target.nextSibling : target;
+                if (next === placeholder || placeholder.nextSibling === next) return;
+                const rows = [...container.querySelectorAll('.queue-track-item')].filter((row) => row !== item);
+                const positions = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
+                animations.forEach((animation) => animation.cancel());
+                animations.clear();
+                container.insertBefore(placeholder, next);
+                if (!reducedMotion)
+                    rows.forEach((row) => {
+                        const delta = positions.get(row) - row.getBoundingClientRect().top;
+                        if (Math.abs(delta) < 1) return;
+                        animations.set(
+                            row,
+                            row.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], {
+                                duration: 280,
+                                easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+                            })
+                        );
+                    });
+            };
 
-            // Keep the rendered queue in the same order as the finger. The
-            // actual player queue is updated once, on release.
-            const rendered = [...container.querySelectorAll('.queue-track-item')];
-            const firstIndex = Math.min(...rendered.map((el) => Number(el.dataset.queueIndex)).filter(Number.isFinite));
-            rendered.forEach((el, index) => {
-                el.dataset.queueIndex = String(firstIndex + index);
-            });
-            pointerQueueCurrentIndex = firstIndex + rendered.indexOf(pointerQueueItem);
-        });
-
-        const finishPointerQueueDrag = async (e, cancelled = false) => {
-            if (pointerDraggedQueueIndex === null) return;
-            e.preventDefault();
-            const from = pointerDraggedQueueIndex;
-            const to = pointerQueueCurrentIndex;
-            pointerQueueItem?.classList.remove('dragging');
-            container.querySelectorAll('.queue-track-item.drag-over').forEach((el) => el.classList.remove('drag-over'));
-            pointerDraggedQueueIndex = null;
-            pointerQueueCurrentIndex = null;
-            pointerQueueItem = null;
-            document.body.classList.remove('track-reordering');
-            if (!cancelled && Number.isInteger(to) && from !== to) {
-                await player.moveInQueue(from, to);
+            const finish = async (event, cancelled = false) => {
+                if (event.pointerId !== e.pointerId) return;
+                event.preventDefault();
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', finish);
+                document.removeEventListener('pointercancel', cancel);
+                if (!reducedMotion && !cancelled) {
+                    const destination = placeholder.getBoundingClientRect();
+                    await ghost
+                        .animate(
+                            [
+                                { transform: 'scale(1.07)' },
+                                {
+                                    transform: `translate(${destination.left - parseFloat(ghost.style.left)}px, ${destination.top - parseFloat(ghost.style.top)}px) scale(1)`,
+                                },
+                            ],
+                            { duration: 260, easing: 'ease-out', fill: 'forwards' }
+                        )
+                        .finished.catch(() => {});
+                }
+                animations.forEach((animation) => animation.cancel());
+                if (cancelled) {
+                    placeholder.remove();
+                    container.insertBefore(item, originalNext);
+                } else placeholder.replaceWith(item);
+                item.style.display = '';
+                ghost.remove();
+                document.body.classList.remove('track-reordering');
+                queueTouchDragging = false;
+                const to = firstIndex + [...container.querySelectorAll('.queue-track-item')].indexOf(item);
+                if (!cancelled && from !== to) {
+                    await player.moveInQueue(from, to);
+                }
                 await refreshQueuePanel();
-            }
-        };
-
-        container.addEventListener('pointerup', (e) => finishPointerQueueDrag(e));
-        container.addEventListener('pointercancel', (e) => finishPointerQueueDrag(e, true));
+            };
+            const cancel = (event) => finish(event, true);
+            document.addEventListener('pointermove', move, { passive: false });
+            document.addEventListener('pointerup', finish, { passive: false });
+            document.addEventListener('pointercancel', cancel, { passive: false });
+        });
 
         container._queueListenersAttached = true;
     };
 
     const renderQueueContent = async (container, isUpdate = false) => {
+        if (queueTouchDragging) return;
         const currentQueue = player.getCurrentQueue();
 
         if (currentQueue.length === 0) {
