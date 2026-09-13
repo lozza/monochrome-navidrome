@@ -1,5 +1,5 @@
 import { showNotification } from './downloads.js';
-import { SVG_BIN } from './icons.js';
+import { SVG_BIN, SVG_EQUAL } from './icons.js';
 import { createNavidromePlaylistService } from './navidrome-playlist-service.js';
 import { escapeHtml, trackDataStore } from './utils.js';
 
@@ -287,6 +287,16 @@ function addRemoveButtons(container, tracks, playlistId) {
         button.dataset.navidromePlaylistIndex = String(serverIndex);
         button.innerHTML = SVG_BIN(20);
         actions.prepend(button);
+
+        if (!actions.querySelector('.playlist-drag-handle')) {
+            const handle = document.createElement('button');
+            handle.type = 'button';
+            handle.className = 'track-action-btn playlist-drag-handle';
+            handle.title = 'Reorder track';
+            handle.setAttribute('aria-label', 'Reorder track');
+            handle.innerHTML = SVG_EQUAL(20);
+            actions.prepend(handle);
+        }
     });
 
     container.classList.add('is-editable');
@@ -297,6 +307,7 @@ function enableReordering(container, playlistId) {
     if (sortMode && sortMode !== 'custom') return;
 
     let dragging = null;
+    let pointerDrag = null;
     let saving = false;
     container.querySelectorAll('.track-item').forEach((item) => {
         item.draggable = true;
@@ -304,9 +315,12 @@ function enableReordering(container, playlistId) {
 
     container.addEventListener('dragstart', (event) => {
         const item = event.target.closest('.track-item');
-        if (!item || event.target.closest('button, a, input')) return;
+        if (!item || (event.target.closest('button, a, input') && !event.target.closest('.playlist-drag-handle')))
+            return;
         dragging = item;
         item.classList.add('dragging');
+        event.dataTransfer?.setData('text/plain', item.dataset.trackId || 'playlist-track');
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
     });
 
     container.addEventListener('dragover', (event) => {
@@ -321,14 +335,11 @@ function enableReordering(container, playlistId) {
 
     container.addEventListener('dragend', () => {
         dragging?.classList.remove('dragging');
+        dragging = null;
     });
 
-    container.addEventListener('drop', async (event) => {
-        if (!dragging || saving) return;
-        event.preventDefault();
-        dragging.classList.remove('dragging');
-        dragging = null;
-
+    const saveOrder = async () => {
+        if (saving) return;
         const orderedTracks = [...container.querySelectorAll('.track-item')]
             .map((item) => trackDataStore.get(item))
             .filter(Boolean);
@@ -344,6 +355,50 @@ function enableReordering(container, playlistId) {
         } finally {
             saving = false;
         }
+    };
+
+    container.addEventListener('drop', async (event) => {
+        if (!dragging || saving) return;
+        event.preventDefault();
+        dragging.classList.remove('dragging');
+        dragging = null;
+        await saveOrder();
+    });
+
+    // HTML5 drag-and-drop is not supported reliably by iPhone/iPad Safari.
+    // Use the dedicated handle for a small pointer-based fallback.
+    container.addEventListener('pointerdown', (event) => {
+        const handle = event.target.closest('.playlist-drag-handle');
+        const item = handle?.closest('.track-item');
+        if (!item || saving) return;
+        event.preventDefault();
+        pointerDrag = { item, pointerId: event.pointerId };
+        item.classList.add('dragging');
+        handle.setPointerCapture?.(event.pointerId);
+    });
+
+    container.addEventListener('pointermove', (event) => {
+        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+        event.preventDefault();
+        const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.track-item');
+        if (!target || target === pointerDrag.item || !container.contains(target)) return;
+        const rect = target.getBoundingClientRect();
+        const after = event.clientY > rect.top + rect.height / 2;
+        target.parentNode.insertBefore(pointerDrag.item, after ? target.nextSibling : target);
+    });
+
+    container.addEventListener('pointerup', async (event) => {
+        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+        event.preventDefault();
+        pointerDrag.item.classList.remove('dragging');
+        pointerDrag = null;
+        await saveOrder();
+    });
+
+    container.addEventListener('pointercancel', (event) => {
+        if (pointerDrag?.pointerId !== event.pointerId) return;
+        pointerDrag.item.classList.remove('dragging');
+        pointerDrag = null;
     });
 }
 

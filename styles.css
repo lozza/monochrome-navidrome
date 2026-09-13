@@ -2585,6 +2585,24 @@ body.multi-select-mode .track-item:hover {
     /* Prevent buttons from squishing */
 }
 
+/* Dedicated handle for playlist reordering. Pointer events keep this usable
+   on touch screens where native HTML5 dragging is unavailable. */
+.playlist-drag-handle {
+    opacity: 1;
+    cursor: grab;
+    touch-action: none;
+}
+
+.playlist-drag-handle:active {
+    cursor: grabbing;
+}
+
+.queue-track-item.drag-over,
+.track-item.dragging {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}
+
 .track-action-btn:hover {
     background-color: rgb(var(--highlight-rgb), 0.2);
     color: var(--foreground);
@@ -4107,6 +4125,22 @@ input:checked + .slider::before {
 #eq-node-context-menu li.separator:hover {
     background-color: var(--border);
     transform: none;
+}
+
+@media (max-width: 600px) {
+    #context-menu {
+        width: min(320px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+        max-height: 70dvh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    #context-menu li {
+        min-height: 44px;
+        box-sizing: border-box;
+        margin-right: 0;
+    }
 }
 
 #eq-node-context-menu li.eq-ctx-active {

@@ -127,6 +127,9 @@ export function initializeUIInteractions(player, api, ui) {
     }
 
     let draggedQueueIndex = null;
+    let pointerDraggedQueueIndex = null;
+    let pointerQueueTargetIndex = null;
+    let pointerQueueItem = null;
     let queueStartIndex = 0;
     let queueEndIndex = 1000;
     let isQueueRendering = false;
@@ -354,6 +357,9 @@ export function initializeUIInteractions(player, api, ui) {
             const item = e.target.closest('.queue-track-item');
             if (!item) return;
 
+            // The drag handle is an interaction target, not a play button.
+            if (e.target.closest('.drag-handle')) return;
+
             const index = parseInt(item.dataset.queueIndex);
             const removeBtn = e.target.closest('.queue-remove-btn');
             if (removeBtn) {
@@ -450,7 +456,51 @@ export function initializeUIInteractions(player, api, ui) {
                     await refreshQueuePanel();
                 }
             }
+            draggedQueueIndex = null;
         });
+
+        // iOS Safari does not start HTML5 drag events from a long press. Keep
+        // the handle usable there with a pointer-based reorder fallback.
+        container.addEventListener('pointerdown', (e) => {
+            const handle = e.target.closest('.drag-handle');
+            const item = handle?.closest('.queue-track-item');
+            if (!item || item.classList.contains('blocked')) return;
+            e.preventDefault();
+            pointerDraggedQueueIndex = Number(item.dataset.queueIndex);
+            pointerQueueTargetIndex = pointerDraggedQueueIndex;
+            pointerQueueItem = item;
+            item.classList.add('dragging');
+            handle.setPointerCapture?.(e.pointerId);
+        });
+
+        container.addEventListener('pointermove', (e) => {
+            if (pointerDraggedQueueIndex === null) return;
+            e.preventDefault();
+            const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.queue-track-item');
+            if (!target || !container.contains(target) || target.classList.contains('blocked')) return;
+            container.querySelectorAll('.queue-track-item.drag-over').forEach((el) => el.classList.remove('drag-over'));
+            target.classList.add('drag-over');
+            pointerQueueTargetIndex = Number(target.dataset.queueIndex);
+        });
+
+        const finishPointerQueueDrag = async (e, cancelled = false) => {
+            if (pointerDraggedQueueIndex === null) return;
+            e.preventDefault();
+            const from = pointerDraggedQueueIndex;
+            const to = pointerQueueTargetIndex;
+            pointerQueueItem?.classList.remove('dragging');
+            container.querySelectorAll('.queue-track-item.drag-over').forEach((el) => el.classList.remove('drag-over'));
+            pointerDraggedQueueIndex = null;
+            pointerQueueTargetIndex = null;
+            pointerQueueItem = null;
+            if (!cancelled && Number.isInteger(to) && from !== to) {
+                await player.moveInQueue(from, to);
+                await refreshQueuePanel();
+            }
+        };
+
+        container.addEventListener('pointerup', (e) => finishPointerQueueDrag(e));
+        container.addEventListener('pointercancel', (e) => finishPointerQueueDrag(e, true));
 
         container._queueListenersAttached = true;
     };
