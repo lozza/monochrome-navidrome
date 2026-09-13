@@ -2631,9 +2631,9 @@ body.track-reordering * {
     z-index: 4000;
     pointer-events: none;
     margin: 0;
-    opacity: 0.96;
-    transform: scale(1.02);
-    box-shadow: var(--shadow-lg);
+    opacity: 1;
+    transform: scale(1.045);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 40%);
     background: var(--card);
 }
 

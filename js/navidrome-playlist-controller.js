@@ -396,8 +396,8 @@ function enableReordering(container, playlistId) {
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const rowAnimations = new Map();
         if (!reducedMotion) {
-            ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], {
-                duration: 140,
+            ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.045)' }], {
+                duration: 220,
                 easing: 'ease-out',
             });
         }
@@ -428,7 +428,7 @@ function enableReordering(container, playlistId) {
                     rowAnimations.set(
                         row,
                         row.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], {
-                            duration: 180,
+                            duration: 280,
                             easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
                         })
                     );
@@ -446,13 +446,13 @@ function enableReordering(container, playlistId) {
                 const destination = placeholder.getBoundingClientRect();
                 const settle = ghost.animate(
                     [
-                        { transform: 'scale(1.02)' },
+                        { transform: 'scale(1.045)' },
                         {
                             transform: `translate(${destination.left - parseFloat(ghost.style.left)}px, ${destination.top - parseFloat(ghost.style.top)}px) scale(1)`,
                             opacity: 1,
                         },
                     ],
-                    { duration: 160, easing: 'ease-out', fill: 'forwards' }
+                    { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' }
                 );
                 await settle.finished.catch(() => {});
             }
