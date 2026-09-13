@@ -307,7 +307,6 @@ function enableReordering(container, playlistId) {
     if (sortMode && sortMode !== 'custom') return;
 
     let dragging = null;
-    let pointerDrag = null;
     let saving = false;
     container.querySelectorAll('.track-item').forEach((item) => {
         item.draggable = true;
@@ -366,39 +365,64 @@ function enableReordering(container, playlistId) {
     });
 
     // HTML5 drag-and-drop is not supported reliably by iPhone/iPad Safari.
-    // Use the dedicated handle for a small pointer-based fallback.
+    // Use a lifted row and placeholder so touch reordering feels direct rather
+    // than waiting until the finger is released.
     container.addEventListener('pointerdown', (event) => {
         const handle = event.target.closest('.playlist-drag-handle');
         const item = handle?.closest('.track-item');
         if (!item || saving) return;
         event.preventDefault();
-        pointerDrag = { item, pointerId: event.pointerId };
-        item.classList.add('dragging');
-        handle.setPointerCapture?.(event.pointerId);
-    });
+        const rect = item.getBoundingClientRect();
+        const placeholder = document.createElement('div');
+        placeholder.className = 'playlist-drag-placeholder';
+        placeholder.style.height = `${rect.height}px`;
+        item.parentNode.insertBefore(placeholder, item);
 
-    container.addEventListener('pointermove', (event) => {
-        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-        event.preventDefault();
-        const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.track-item');
-        if (!target || target === pointerDrag.item || !container.contains(target)) return;
-        const rect = target.getBoundingClientRect();
-        const after = event.clientY > rect.top + rect.height / 2;
-        target.parentNode.insertBefore(pointerDrag.item, after ? target.nextSibling : target);
-    });
+        const ghost = item.cloneNode(true);
+        ghost.classList.add('playlist-drag-ghost');
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.left = `${rect.left}px`;
+        ghost.style.top = `${rect.top}px`;
+        document.body.appendChild(ghost);
+        item.style.display = 'none';
 
-    container.addEventListener('pointerup', async (event) => {
-        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-        event.preventDefault();
-        pointerDrag.item.classList.remove('dragging');
-        pointerDrag = null;
-        await saveOrder();
-    });
+        const pointerId = event.pointerId;
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
 
-    container.addEventListener('pointercancel', (event) => {
-        if (pointerDrag?.pointerId !== event.pointerId) return;
-        pointerDrag.item.classList.remove('dragging');
-        pointerDrag = null;
+        const move = (moveEvent) => {
+            if (moveEvent.pointerId !== pointerId) return;
+            moveEvent.preventDefault();
+            ghost.style.left = `${moveEvent.clientX - offsetX}px`;
+            ghost.style.top = `${moveEvent.clientY - offsetY}px`;
+
+            const edge = 72;
+            if (moveEvent.clientY < edge) window.scrollBy(0, -14);
+            if (moveEvent.clientY > window.innerHeight - edge) window.scrollBy(0, 14);
+
+            const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('.track-item');
+            if (!target || !container.contains(target) || target === item) return;
+            const targetRect = target.getBoundingClientRect();
+            const after = moveEvent.clientY > targetRect.top + targetRect.height / 2;
+            container.insertBefore(placeholder, after ? target.nextSibling : target);
+        };
+
+        const finish = async (finishEvent, cancelled = false) => {
+            if (finishEvent.pointerId !== pointerId) return;
+            finishEvent.preventDefault();
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', finish);
+            document.removeEventListener('pointercancel', cancel);
+            placeholder.replaceWith(item);
+            item.style.display = '';
+            ghost.remove();
+            if (!cancelled) await saveOrder();
+        };
+
+        const cancel = (cancelEvent) => finish(cancelEvent, true);
+        document.addEventListener('pointermove', move, { passive: false });
+        document.addEventListener('pointerup', finish, { passive: false });
+        document.addEventListener('pointercancel', cancel, { passive: false });
     });
 }
 

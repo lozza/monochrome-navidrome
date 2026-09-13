@@ -2597,6 +2597,24 @@ body.multi-select-mode .track-item:hover {
     cursor: grabbing;
 }
 
+.playlist-drag-placeholder {
+    border: 2px dashed var(--primary);
+    border-radius: var(--radius);
+    background: rgb(var(--highlight-rgb), 0.12);
+    box-sizing: border-box;
+}
+
+.playlist-drag-ghost {
+    position: fixed;
+    z-index: 4000;
+    pointer-events: none;
+    margin: 0;
+    opacity: 0.96;
+    transform: scale(1.02);
+    box-shadow: var(--shadow-lg);
+    background: var(--card);
+}
+
 .queue-track-item.drag-over,
 .track-item.dragging {
     outline: 2px solid var(--primary);
