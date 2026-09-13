@@ -4,6 +4,7 @@ import { openCreateNavidromePlaylist } from './navidrome-playlist-controller.js'
 import { createNavidromePlaylistService } from './navidrome-playlist-service.js';
 import { sidePanelManager } from './side-panel.js';
 import { escapeHtml, positionMenu } from './utils.js';
+import { SVG_LIST, SVG_MOVE_DOWN } from './icons.js';
 
 import { PLAYABLE_CONTEXT_TYPES, shouldConfirmQueueClear, contextActionSupportsType } from './queue-rules.js';
 
@@ -198,15 +199,18 @@ function enhanceQueueControls() {
     const addToPlaylist = controls.querySelector('#add-queue-to-playlist-btn');
     if (addToPlaylist) addToPlaylist.title = 'Add queue to Navidrome playlist';
 
-    if (!controls.querySelector('#save-queue-as-playlist-btn')) {
-        const save = document.createElement('button');
+    let save = controls.querySelector('#save-queue-as-playlist-btn');
+    if (!save) {
+        save = document.createElement('button');
         save.id = 'save-queue-as-playlist-btn';
         save.className = 'btn-icon';
         save.type = 'button';
-        save.title = 'Save queue as a new playlist';
-        save.textContent = 'Save';
         controls.insertBefore(save, controls.querySelector('#clear-queue-btn'));
     }
+    save.classList.add('btn-icon');
+    save.title = 'Save queue as a new playlist';
+    save.setAttribute('aria-label', 'Save queue as a new playlist');
+    save.innerHTML = SVG_LIST(18);
 
     if (!controls.querySelector('#jump-to-playing-queue-btn')) {
         const jump = document.createElement('button');
@@ -214,7 +218,8 @@ function enhanceQueueControls() {
         jump.className = 'btn-icon';
         jump.type = 'button';
         jump.title = 'Jump to currently playing track';
-        jump.textContent = 'Current';
+        jump.setAttribute('aria-label', 'Jump to currently playing track');
+        jump.innerHTML = SVG_MOVE_DOWN(18);
         controls.insertBefore(jump, controls.querySelector('#clear-queue-btn'));
     }
 }

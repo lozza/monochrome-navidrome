@@ -9,7 +9,7 @@ export default defineConfig({
     workers: 1,
     reporter: process.env.CI ? [['github'], ['list']] : 'list',
     use: {
-        baseURL: 'http://127.0.0.1:4174',
+        baseURL: `http://127.0.0.1:${process.env.NAVICHROME_TEST_PORT || 4174}`,
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },

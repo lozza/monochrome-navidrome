@@ -1,5 +1,5 @@
 import { showNotification } from './downloads.js';
-import { SVG_BIN } from './icons.js';
+import { SVG_BIN, SVG_EQUAL } from './icons.js';
 import { createNavidromePlaylistService } from './navidrome-playlist-service.js';
 import { escapeHtml, trackDataStore } from './utils.js';
 
@@ -287,6 +287,16 @@ function addRemoveButtons(container, tracks, playlistId) {
         button.dataset.navidromePlaylistIndex = String(serverIndex);
         button.innerHTML = SVG_BIN(20);
         actions.prepend(button);
+
+        if (!actions.querySelector('.playlist-drag-handle')) {
+            const handle = document.createElement('button');
+            handle.type = 'button';
+            handle.className = 'track-action-btn playlist-drag-handle';
+            handle.title = 'Reorder track';
+            handle.setAttribute('aria-label', 'Reorder track');
+            handle.innerHTML = SVG_EQUAL(20);
+            actions.prepend(handle);
+        }
     });
 
     container.classList.add('is-editable');
@@ -304,9 +314,12 @@ function enableReordering(container, playlistId) {
 
     container.addEventListener('dragstart', (event) => {
         const item = event.target.closest('.track-item');
-        if (!item || event.target.closest('button, a, input')) return;
+        if (!item || (event.target.closest('button, a, input') && !event.target.closest('.playlist-drag-handle')))
+            return;
         dragging = item;
         item.classList.add('dragging');
+        event.dataTransfer?.setData('text/plain', item.dataset.trackId || 'playlist-track');
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
     });
 
     container.addEventListener('dragover', (event) => {
@@ -321,14 +334,11 @@ function enableReordering(container, playlistId) {
 
     container.addEventListener('dragend', () => {
         dragging?.classList.remove('dragging');
+        dragging = null;
     });
 
-    container.addEventListener('drop', async (event) => {
-        if (!dragging || saving) return;
-        event.preventDefault();
-        dragging.classList.remove('dragging');
-        dragging = null;
-
+    const saveOrder = async () => {
+        if (saving) return;
         const orderedTracks = [...container.querySelectorAll('.track-item')]
             .map((item) => trackDataStore.get(item))
             .filter(Boolean);
@@ -344,6 +354,144 @@ function enableReordering(container, playlistId) {
         } finally {
             saving = false;
         }
+    };
+
+    container.addEventListener('drop', async (event) => {
+        if (!dragging || saving) return;
+        event.preventDefault();
+        dragging.classList.remove('dragging');
+        dragging = null;
+        await saveOrder();
+    });
+
+    enablePlaylistHandleDragging(container, saveOrder, () => saving);
+}
+
+export function enablePlaylistHandleDragging(container, saveOrder, isSaving = () => false) {
+    let touchDragging = false;
+    // HTML5 drag-and-drop is not supported reliably by iPhone/iPad Safari.
+    // Use a lifted row and placeholder so touch reordering feels direct rather
+    // than waiting until the finger is released.
+    container.addEventListener('pointerdown', (event) => {
+        const handle = event.target.closest('.playlist-drag-handle');
+        const item = handle?.closest('.track-item');
+        if (!item || isSaving() || touchDragging || event.button !== 0) return;
+        touchDragging = true;
+        event.preventDefault();
+        document.body.classList.add('track-reordering');
+        window.getSelection()?.removeAllRanges();
+        const rect = item.getBoundingClientRect();
+        const rowParent = item.parentElement;
+        const originalNext = item.nextSibling;
+        const placeholder = document.createElement('div');
+        placeholder.className = 'playlist-drag-placeholder';
+        placeholder.style.height = `${rect.height}px`;
+        item.parentNode.insertBefore(placeholder, item);
+
+        const ghost = item.cloneNode(true);
+        ghost.classList.add('playlist-drag-ghost');
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.left = `${rect.left}px`;
+        ghost.style.top = `${rect.top}px`;
+        document.body.appendChild(ghost);
+        item.style.display = 'none';
+
+        const pointerId = event.pointerId;
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const rowAnimations = new Map();
+        let scroller = container;
+        while (scroller.parentElement && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+            scroller = scroller.parentElement;
+        }
+        if (!reducedMotion) {
+            ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], {
+                duration: 220,
+                easing: 'ease-out',
+            });
+        }
+
+        const move = (moveEvent) => {
+            if (moveEvent.pointerId !== pointerId) return;
+            moveEvent.preventDefault();
+            ghost.style.left = `${moveEvent.clientX - offsetX}px`;
+            ghost.style.top = `${moveEvent.clientY - offsetY}px`;
+
+            const scrollRect = scroller.getBoundingClientRect();
+            const top = Math.max(0, scrollRect.top);
+            const bottom = Math.min(window.innerHeight, scrollRect.bottom);
+            const scrollBy = (distance) => {
+                if (scroller === document.body || scroller === document.documentElement) window.scrollBy(0, distance);
+                else scroller.scrollTop += distance;
+            };
+            if (moveEvent.clientY < top + 72) scrollBy(-14);
+            if (moveEvent.clientY > bottom - 72) scrollBy(14);
+
+            const rows = [...rowParent.querySelectorAll('.track-item')].filter((row) => row !== item);
+            const next =
+                rows.find((row) => {
+                    const box = row.getBoundingClientRect();
+                    return moveEvent.clientY < box.top + box.height / 2;
+                }) || null;
+            if (placeholder.nextSibling === next) return;
+            const previousPositions = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
+            rowAnimations.forEach((animation) => animation.cancel());
+            rowAnimations.clear();
+            rowParent.insertBefore(placeholder, next);
+            if (!reducedMotion) {
+                rows.forEach((row) => {
+                    const delta = previousPositions.get(row) - row.getBoundingClientRect().top;
+                    if (Math.abs(delta) < 1) return;
+                    rowAnimations.set(
+                        row,
+                        row.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], {
+                            duration: 280,
+                            easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+                        })
+                    );
+                });
+            }
+        };
+
+        const finish = async (finishEvent, cancelled = false) => {
+            if (finishEvent.pointerId !== pointerId) return;
+            finishEvent.preventDefault();
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', finish);
+            document.removeEventListener('pointercancel', cancel);
+            if (!reducedMotion && !cancelled) {
+                const destination = placeholder.getBoundingClientRect();
+                const settle = ghost.animate(
+                    [
+                        { transform: 'scale(1.07)' },
+                        {
+                            transform: `translate(${destination.left - parseFloat(ghost.style.left)}px, ${destination.top - parseFloat(ghost.style.top)}px) scale(1)`,
+                            opacity: 1,
+                        },
+                    ],
+                    { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' }
+                );
+                await settle.finished.catch(() => {});
+            }
+            rowAnimations.forEach((animation) => animation.cancel());
+            if (cancelled) {
+                placeholder.remove();
+                rowParent.insertBefore(item, originalNext);
+            } else {
+                placeholder.replaceWith(item);
+            }
+            item.style.display = '';
+            ghost.remove();
+            document.body.classList.remove('track-reordering');
+            touchDragging = false;
+            if (!cancelled) await saveOrder();
+        };
+
+        const cancel = (cancelEvent) => finish(cancelEvent, true);
+        document.addEventListener('pointermove', move, { passive: false });
+        document.addEventListener('pointerup', finish, { passive: false });
+        document.addEventListener('pointercancel', cancel, { passive: false });
     });
 }
 
