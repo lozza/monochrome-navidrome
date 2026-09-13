@@ -462,12 +462,13 @@ export function initializeUIInteractions(player, api, ui) {
         container.addEventListener('pointerdown', (e) => {
             const handle = e.target.closest('.drag-handle');
             const item = handle?.closest('.queue-track-item');
-            if (!item || item.classList.contains('blocked') || queueTouchDragging) return;
+            if (!item || item.classList.contains('blocked') || queueTouchDragging || e.button !== 0) return;
             e.preventDefault();
             queueTouchDragging = true;
             document.body.classList.add('track-reordering');
             window.getSelection()?.removeAllRanges();
             const from = Number(item.dataset.queueIndex);
+            const rowParent = item.parentElement;
             const firstIndex = Math.min(
                 ...[...container.querySelectorAll('.queue-track-item')].map((row) => Number(row.dataset.queueIndex))
             );
@@ -505,17 +506,17 @@ export function initializeUIInteractions(player, api, ui) {
                 const scrollRect = scroller.getBoundingClientRect();
                 if (event.clientY < scrollRect.top + 64) scroller.scrollTop -= 14;
                 if (event.clientY > scrollRect.bottom - 64) scroller.scrollTop += 14;
-                const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.queue-track-item');
-                if (!target || target === item || !container.contains(target)) return;
-                const targetRect = target.getBoundingClientRect();
-                const after = event.clientY > targetRect.top + targetRect.height / 2;
-                const next = after ? target.nextSibling : target;
+                const rows = [...rowParent.querySelectorAll('.queue-track-item')].filter((row) => row !== item);
+                const next =
+                    rows.find((row) => {
+                        const box = row.getBoundingClientRect();
+                        return event.clientY < box.top + box.height / 2;
+                    }) || null;
                 if (next === placeholder || placeholder.nextSibling === next) return;
-                const rows = [...container.querySelectorAll('.queue-track-item')].filter((row) => row !== item);
                 const positions = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
                 animations.forEach((animation) => animation.cancel());
                 animations.clear();
-                container.insertBefore(placeholder, next);
+                rowParent.insertBefore(placeholder, next);
                 if (!reducedMotion)
                     rows.forEach((row) => {
                         const delta = positions.get(row) - row.getBoundingClientRect().top;
@@ -553,7 +554,7 @@ export function initializeUIInteractions(player, api, ui) {
                 animations.forEach((animation) => animation.cancel());
                 if (cancelled) {
                     placeholder.remove();
-                    container.insertBefore(item, originalNext);
+                    rowParent.insertBefore(item, originalNext);
                 } else placeholder.replaceWith(item);
                 item.style.display = '';
                 ghost.remove();

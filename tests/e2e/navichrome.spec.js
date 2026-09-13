@@ -129,6 +129,60 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
     await expect(page.locator('#search-tracks-container [data-track-id="track-1"]')).toBeVisible();
 });
 
+test('playlist handle dragging works with sideways movement and cancels without changing order', async ({ page }) => {
+    const state = await installNavidromeMock(page);
+    await page.goto('/playlist/playlist-1');
+    await waitForReady(page);
+    const rows = page.locator('#playlist-detail-tracklist .track-item');
+    const handle = rows.first().locator('.playlist-drag-handle');
+    await handle.hover();
+    const start = await handle.boundingBox();
+    const destination = await rows.last().boundingBox();
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(1, destination.y + destination.height - 2, { steps: 6 });
+    await page.mouse.up();
+    await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
+    await expect.poll(() => state.playlistUpdates.length).toBe(1);
+    expect(state.playlistUpdates[0]).toEqual(['track-2', 'track-1']);
+    await expect(rows.first().locator('.playlist-drag-handle')).toBeVisible();
+    await rows.first().locator('.playlist-drag-handle').dispatchEvent('pointerdown', {
+        pointerId: 99,
+        button: 0,
+        clientX: start.x,
+        clientY: start.y,
+    });
+    await page.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 99 })));
+    await expect(page.locator('.playlist-drag-ghost')).toHaveCount(0);
+    await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
+    expect(state.playlistUpdates.length).toBe(1);
+});
+
+test('queue handle dragging saves a new order inside the nested queue wrapper', async ({ page }) => {
+    await installNavidromeMock(page);
+    await page.goto('/playlist/playlist-1');
+    await waitForReady(page);
+    await expect(page.locator('#playlist-detail-tracklist [data-track-id="track-1"]')).toBeVisible();
+    await page.locator('#play-playlist-btn').click();
+    await page.locator('#queue-btn').click();
+    const rows = page.locator('#side-panel-content .queue-track-item');
+    await expect(rows).toHaveCount(2);
+    await rows.first().locator('.drag-handle').hover();
+    const handle = await rows.first().locator('.drag-handle').boundingBox();
+    const destination = await rows.last().boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await expect(page.locator('.playlist-drag-ghost')).toBeVisible();
+    await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('border-radius', '2px');
+    await page.mouse.move(handle.x + handle.width / 2, destination.y + destination.height - 4, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.locator('.playlist-drag-ghost')).toHaveCount(0);
+    await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
+    await page.locator('#queue-btn').click();
+    await page.locator('#queue-btn').click();
+    await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
+});
+
 test('playback starts and next/previous move through the server-backed queue', async ({ page }) => {
     await installNavidromeMock(page);
     await page.goto('/playlist/playlist-1');

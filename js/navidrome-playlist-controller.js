@@ -307,7 +307,6 @@ function enableReordering(container, playlistId) {
     if (sortMode && sortMode !== 'custom') return;
 
     let dragging = null;
-    let touchDragging = false;
     let saving = false;
     container.querySelectorAll('.track-item').forEach((item) => {
         item.draggable = true;
@@ -365,18 +364,25 @@ function enableReordering(container, playlistId) {
         await saveOrder();
     });
 
+    enablePlaylistHandleDragging(container, saveOrder, () => saving);
+}
+
+export function enablePlaylistHandleDragging(container, saveOrder, isSaving = () => false) {
+    let touchDragging = false;
     // HTML5 drag-and-drop is not supported reliably by iPhone/iPad Safari.
     // Use a lifted row and placeholder so touch reordering feels direct rather
     // than waiting until the finger is released.
     container.addEventListener('pointerdown', (event) => {
         const handle = event.target.closest('.playlist-drag-handle');
         const item = handle?.closest('.track-item');
-        if (!item || saving || touchDragging) return;
+        if (!item || isSaving() || touchDragging || event.button !== 0) return;
         touchDragging = true;
         event.preventDefault();
         document.body.classList.add('track-reordering');
         window.getSelection()?.removeAllRanges();
         const rect = item.getBoundingClientRect();
+        const rowParent = item.parentElement;
+        const originalNext = item.nextSibling;
         const placeholder = document.createElement('div');
         placeholder.className = 'playlist-drag-placeholder';
         placeholder.style.height = `${rect.height}px`;
@@ -395,6 +401,10 @@ function enableReordering(container, playlistId) {
         const offsetY = event.clientY - rect.top;
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const rowAnimations = new Map();
+        let scroller = container;
+        while (scroller.parentElement && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+            scroller = scroller.parentElement;
+        }
         if (!reducedMotion) {
             ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], {
                 duration: 220,
@@ -408,19 +418,27 @@ function enableReordering(container, playlistId) {
             ghost.style.left = `${moveEvent.clientX - offsetX}px`;
             ghost.style.top = `${moveEvent.clientY - offsetY}px`;
 
-            const edge = 72;
-            if (moveEvent.clientY < edge) window.scrollBy(0, -14);
-            if (moveEvent.clientY > window.innerHeight - edge) window.scrollBy(0, 14);
+            const scrollRect = scroller.getBoundingClientRect();
+            const top = Math.max(0, scrollRect.top);
+            const bottom = Math.min(window.innerHeight, scrollRect.bottom);
+            const scrollBy = (distance) => {
+                if (scroller === document.body || scroller === document.documentElement) window.scrollBy(0, distance);
+                else scroller.scrollTop += distance;
+            };
+            if (moveEvent.clientY < top + 72) scrollBy(-14);
+            if (moveEvent.clientY > bottom - 72) scrollBy(14);
 
-            const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('.track-item');
-            if (!target || !container.contains(target) || target === item) return;
-            const targetRect = target.getBoundingClientRect();
-            const after = moveEvent.clientY > targetRect.top + targetRect.height / 2;
-            const rows = [...container.querySelectorAll('.track-item')].filter((row) => row !== item);
+            const rows = [...rowParent.querySelectorAll('.track-item')].filter((row) => row !== item);
+            const next =
+                rows.find((row) => {
+                    const box = row.getBoundingClientRect();
+                    return moveEvent.clientY < box.top + box.height / 2;
+                }) || null;
+            if (placeholder.nextSibling === next) return;
             const previousPositions = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
             rowAnimations.forEach((animation) => animation.cancel());
             rowAnimations.clear();
-            container.insertBefore(placeholder, after ? target.nextSibling : target);
+            rowParent.insertBefore(placeholder, next);
             if (!reducedMotion) {
                 rows.forEach((row) => {
                     const delta = previousPositions.get(row) - row.getBoundingClientRect().top;
@@ -457,7 +475,12 @@ function enableReordering(container, playlistId) {
                 await settle.finished.catch(() => {});
             }
             rowAnimations.forEach((animation) => animation.cancel());
-            placeholder.replaceWith(item);
+            if (cancelled) {
+                placeholder.remove();
+                rowParent.insertBefore(item, originalNext);
+            } else {
+                placeholder.replaceWith(item);
+            }
             item.style.display = '';
             ghost.remove();
             document.body.classList.remove('track-reordering');

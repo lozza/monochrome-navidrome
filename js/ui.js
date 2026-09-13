@@ -35,6 +35,7 @@ import { Visualizer } from './visualizer.js';
 import { audioContextManager } from './audio-context.js';
 import { navigate } from './router.js';
 import { sidePanelManager } from './side-panel.js';
+import { enablePlaylistHandleDragging } from './navidrome-playlist-controller.js';
 
 fontSettings.applyFont().catch(console.error);
 fontSettings.applyFontSize();
@@ -52,6 +53,7 @@ import {
     SVG_CLOSE,
     SVG_SORT,
     SVG_BIN,
+    SVG_EQUAL,
     SVG_GLOBE,
     SVG_INSTAGRAM,
     SVG_FACEBOOK,
@@ -5350,6 +5352,14 @@ export class UIRenderer {
             }
             item.draggable = true;
             item.dataset.index = index;
+            if (!item.querySelector('.playlist-drag-handle')) {
+                const handle = document.createElement('button');
+                handle.type = 'button';
+                handle.className = 'track-action-btn playlist-drag-handle';
+                handle.setAttribute('aria-label', 'Drag to reorder track');
+                handle.innerHTML = SVG_EQUAL(20);
+                (item.querySelector('.track-actions') || item).prepend(handle);
+            }
         });
 
         const dragStart = (e) => {
@@ -5424,6 +5434,20 @@ export class UIRenderer {
         container.addEventListener('dragend', dragEnd);
         container.addEventListener('dragover', dragOver);
         container.addEventListener('drop', drop);
+        let savingOrder = false;
+        enablePlaylistHandleDragging(
+            container,
+            async () => {
+                savingOrder = true;
+                draggedElement = container.querySelector('.track-item');
+                try {
+                    await drop({ preventDefault() {} });
+                } finally {
+                    savingOrder = false;
+                }
+            },
+            () => savingOrder
+        );
 
         // Cache function to avoid recreating
         function getDragAfterElement(container, y) {
