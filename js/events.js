@@ -40,6 +40,8 @@ const LONG_PRESS_DURATION = 500;
 
 function handleTrackTouchStart(e) {
     if (!('ontouchstart' in window)) return;
+    if (e.target.closest('.playlist-drag-handle, .drag-handle') || document.body.classList.contains('track-reordering'))
+        return;
     const trackItem = e.target.closest('.track-item');
     if (!trackItem || trackItem.classList.contains('unavailable')) return;
 

@@ -372,6 +372,8 @@ function enableReordering(container, playlistId) {
         const item = handle?.closest('.track-item');
         if (!item || saving) return;
         event.preventDefault();
+        document.body.classList.add('track-reordering');
+        window.getSelection()?.removeAllRanges();
         const rect = item.getBoundingClientRect();
         const placeholder = document.createElement('div');
         placeholder.className = 'playlist-drag-placeholder';
@@ -416,6 +418,7 @@ function enableReordering(container, playlistId) {
             placeholder.replaceWith(item);
             item.style.display = '';
             ghost.remove();
+            document.body.classList.remove('track-reordering');
             if (!cancelled) await saveOrder();
         };
 

@@ -466,6 +466,8 @@ export function initializeUIInteractions(player, api, ui) {
             const item = handle?.closest('.queue-track-item');
             if (!item || item.classList.contains('blocked')) return;
             e.preventDefault();
+            document.body.classList.add('track-reordering');
+            window.getSelection()?.removeAllRanges();
             pointerDraggedQueueIndex = Number(item.dataset.queueIndex);
             pointerQueueCurrentIndex = pointerDraggedQueueIndex;
             pointerQueueItem = item;
@@ -505,6 +507,7 @@ export function initializeUIInteractions(player, api, ui) {
             pointerDraggedQueueIndex = null;
             pointerQueueCurrentIndex = null;
             pointerQueueItem = null;
+            document.body.classList.remove('track-reordering');
             if (!cancelled && Number.isInteger(to) && from !== to) {
                 await player.moveInQueue(from, to);
                 await refreshQueuePanel();

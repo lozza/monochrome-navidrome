@@ -2591,6 +2591,28 @@ body.multi-select-mode .track-item:hover {
     opacity: 1;
     cursor: grab;
     touch-action: none;
+    /* stylelint-disable-next-line property-no-vendor-prefix -- iOS Safari selection prevention */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.queue-track-item .drag-handle,
+.queue-track-item .drag-handle *,
+.playlist-drag-handle * {
+    touch-action: none;
+    /* stylelint-disable-next-line property-no-vendor-prefix -- iOS Safari selection prevention */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+body.track-reordering,
+body.track-reordering * {
+    /* stylelint-disable-next-line property-no-vendor-prefix -- iOS Safari selection prevention */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .playlist-drag-handle:active {
