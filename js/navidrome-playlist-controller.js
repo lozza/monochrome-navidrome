@@ -307,6 +307,7 @@ function enableReordering(container, playlistId) {
     if (sortMode && sortMode !== 'custom') return;
 
     let dragging = null;
+    let touchDragging = false;
     let saving = false;
     container.querySelectorAll('.track-item').forEach((item) => {
         item.draggable = true;
@@ -370,7 +371,8 @@ function enableReordering(container, playlistId) {
     container.addEventListener('pointerdown', (event) => {
         const handle = event.target.closest('.playlist-drag-handle');
         const item = handle?.closest('.track-item');
-        if (!item || saving) return;
+        if (!item || saving || touchDragging) return;
+        touchDragging = true;
         event.preventDefault();
         document.body.classList.add('track-reordering');
         window.getSelection()?.removeAllRanges();
@@ -391,6 +393,14 @@ function enableReordering(container, playlistId) {
         const pointerId = event.pointerId;
         const offsetX = event.clientX - rect.left;
         const offsetY = event.clientY - rect.top;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const rowAnimations = new Map();
+        if (!reducedMotion) {
+            ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], {
+                duration: 140,
+                easing: 'ease-out',
+            });
+        }
 
         const move = (moveEvent) => {
             if (moveEvent.pointerId !== pointerId) return;
@@ -406,7 +416,24 @@ function enableReordering(container, playlistId) {
             if (!target || !container.contains(target) || target === item) return;
             const targetRect = target.getBoundingClientRect();
             const after = moveEvent.clientY > targetRect.top + targetRect.height / 2;
+            const rows = [...container.querySelectorAll('.track-item')].filter((row) => row !== item);
+            const previousPositions = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
+            rowAnimations.forEach((animation) => animation.cancel());
+            rowAnimations.clear();
             container.insertBefore(placeholder, after ? target.nextSibling : target);
+            if (!reducedMotion) {
+                rows.forEach((row) => {
+                    const delta = previousPositions.get(row) - row.getBoundingClientRect().top;
+                    if (Math.abs(delta) < 1) return;
+                    rowAnimations.set(
+                        row,
+                        row.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], {
+                            duration: 180,
+                            easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+                        })
+                    );
+                });
+            }
         };
 
         const finish = async (finishEvent, cancelled = false) => {
@@ -415,10 +442,26 @@ function enableReordering(container, playlistId) {
             document.removeEventListener('pointermove', move);
             document.removeEventListener('pointerup', finish);
             document.removeEventListener('pointercancel', cancel);
+            if (!reducedMotion && !cancelled) {
+                const destination = placeholder.getBoundingClientRect();
+                const settle = ghost.animate(
+                    [
+                        { transform: 'scale(1.02)' },
+                        {
+                            transform: `translate(${destination.left - parseFloat(ghost.style.left)}px, ${destination.top - parseFloat(ghost.style.top)}px) scale(1)`,
+                            opacity: 1,
+                        },
+                    ],
+                    { duration: 160, easing: 'ease-out', fill: 'forwards' }
+                );
+                await settle.finished.catch(() => {});
+            }
+            rowAnimations.forEach((animation) => animation.cancel());
             placeholder.replaceWith(item);
             item.style.display = '';
             ghost.remove();
             document.body.classList.remove('track-reordering');
+            touchDragging = false;
             if (!cancelled) await saveOrder();
         };
 
