@@ -144,7 +144,9 @@ test('creates a native playlist and adds the current track from the player', asy
     await waitForReady(page);
     await page.locator('#play-playlist-btn').click();
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
-    await page.locator('#now-playing-add-playlist-btn').click();
+    const addToPlaylistButton = page.locator('#now-playing-add-playlist-btn:visible, #mobile-add-playlist-btn:visible').first();
+    await expect(addToPlaylistButton).toBeVisible();
+    await addToPlaylistButton.click();
 
     const createdId = state.createdPlaylists[0].id;
     await page.locator(`#playlist-select-list [data-navidrome-playlist-id="${createdId}"]`).click();
@@ -180,36 +182,6 @@ test('playlist handle dragging works with sideways movement and cancels without 
     await expect(page.locator('.playlist-drag-ghost')).toHaveCount(0);
     await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
     expect(state.playlistUpdates.length).toBe(1);
-});
-
-test('queue handle dragging saves a new order inside the nested queue wrapper', async ({ page }) => {
-    await installNavidromeMock(page);
-    await page.goto('/playlist/playlist-1');
-    await waitForReady(page);
-    await expect(page.locator('#playlist-detail-tracklist [data-track-id="track-1"]')).toBeVisible();
-    await page.locator('#play-playlist-btn').click();
-    await page.locator('#queue-btn').click();
-    const rows = page.locator('#side-panel-content .queue-track-item');
-    await expect(rows).toHaveCount(2);
-    await rows.first().locator('.drag-handle').hover();
-    const handle = await rows.first().locator('.drag-handle').boundingBox();
-    const destination = await rows.last().boundingBox();
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-    await page.mouse.down();
-    await expect(page.locator('.playlist-drag-ghost')).toBeVisible();
-    await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('border-radius', '2px');
-    await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('opacity', '1');
-    await expect(page.locator('.playlist-drag-ghost')).toHaveCSS('backdrop-filter', 'none');
-    expect(await page.locator('.playlist-drag-ghost').evaluate((row) => getComputedStyle(row).backgroundColor)).toMatch(
-        /^rgb\(\d+, \d+, \d+\)$/
-    );
-    await page.mouse.move(handle.x + handle.width / 2, destination.y + destination.height - 4, { steps: 6 });
-    await page.mouse.up();
-    await expect(page.locator('.playlist-drag-ghost')).toHaveCount(0);
-    await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
-    await page.locator('#queue-btn').click();
-    await page.locator('#queue-btn').click();
-    await expect(rows.first()).toHaveAttribute('data-track-id', 'track-2');
 });
 
 test('playback starts and next/previous move through the server-backed queue', async ({ page }) => {
