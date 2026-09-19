@@ -265,14 +265,15 @@ export async function installNavidromeMock(page, options = {}) {
         }
         if (endpoint === 'updatePlaylist') {
             const ids = url.searchParams.getAll('songIdToAdd');
+            const playlistId = url.searchParams.get('playlistId');
+            const created = state.createdPlaylists.find((playlist) => playlist.id === playlistId);
+            const tracks = created ? created.tracks : state.playlistTracks;
             state.playlistUpdates.push(ids);
             if (url.searchParams.has('songIndexToRemove')) {
                 const removed = url.searchParams.getAll('songIndexToRemove').map(Number);
-                state.playlistTracks = state.playlistTracks.filter((_, index) => !removed.includes(index));
+                tracks.splice(0, tracks.length, ...tracks.filter((_, index) => !removed.includes(index)));
             }
-            state.playlistTracks.push(
-                ...ids.map((id) => DEFAULT_TRACKS.find((track) => track.id === id)).filter(Boolean)
-            );
+            tracks.push(...ids.map((id) => DEFAULT_TRACKS.find((track) => track.id === id)).filter(Boolean));
             return json(route, ok());
         }
         if (endpoint === 'getSong') {
