@@ -200,7 +200,7 @@ async function openPlaylistPicker(tracks, title = 'Add to Playlist') {
         }
 
         const playlistId = option.dataset.navidromePlaylistId;
-        if (!playlistId) return;
+        if (!playlistId || option.getAttribute('aria-busy') === 'true') return;
         option.setAttribute('aria-busy', 'true');
 
         try {
