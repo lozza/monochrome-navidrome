@@ -154,6 +154,21 @@ describe('NavidromeAPI', () => {
         expect(streamUrl.searchParams.get('t')).toBeTruthy();
     });
 
+    test('filters known tracks from radio recommendations', async () => {
+        const api = new NavidromeAPI(settings);
+        vi.spyOn(api, 'getTrackRecommendations').mockResolvedValue([
+            { id: 'already-known', title: 'Known' },
+            { id: 'new-track', title: 'New' },
+        ] as never);
+
+        const recommendations = await api.getRecommendedTracksForPlaylist([{ id: 'seed-track' }], 10, {
+            knownTrackIds: new Set(['already-known']),
+        });
+
+        const ids = (recommendations as Array<{ id: string }>).map((track) => track.id);
+        expect(ids).toEqual(['new-track']);
+    });
+
     test('surfaces OpenSubsonic errors', async () => {
         vi.stubGlobal(
             'fetch',
