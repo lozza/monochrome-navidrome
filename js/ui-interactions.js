@@ -52,6 +52,31 @@ export function initializeUIInteractions(player, api, ui) {
     const queueBtn = document.getElementById('queue-btn');
     const libraryPage = document.getElementById('page-library');
 
+    const getTrackFavoriteStatus = async (track) => {
+        const localFavorite = await db.isFavorite('track', track.id);
+        if (!api.isFavorite) return localFavorite;
+
+        try {
+            const remoteFavorite = await api.isFavorite('track', track.id);
+            if (remoteFavorite !== localFavorite) {
+                await db.toggleFavorite('track', track);
+            }
+            return remoteFavorite;
+        } catch (error) {
+            console.warn('Unable to refresh favorite state from Navidrome:', error);
+            return localFavorite;
+        }
+    };
+
+    const setTrackFavoriteStatus = async (track, favorite) => {
+        await api.setFavorite?.('track', track.id, favorite);
+        const localFavorite = await db.isFavorite('track', track.id);
+        if (localFavorite !== favorite) {
+            await db.toggleFavorite('track', track);
+        }
+        return favorite;
+    };
+
     if (libraryPage) {
         libraryPage.addEventListener('dragstart', (e) => {
             const playlistCard = e.target.closest('.card.user-playlist');
@@ -102,6 +127,7 @@ export function initializeUIInteractions(player, api, ui) {
     }
 
     let draggedQueueIndex = null;
+    let queueTouchDragging = false;
     let queueStartIndex = 0;
     let queueEndIndex = 1000;
     let isQueueRendering = false;
@@ -170,9 +196,9 @@ export function initializeUIInteractions(player, api, ui) {
             likeBtn.addEventListener('click', async () => {
                 let addedCount = 0;
                 for (const track of currentQueue) {
-                    const wasAdded = await db.toggleFavorite('track', track);
-                    if (wasAdded) {
-                        await syncManager.syncLibraryItem('track', track, true);
+                    const isFavorite = await getTrackFavoriteStatus(track);
+                    if (!isFavorite) {
+                        await setTrackFavoriteStatus(track, true);
                         addedCount++;
                     }
                 }
@@ -329,6 +355,9 @@ export function initializeUIInteractions(player, api, ui) {
             const item = e.target.closest('.queue-track-item');
             if (!item) return;
 
+            // The drag handle is an interaction target, not a play button.
+            if (e.target.closest('.drag-handle')) return;
+
             const index = parseInt(item.dataset.queueIndex);
             const removeBtn = e.target.closest('.queue-remove-btn');
             if (removeBtn) {
@@ -343,14 +372,21 @@ export function initializeUIInteractions(player, api, ui) {
                 e.stopPropagation();
                 const track = player.getCurrentQueue()[index];
                 if (track) {
-                    const added = await db.toggleFavorite('track', track);
-                    await syncManager.syncLibraryItem('track', track, added);
+                    try {
+                        const added = !(await getTrackFavoriteStatus(track));
+                        await setTrackFavoriteStatus(track, added);
 
-                    likeBtn.classList.toggle('active', added);
-                    likeBtn.innerHTML = added ? SVG_HEART_FILLED(20) : SVG_HEART(20);
+                        likeBtn.classList.toggle('active', added);
+                        likeBtn.innerHTML = added ? SVG_HEART_FILLED(20) : SVG_HEART(20);
 
-                    await hapticSuccess();
-                    showNotification(added ? `Added to Liked: ${track.title}` : `Removed from Liked: ${track.title}`);
+                        await hapticSuccess();
+                        showNotification(
+                            added ? `Added to Liked: ${track.title}` : `Removed from Liked: ${track.title}`
+                        );
+                    } catch (error) {
+                        console.error('Failed to update favorite:', error);
+                        showNotification('Could not update starred track');
+                    }
                 }
                 return;
             }
@@ -371,7 +407,7 @@ export function initializeUIInteractions(player, api, ui) {
             if (contextMenu) {
                 const track = player.getCurrentQueue()[index];
                 if (track) {
-                    const isLiked = await db.isFavorite('track', track.id);
+                    const isLiked = await getTrackFavoriteStatus(track);
                     const likeItem = contextMenu.querySelector('li[data-action="toggle-like"]');
                     if (likeItem) {
                         likeItem.textContent = isLiked ? 'Unlike' : 'Like';
@@ -418,12 +454,129 @@ export function initializeUIInteractions(player, api, ui) {
                     await refreshQueuePanel();
                 }
             }
+            draggedQueueIndex = null;
+        });
+
+        // iOS Safari does not start HTML5 drag events from a long press. Keep
+        // the handle usable there with a pointer-based reorder fallback.
+        container.addEventListener('pointerdown', (e) => {
+            const handle = e.target.closest('.drag-handle');
+            const item = handle?.closest('.queue-track-item');
+            if (!item || item.classList.contains('blocked') || queueTouchDragging || e.button !== 0) return;
+            e.preventDefault();
+            queueTouchDragging = true;
+            document.body.classList.add('track-reordering');
+            window.getSelection()?.removeAllRanges();
+            const from = Number(item.dataset.queueIndex);
+            const rowParent = item.parentElement;
+            const firstIndex = Math.min(
+                ...[...container.querySelectorAll('.queue-track-item')].map((row) => Number(row.dataset.queueIndex))
+            );
+            const originalNext = item.nextSibling;
+            const rect = item.getBoundingClientRect();
+            const placeholder = document.createElement('div');
+            placeholder.className = 'playlist-drag-placeholder';
+            placeholder.style.height = `${rect.height}px`;
+            item.before(placeholder);
+            const ghost = item.cloneNode(true);
+            ghost.classList.add('playlist-drag-ghost');
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.left = `${rect.left}px`;
+            ghost.style.top = `${rect.top}px`;
+            document.body.appendChild(ghost);
+            item.style.display = 'none';
+            const offsetX = e.clientX - rect.left;
+            const offsetY = e.clientY - rect.top;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const animations = new Map();
+            let scroller = container;
+            while (scroller.parentElement && scroller.scrollHeight <= scroller.clientHeight)
+                scroller = scroller.parentElement;
+            if (!reducedMotion)
+                ghost.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], {
+                    duration: 220,
+                    easing: 'ease-out',
+                });
+
+            const move = (event) => {
+                if (event.pointerId !== e.pointerId) return;
+                event.preventDefault();
+                ghost.style.left = `${event.clientX - offsetX}px`;
+                ghost.style.top = `${event.clientY - offsetY}px`;
+                const scrollRect = scroller.getBoundingClientRect();
+                if (event.clientY < scrollRect.top + 64) scroller.scrollTop -= 14;
+                if (event.clientY > scrollRect.bottom - 64) scroller.scrollTop += 14;
+                const rows = [...rowParent.querySelectorAll('.queue-track-item')].filter((row) => row !== item);
+                const next =
+                    rows.find((row) => {
+                        const box = row.getBoundingClientRect();
+                        return event.clientY < box.top + box.height / 2;
+                    }) || null;
+                if (next === placeholder || placeholder.nextSibling === next) return;
+                const positions = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
+                animations.forEach((animation) => animation.cancel());
+                animations.clear();
+                rowParent.insertBefore(placeholder, next);
+                if (!reducedMotion)
+                    rows.forEach((row) => {
+                        const delta = positions.get(row) - row.getBoundingClientRect().top;
+                        if (Math.abs(delta) < 1) return;
+                        animations.set(
+                            row,
+                            row.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], {
+                                duration: 280,
+                                easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+                            })
+                        );
+                    });
+            };
+
+            const finish = async (event, cancelled = false) => {
+                if (event.pointerId !== e.pointerId) return;
+                event.preventDefault();
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', finish);
+                document.removeEventListener('pointercancel', cancel);
+                if (!reducedMotion && !cancelled) {
+                    const destination = placeholder.getBoundingClientRect();
+                    await ghost
+                        .animate(
+                            [
+                                { transform: 'scale(1.07)' },
+                                {
+                                    transform: `translate(${destination.left - parseFloat(ghost.style.left)}px, ${destination.top - parseFloat(ghost.style.top)}px) scale(1)`,
+                                },
+                            ],
+                            { duration: 260, easing: 'ease-out', fill: 'forwards' }
+                        )
+                        .finished.catch(() => {});
+                }
+                animations.forEach((animation) => animation.cancel());
+                if (cancelled) {
+                    placeholder.remove();
+                    rowParent.insertBefore(item, originalNext);
+                } else placeholder.replaceWith(item);
+                item.style.display = '';
+                ghost.remove();
+                document.body.classList.remove('track-reordering');
+                queueTouchDragging = false;
+                const to = firstIndex + [...container.querySelectorAll('.queue-track-item')].indexOf(item);
+                if (!cancelled && from !== to) {
+                    await player.moveInQueue(from, to);
+                }
+                await refreshQueuePanel();
+            };
+            const cancel = (event) => finish(event, true);
+            document.addEventListener('pointermove', move, { passive: false });
+            document.addEventListener('pointerup', finish, { passive: false });
+            document.addEventListener('pointercancel', cancel, { passive: false });
         });
 
         container._queueListenersAttached = true;
     };
 
     const renderQueueContent = async (container, isUpdate = false) => {
+        if (queueTouchDragging) return;
         const currentQueue = player.getCurrentQueue();
 
         if (currentQueue.length === 0) {
@@ -494,16 +647,18 @@ export function initializeUIInteractions(player, api, ui) {
             if (bottomObserver) bottomObserver.disconnect();
         }
 
-        container.querySelectorAll('.queue-track-item').forEach(async (item) => {
-            const index = parseInt(item.dataset.queueIndex);
-            const track = currentQueue[index];
-            const likeBtn = item.querySelector('.queue-like-btn');
-            if (likeBtn && track) {
-                const isLiked = await db.isFavorite('track', track.id);
-                likeBtn.classList.toggle('active', isLiked);
-                likeBtn.innerHTML = isLiked ? SVG_HEART_FILLED(20) : SVG_HEART(20);
-            }
-        });
+        await Promise.all(
+            [...container.querySelectorAll('.queue-track-item')].map(async (item) => {
+                const index = parseInt(item.dataset.queueIndex);
+                const track = currentQueue[index];
+                const likeBtn = item.querySelector('.queue-like-btn');
+                if (likeBtn && track) {
+                    const isLiked = await getTrackFavoriteStatus(track);
+                    likeBtn.classList.toggle('active', isLiked);
+                    likeBtn.innerHTML = isLiked ? SVG_HEART_FILLED(20) : SVG_HEART(20);
+                }
+            })
+        );
 
         isQueueRendering = false;
     };
