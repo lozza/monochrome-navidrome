@@ -270,7 +270,7 @@ export async function installNavidromeMock(page, options = {}) {
             const playlistId = url.searchParams.get('playlistId');
             const created = state.createdPlaylists.find((playlist) => playlist.id === playlistId);
             const tracks = created ? created.tracks : state.playlistTracks;
-            state.playlistUpdates.push(ids);
+            if (ids.length || url.has('songIndexToRemove')) state.playlistUpdates.push(ids);
             if (url.searchParams.has('songIndexToRemove')) {
                 const removed = url.searchParams.getAll('songIndexToRemove').map(Number);
                 tracks.splice(0, tracks.length, ...tracks.filter((_, index) => !removed.includes(index)));
