@@ -144,7 +144,9 @@ test('creates a native playlist and adds the current track from the player', asy
     await waitForReady(page);
     await page.locator('#play-playlist-btn').click();
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
-    const addToPlaylistButton = page.locator('#now-playing-add-playlist-btn:visible, #mobile-add-playlist-btn:visible').first();
+    const addToPlaylistButton = page
+        .locator('#now-playing-add-playlist-btn:visible, #mobile-add-playlist-btn:visible')
+        .first();
     await expect(addToPlaylistButton).toBeVisible();
     await addToPlaylistButton.click();
 
