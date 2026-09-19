@@ -549,9 +549,9 @@ function addSaveQueueButton() {
 async function handleDocumentClick(event) {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    const nativePlaylistTarget = target.closest(
-        '#now-playing-add-playlist-btn, #mobile-add-playlist-btn, #fs-add-playlist-btn, #context-menu [data-action="add-to-playlist"]'
-    );
+    const nativePlaylistTarget =
+        target.closest('#now-playing-add-playlist-btn, #mobile-add-playlist-btn, #fs-add-playlist-btn') ||
+        target.closest('#context-menu [data-action="add-to-playlist"]');
     if (nativePlaylistTarget) event.__navidromePlaylistHandled = true;
     if (await handleAddToPlaylist(target, event)) return;
 
