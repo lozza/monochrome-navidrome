@@ -2685,47 +2685,7 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
         });
     }
 
-    const nowPlayingAddPlaylistBtn = document.getElementById('now-playing-add-playlist-btn');
-    if (nowPlayingAddPlaylistBtn) {
-        nowPlayingAddPlaylistBtn.addEventListener('click', async (e) => {
-            if (e.__navidromePlaylistHandled) return;
-            e.stopPropagation();
-            if (player.currentTrack) {
-                await handleTrackAction(
-                    'add-to-playlist',
-                    player.currentTrack,
-                    player,
-                    api,
-                    lyricsManager,
-                    player.currentTrack.type || 'track',
-                    ui,
-                    scrobbler
-                );
-            }
-        });
-    }
-
-    // Mobile add playlist button functionality
-    const mobileAddPlaylistBtn = document.getElementById('mobile-add-playlist-btn');
-
-    if (mobileAddPlaylistBtn) {
-        mobileAddPlaylistBtn.addEventListener('click', async (e) => {
-            if (e.__navidromePlaylistHandled) return;
-            e.stopPropagation();
-            if (player.currentTrack) {
-                await handleTrackAction(
-                    'add-to-playlist',
-                    player.currentTrack,
-                    player,
-                    api,
-                    lyricsManager,
-                    player.currentTrack.type || 'track',
-                    ui,
-                    scrobbler
-                );
-            }
-        });
-    }
+    // Native playlist actions are handled by navidrome-playlist-controller.js.
 }
 
 function showSleepTimerModal(player) {
