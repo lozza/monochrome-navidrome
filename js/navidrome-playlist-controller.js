@@ -144,7 +144,10 @@ async function openPlaylistPicker(tracks, title = 'Add to Playlist') {
     const list = document.getElementById('playlist-select-list');
     const cancel = document.getElementById('playlist-select-cancel');
     const overlay = modal?.querySelector('.modal-overlay');
-    if (!modal || !list || !cancel || !overlay) return;
+    if (!modal || !list || !cancel || !overlay) {
+        playlistActionInFlight = false;
+        return;
+    }
 
     let playlists;
     try {
@@ -179,6 +182,7 @@ async function openPlaylistPicker(tracks, title = 'Add to Playlist') {
     `;
 
     const close = () => {
+        playlistActionInFlight = false;
         modal.classList.remove('active');
         cancel.removeEventListener('click', close);
         overlay.removeEventListener('click', close);
@@ -240,11 +244,7 @@ async function handleAddToPlaylist(target, event) {
         event.preventDefault();
         event.stopImmediatePropagation();
         playlistActionInFlight = true;
-        try {
-            await openPlaylistPicker([activeUI.player.currentTrack]);
-        } finally {
-            playlistActionInFlight = false;
-        }
+        await openPlaylistPicker([activeUI.player.currentTrack]);
         return true;
     }
 
