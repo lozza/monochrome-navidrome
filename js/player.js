@@ -31,6 +31,7 @@ import { waveformGenerator } from './waveform.js';
 import { SVG_CLOCK, SVG_ATMOS, SVG_PLAY, SVG_PAUSE } from './icons.js';
 import { UIRenderer } from './ui.js';
 import { MediaSession } from './media-session.js';
+import { normalizeRadioSeeds } from './radio-utils.js';
 
 export class Player {
     static #instance = null;
@@ -2081,6 +2082,7 @@ export class Player {
 
             if (
                 this.repeatMode === REPEAT_MODE.ONE &&
+                !options.skipRepeatOne &&
                 !currentQueue[this.currentQueueIndex]?.isUnavailable &&
                 !contentBlockingSettings.shouldHideTrack(currentQueue[this.currentQueueIndex])
             ) {
@@ -2145,25 +2147,31 @@ export class Player {
     }
 
     async enableRadio(seeds = []) {
+        const requestedSeeds = normalizeRadioSeeds(seeds);
+        const pickedSeeds = requestedSeeds.length > 0 ? requestedSeeds : await this.pickRadioSeeds();
+        const uniqueSeeds = normalizeRadioSeeds(pickedSeeds);
+
+        if (uniqueSeeds.length === 0) {
+            this.radioEnabled = false;
+            this.radioSeeds = [];
+            radioSettings.setEnabled(false);
+            window.dispatchEvent(new CustomEvent('radio-state-changed', { detail: { enabled: false } }));
+            return false;
+        }
+
         this.radioEnabled = true;
         radioSettings.setEnabled(true);
 
-        if (seeds.length === 0) {
-            await this.wipeQueue();
-            const pickedSeeds = await this.pickRadioSeeds();
-            if (pickedSeeds.length > 0) {
-                this.radioSeeds = pickedSeeds;
-                const initialQueue = [...pickedSeeds].sort(() => 0.5 - Math.random()).slice(0, 5);
-                await this.setQueue(initialQueue, 0, true);
-                await this.playAtIndex(0);
-            }
-        } else {
-            this.radioSeeds = Array.isArray(seeds) ? seeds : [seeds];
-            await this.wipeQueue();
-            const initialQueue = Array.isArray(seeds) ? seeds.slice(0, 5) : [seeds];
-            await this.setQueue(initialQueue, 0, true);
-            await this.playAtIndex(0);
+        // Radio must be able to move through its queue. Keep a user's queue-repeat
+        // setting, but clear repeat-one because it would replay the initial seed forever.
+        if (this.repeatMode === REPEAT_MODE.ONE) {
+            this.repeatMode = REPEAT_MODE.OFF;
         }
+
+        this.radioSeeds = uniqueSeeds;
+        await this.wipeQueue();
+        await this.setQueue(uniqueSeeds.slice(0, 5), 0, true);
+        await this.playAtIndex(0);
 
         const currentQueue = this.getCurrentQueue();
         if (this.currentQueueIndex >= currentQueue.length - 2) {
@@ -2171,11 +2179,13 @@ export class Player {
         }
 
         window.dispatchEvent(new CustomEvent('radio-state-changed', { detail: { enabled: true } }));
+        return true;
     }
 
     disableRadio() {
         if (!this.radioEnabled) return;
         this.radioEnabled = false;
+        this.radioSeeds = [];
         radioSettings.setEnabled(false);
         window.dispatchEvent(new CustomEvent('radio-state-changed', { detail: { enabled: false } }));
     }
@@ -2217,6 +2227,8 @@ export class Player {
                     knownTrackIds: knownTrackIds,
                 });
 
+                if (!this.radioEnabled) return;
+
                 const { autoplaySettings: _autoplaySettings } = await import('./storage.js');
                 if (_autoplaySettings.isSmartRecsEnabled()) {
                     const { smartRecommendations } = await import('./smart-recommendations.js');
@@ -2228,7 +2240,7 @@ export class Player {
                     const currentQueueIds = new Set(this.getCurrentQueue().map((t) => t.id));
 
                     let newTracks = recommendations.filter((t) => {
-                        return !currentQueueIds.has(t.id);
+                        return !currentQueueIds.has(String(t.id));
                     });
 
                     if (newTracks.length > 0) {
