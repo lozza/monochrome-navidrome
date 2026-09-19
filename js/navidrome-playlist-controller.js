@@ -6,6 +6,7 @@ import { escapeHtml, trackDataStore } from './utils.js';
 let activeUI = null;
 let service = null;
 let installed = false;
+let playlistActionInFlight = false;
 
 function rerenderRoute() {
     window.dispatchEvent(new Event('popstate'));
@@ -232,11 +233,18 @@ async function contextTracks(menu) {
 }
 
 async function handleAddToPlaylist(target, event) {
+    if (playlistActionInFlight) return true;
+
     const nowPlaying = target.closest('#now-playing-add-playlist-btn, #mobile-add-playlist-btn, #fs-add-playlist-btn');
     if (nowPlaying && activeUI.player.currentTrack) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        await openPlaylistPicker([activeUI.player.currentTrack]);
+        playlistActionInFlight = true;
+        try {
+            await openPlaylistPicker([activeUI.player.currentTrack]);
+        } finally {
+            playlistActionInFlight = false;
+        }
         return true;
     }
 
