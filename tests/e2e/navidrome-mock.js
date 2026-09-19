@@ -72,6 +72,8 @@ export async function installNavidromeMock(page, options = {}) {
         scrobbles: [],
         rejectLogin: false,
         optionalRequests: [],
+        playlistUpdates: [],
+        playlistTracks: [...DEFAULT_TRACKS],
     };
     const largeSinglesCount = options.largeSinglesCount || 0;
     const alphabetSinglesCountPerLetter = options.alphabetSinglesCountPerLetter || 0;
@@ -237,7 +239,19 @@ export async function installNavidromeMock(page, options = {}) {
             return json(route, ok({ artist: { id: 'artist-1', name: 'Alice', album: [] } }));
         }
         if (endpoint === 'getPlaylist') {
-            return json(route, ok({ playlist: { id: 'playlist-1', name: 'Beta Mix', entry: DEFAULT_TRACKS } }));
+            return json(route, ok({ playlist: { id: 'playlist-1', name: 'Beta Mix', entry: state.playlistTracks } }));
+        }
+        if (endpoint === 'updatePlaylist') {
+            const ids = url.searchParams.getAll('songIdToAdd');
+            state.playlistUpdates.push(ids);
+            if (url.searchParams.has('songIndexToRemove')) {
+                const removed = url.searchParams.getAll('songIndexToRemove').map(Number);
+                state.playlistTracks = state.playlistTracks.filter((_, index) => !removed.includes(index));
+            }
+            state.playlistTracks.push(
+                ...ids.map((id) => DEFAULT_TRACKS.find((track) => track.id === id)).filter(Boolean)
+            );
+            return json(route, ok());
         }
         if (endpoint === 'getSong') {
             return json(
