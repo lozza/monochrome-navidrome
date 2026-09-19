@@ -698,11 +698,19 @@ export async function getCoverBlob(api, coverId) {
  * @param {DOMRect} [anchorRect] - Optional anchor element rectangle
  */
 export function positionMenu(menu, x, y, anchorRect = null) {
+    const isMobileMenu = window.matchMedia?.('(max-width: 600px)').matches;
     // Temporarily show to measure dimensions
     menu.style.visibility = 'hidden';
     menu.style.display = 'block';
     menu.style.maxHeight = '';
     menu.style.overflowY = '';
+
+    if (isMobileMenu) {
+        // Keep the menu clear of the browser/status area while leaving enough
+        // room for the player and the rest of the page.
+        menu.style.maxHeight = `${Math.max(220, Math.floor(window.innerHeight * 0.64))}px`;
+        menu.style.overflowY = 'auto';
+    }
 
     const menuWidth = menu.offsetWidth;
     const menuHeight = menu.offsetHeight;
@@ -735,6 +743,14 @@ export function positionMenu(menu, x, y, anchorRect = null) {
     // Final checks to ensure it's not off-screen at the top or left
     if (left < 10) left = 10;
     if (top < 10) top = 10;
+
+    if (isMobileMenu) {
+        const safeTop = 48;
+        top = Math.max(safeTop, top);
+        if (top + menu.offsetHeight > windowHeight - 12) {
+            top = Math.max(safeTop, windowHeight - menu.offsetHeight - 12);
+        }
+    }
 
     // If it's still too tall for the viewport, make it scrollable
     // We measure again because max-height might be needed

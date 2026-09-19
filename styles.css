@@ -1717,6 +1717,10 @@ input[type='search']::-webkit-search-cancel-button {
     margin-bottom: 0;
 }
 
+#navidrome-create-playlist-btn {
+    margin-bottom: var(--spacing-lg);
+}
+
 #page-home .section-header-row {
     margin-bottom: var(--spacing-lg);
 }
@@ -2579,6 +2583,101 @@ body.multi-select-mode .track-item:hover {
     flex-shrink: 0;
 
     /* Prevent buttons from squishing */
+}
+
+/* Dedicated handle for playlist reordering. Pointer events keep this usable
+   on touch screens where native HTML5 dragging is unavailable. */
+.playlist-drag-handle {
+    opacity: 1;
+    cursor: grab;
+    touch-action: none;
+    /* stylelint-disable-next-line property-no-vendor-prefix -- iOS Safari selection prevention */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.queue-track-item .drag-handle,
+.queue-track-item .drag-handle *,
+.playlist-drag-handle * {
+    touch-action: none;
+    /* stylelint-disable-next-line property-no-vendor-prefix -- iOS Safari selection prevention */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+body.track-reordering,
+body.track-reordering * {
+    /* stylelint-disable-next-line property-no-vendor-prefix -- iOS Safari selection prevention */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.playlist-drag-handle:active {
+    cursor: grabbing;
+}
+
+.playlist-drag-placeholder {
+    position: relative;
+    border-radius: 0;
+    background: transparent;
+    box-sizing: border-box;
+}
+
+.playlist-drag-placeholder::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    right: 12px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--primary);
+    transform: translateY(-50%);
+}
+
+.playlist-drag-ghost {
+    position: fixed;
+    z-index: 4000;
+    pointer-events: none;
+    margin: 0;
+    opacity: 1 !important;
+    transform: scale(1.07);
+    border: none;
+    border-radius: 2px;
+    box-shadow:
+        0 18px 40px rgb(0 0 0 / 35%),
+        0 4px 12px rgb(0 0 0 / 20%);
+
+    /* Playing/hover row styles must not make the lifted row translucent. */
+    background: var(--card, #1b2838) !important;
+    backdrop-filter: none;
+}
+
+.playlist-drag-ghost .playlist-drag-handle,
+.queue-track-item.playlist-drag-ghost .drag-handle {
+    color: var(--primary);
+    background: transparent;
+    border-radius: 0;
+}
+
+.queue-track-item.playlist-drag-ghost {
+    background: var(--card, #1b2838) !important;
+    border: none;
+    border-radius: 2px;
+    transition: none;
+}
+
+.playlist-drag-ghost .track-item-details .title {
+    color: var(--foreground);
+}
+
+.queue-track-item.drag-over,
+.track-item.dragging {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
 }
 
 .track-action-btn:hover {
@@ -4103,6 +4202,30 @@ input:checked + .slider::before {
 #eq-node-context-menu li.separator:hover {
     background-color: var(--border);
     transform: none;
+}
+
+@media (max-width: 600px) {
+    #context-menu {
+        width: fit-content;
+        max-width: calc(100vw - 24px);
+        overscroll-behavior: contain;
+    }
+
+    #context-menu li {
+        min-height: 44px;
+        box-sizing: border-box;
+        margin-right: 0;
+    }
+}
+
+.queue-track-item.dragging {
+    opacity: 0.72;
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}
+
+.queue-track-item.drag-over {
+    border-top: 2px solid var(--primary);
 }
 
 #eq-node-context-menu li.eq-ctx-active {
@@ -5808,11 +5931,16 @@ input:checked + .slider::before {
     font-size: 1.25rem;
     font-weight: 600;
     padding-left: 0.5rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .panel-controls {
     display: flex;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 /* Lyrics timing adjustment controls */
@@ -6726,6 +6854,25 @@ img[src=''] {
 
 /* Mobile-specific overrides */
 @media (max-width: 768px) {
+    .panel-header {
+        gap: 0.25rem;
+        padding: 0.75rem 0.5rem;
+    }
+
+    .panel-header h3 {
+        padding-left: 0;
+    }
+
+    .panel-controls {
+        gap: 0.125rem;
+    }
+
+    .panel-controls .btn-icon {
+        width: 30px;
+        height: 30px;
+        padding: 0.375rem;
+    }
+
     .mobile-only {
         display: flex !important;
     }
@@ -6942,6 +7089,10 @@ img[src=''] {
         margin-bottom: var(--spacing-md);
     }
 
+    #navidrome-create-playlist-btn {
+        margin-bottom: var(--spacing-md);
+    }
+
     #page-home .section-header-row {
         margin-bottom: var(--spacing-md);
     }
@@ -7066,6 +7217,21 @@ img[src=''] {
     .now-playing-bar .player-controls {
         grid-area: progress;
         width: 100%;
+    }
+
+    #radio-loading-indicator {
+        position: fixed;
+        top: auto;
+        bottom: calc(max(15px, env(safe-area-inset-bottom)) + var(--player-bar-height-mobile) + 8px);
+        max-width: calc(100vw - 2rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        z-index: 2150;
+    }
+
+    #radio-loading-indicator span {
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .player-controls .buttons {

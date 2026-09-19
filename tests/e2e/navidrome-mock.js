@@ -72,6 +72,9 @@ export async function installNavidromeMock(page, options = {}) {
         scrobbles: [],
         rejectLogin: false,
         optionalRequests: [],
+        playlistUpdates: [],
+        createdPlaylists: [],
+        playlistTracks: [...DEFAULT_TRACKS],
     };
     const largeSinglesCount = options.largeSinglesCount || 0;
     const alphabetSinglesCountPerLetter = options.alphabetSinglesCountPerLetter || 0;
@@ -161,7 +164,15 @@ export async function installNavidromeMock(page, options = {}) {
             );
         }
         if (endpoint === 'getPlaylists') {
-            return json(route, ok({ playlists: { playlist: [{ id: 'playlist-1', name: 'Beta Mix', songCount: 2 }] } }));
+            const playlists = [
+                { id: 'playlist-1', name: 'Beta Mix', songCount: state.playlistTracks.length },
+                ...state.createdPlaylists.map((playlist) => ({
+                    id: playlist.id,
+                    name: playlist.name,
+                    songCount: playlist.tracks.length,
+                })),
+            ];
+            return json(route, ok({ playlists: { playlist: playlists } }));
         }
         if (endpoint === 'getStarred2') {
             return json(route, ok({ starred2: { song: [DEFAULT_TRACKS[0]], album: [], artist: [] } }));
@@ -237,7 +248,35 @@ export async function installNavidromeMock(page, options = {}) {
             return json(route, ok({ artist: { id: 'artist-1', name: 'Alice', album: [] } }));
         }
         if (endpoint === 'getPlaylist') {
-            return json(route, ok({ playlist: { id: 'playlist-1', name: 'Beta Mix', entry: DEFAULT_TRACKS } }));
+            const id = url.searchParams.get('id');
+            if (id === 'playlist-1') {
+                return json(route, ok({ playlist: { id, name: 'Beta Mix', entry: state.playlistTracks } }));
+            }
+            const playlist = state.createdPlaylists.find((item) => item.id === id);
+            return json(route, ok({ playlist: playlist || { id, name: 'Created Playlist', entry: [] } }));
+        }
+        if (endpoint === 'createPlaylist') {
+            const id = `playlist-created-${state.createdPlaylists.length + 1}`;
+            const name = url.searchParams.get('name') || 'Created Playlist';
+            const songIds = url.searchParams.getAll('songId');
+            const tracks = songIds
+                .map((trackId) => DEFAULT_TRACKS.find((track) => track.id === trackId))
+                .filter(Boolean);
+            state.createdPlaylists.push({ id, name, tracks });
+            return json(route, ok({ playlist: { id, name, entry: tracks } }));
+        }
+        if (endpoint === 'updatePlaylist') {
+            const ids = url.searchParams.getAll('songIdToAdd');
+            const playlistId = url.searchParams.get('playlistId');
+            const created = state.createdPlaylists.find((playlist) => playlist.id === playlistId);
+            const tracks = created ? created.tracks : state.playlistTracks;
+            if (ids.length || url.searchParams.has('songIndexToRemove')) state.playlistUpdates.push(ids);
+            if (url.searchParams.has('songIndexToRemove')) {
+                const removed = url.searchParams.getAll('songIndexToRemove').map(Number);
+                tracks.splice(0, tracks.length, ...tracks.filter((_, index) => !removed.includes(index)));
+            }
+            tracks.push(...ids.map((id) => DEFAULT_TRACKS.find((track) => track.id === id)).filter(Boolean));
+            return json(route, ok());
         }
         if (endpoint === 'getSong') {
             return json(

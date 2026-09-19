@@ -40,6 +40,8 @@ const LONG_PRESS_DURATION = 500;
 
 function handleTrackTouchStart(e) {
     if (!('ontouchstart' in window)) return;
+    if (e.target.closest('.playlist-drag-handle, .drag-handle') || document.body.classList.contains('track-reordering'))
+        return;
     const trackItem = e.target.closest('.track-item');
     if (!trackItem || trackItem.classList.contains('unavailable')) return;
 
@@ -440,7 +442,8 @@ async function handleSelectionAction(action) {
 export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui) {
     if (homeStartRadioBtn) {
         homeStartRadioBtn.addEventListener('click', async () => {
-            await player.enableRadio();
+            const started = await player.enableRadio();
+            if (!started) showNotification('Could not start radio: no playable seeds found.');
         });
     }
 
@@ -691,7 +694,7 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
     });
     nextBtn.addEventListener('click', async () => {
         await hapticMedium();
-        player.playNext();
+        await player.playNext(0, { skipRepeatOne: true });
     });
     prevBtn.addEventListener('click', async () => {
         await hapticMedium();
@@ -705,13 +708,20 @@ export async function initializePlayerEvents(player, audioPlayer, scrobbler, ui)
         if (window.renderQueueFunction) await window.renderQueueFunction();
     });
 
-    repeatBtn.addEventListener('click', async () => {
-        await hapticLight();
-        const mode = await player.toggleRepeat();
+    const syncRepeatButton = (mode = player.repeatMode) => {
         repeatBtn.classList.toggle('active', mode !== REPEAT_MODE.OFF);
         repeatBtn.classList.toggle('repeat-one', mode === REPEAT_MODE.ONE);
         repeatBtn.title =
             mode === REPEAT_MODE.OFF ? 'Repeat' : mode === REPEAT_MODE.ALL ? 'Repeat Queue' : 'Repeat One';
+        repeatBtn.setAttribute('aria-label', repeatBtn.title);
+    };
+
+    syncRepeatButton();
+
+    repeatBtn.addEventListener('click', async () => {
+        await hapticLight();
+        const mode = await player.toggleRepeat();
+        syncRepeatButton(mode);
     });
 
     window.addEventListener('radio-state-changed', (e) => {
@@ -1341,29 +1351,33 @@ export async function handleTrackAction(
     }
 
     if (action === 'start-radio' || action === 'start-infinite-radio') {
-        let tracks = [];
-        if (type === 'track') {
-            tracks = [item];
-        } else if (item.tracks) {
-            tracks = item.tracks;
-        } else if (type === 'album') {
-            const data = await api.getAlbum(item.id);
-            tracks = data.tracks;
-        } else if (type === 'playlist') {
-            const data = await api.getPlaylist(item.uuid);
-            tracks = data.tracks;
-        } else if (type === 'user-playlist') {
-            const playlist = await db.getPlaylist(item.id);
-            tracks = playlist ? playlist.tracks : [];
-        }
+        try {
+            let tracks = [];
+            if (type === 'track') {
+                tracks = [item];
+            } else if (item.tracks) {
+                tracks = item.tracks;
+            } else if (type === 'album') {
+                const data = await api.getAlbum(item.id);
+                tracks = data.tracks;
+            } else if (type === 'playlist') {
+                const data = await api.getPlaylist(item.uuid);
+                tracks = data.tracks;
+            } else if (type === 'user-playlist') {
+                const playlist = await db.getPlaylist(item.id);
+                tracks = playlist ? playlist.tracks : [];
+            }
 
-        if (tracks.length > 0) {
-            player.setQueue(tracks, 0);
-            player.playAtIndex(0);
-            player.enableRadio(tracks);
-            showNotification(`Started radio based on ${type}: ${item.title || item.name}`);
-        } else {
-            showNotification('Could not start infinite radio: No tracks found');
+            if (tracks.length === 0) {
+                showNotification('Could not start radio: no playable tracks found.');
+                return;
+            }
+
+            const started = await player.enableRadio(tracks);
+            if (started) showNotification(`Started radio based on ${type}: ${item.title || item.name}`);
+        } catch (error) {
+            console.error('Failed to start radio:', error);
+            showNotification(`Could not start radio: ${error.message}`);
         }
         return;
     }
@@ -2671,45 +2685,7 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
         });
     }
 
-    const nowPlayingAddPlaylistBtn = document.getElementById('now-playing-add-playlist-btn');
-    if (nowPlayingAddPlaylistBtn) {
-        nowPlayingAddPlaylistBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (player.currentTrack) {
-                await handleTrackAction(
-                    'add-to-playlist',
-                    player.currentTrack,
-                    player,
-                    api,
-                    lyricsManager,
-                    player.currentTrack.type || 'track',
-                    ui,
-                    scrobbler
-                );
-            }
-        });
-    }
-
-    // Mobile add playlist button functionality
-    const mobileAddPlaylistBtn = document.getElementById('mobile-add-playlist-btn');
-
-    if (mobileAddPlaylistBtn) {
-        mobileAddPlaylistBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (player.currentTrack) {
-                await handleTrackAction(
-                    'add-to-playlist',
-                    player.currentTrack,
-                    player,
-                    api,
-                    lyricsManager,
-                    player.currentTrack.type || 'track',
-                    ui,
-                    scrobbler
-                );
-            }
-        });
-    }
+    // Native playlist actions are handled by navidrome-playlist-controller.js.
 }
 
 function showSleepTimerModal(player) {

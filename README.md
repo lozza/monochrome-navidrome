@@ -4,7 +4,7 @@
 
 # Navichrome
 
-> **Beta:** Navichrome `0.1.0-beta.2` is the current beta of this self-hosted Navidrome/OpenSubsonic web player.
+> **Beta:** Navichrome `0.1.0-beta.4` is the current beta of this self-hosted Navidrome/OpenSubsonic web player.
 > Back up anything important, expect rough edges, and report reproducible problems.
 
 Navichrome connects directly to a server you control. It does not require a Navichrome, Monochrome, or Samidy
@@ -16,7 +16,7 @@ The beta currently covers:
 
 - Navidrome/OpenSubsonic sign-in, sign-out, and invalid-server handling
 - Home and server-backed recently played content
-- albums, artists, album details, search, starred tracks, and read-only Navidrome playlists shown as **My Playlists**
+- albums, artists, album details, search, starred tracks, and native Navidrome playlist management
 - **Singles**, with every library track alphabetized one per row and progressively rendered for large libraries
 - playback, queue next/previous, seeking, shuffle, repeat, and Navidrome scrobbling
 - artwork recovery and missing-artwork placeholders
@@ -31,7 +31,7 @@ testing.
 ### Known limitations
 
 - This is beta software. Do not treat it as the only copy of playlists or library metadata.
-- Playlist editing and complete cross-device settings/queue sync are not claimed.
+- Complete cross-device settings/queue sync is not claimed.
 - Each device must sign in separately. Recently played history follows the same Navidrome account because it is
   submitted to and read from Navidrome; browser preferences remain device-local.
 - Local Files requires the File System Access API and is therefore limited to compatible Chromium-based browsers.
@@ -48,7 +48,7 @@ The supported beta installation is the existing container image:
 
 `ghcr.io/lozza/monochrome-navidrome:latest`
 
-For a pinned beta deployment, use `ghcr.io/lozza/monochrome-navidrome:0.1.0-beta.2`.
+For a pinned beta deployment, use `ghcr.io/lozza/monochrome-navidrome:0.1.0-beta.4`.
 Release notes and the historical alpha snapshot are listed on the [GitHub Releases page](https://github.com/lozza/monochrome-navidrome/releases).
 
 The repository and image names are retained for compatibility; the displayed product name is **Navichrome**.

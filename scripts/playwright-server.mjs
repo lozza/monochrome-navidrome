@@ -46,7 +46,7 @@ export async function startPlaywrightServer() {
 
     await new Promise((resolveListen, rejectListen) => {
         server.once('error', rejectListen);
-        server.listen(4174, '127.0.0.1', resolveListen);
+        server.listen(Number(process.env.NAVICHROME_TEST_PORT || 4174), '127.0.0.1', resolveListen);
     });
     return server;
 }
