@@ -355,7 +355,6 @@ function enableReordering(container, playlistId) {
         try {
             await service.reorder(playlistId, orderedTracks);
             showNotification('Playlist order saved');
-            rerenderRoute();
         } catch (error) {
             showNotification(`Could not save playlist order: ${error.message}`);
             rerenderRoute();
