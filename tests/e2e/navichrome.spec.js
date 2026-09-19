@@ -129,6 +129,30 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
     await expect(page.locator('#search-tracks-container [data-track-id="track-1"]')).toBeVisible();
 });
 
+test('creates a native playlist and adds the current track from the player', async ({ page }) => {
+    const state = await installNavidromeMock(page);
+    await page.goto('/playlists');
+    await waitForReady(page);
+
+    await page.locator('#navidrome-create-playlist-btn').click();
+    await page.locator('#playlist-name-input').fill('Browser Mix');
+    await page.locator('#playlist-modal-save').click();
+    await expect.poll(() => state.createdPlaylists.length).toBe(1);
+    expect(state.createdPlaylists[0].name).toBe('Browser Mix');
+
+    await page.goto('/playlist/playlist-1');
+    await waitForReady(page);
+    await page.locator('#play-playlist-btn').click();
+    await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
+    await page.locator('#now-playing-add-playlist-btn').click();
+
+    const createdId = state.createdPlaylists[0].id;
+    await page.locator(`#playlist-select-list [data-navidrome-playlist-id="${createdId}"]`).click();
+    await expect.poll(() => state.playlistUpdates.length).toBe(1);
+    expect(state.playlistUpdates[0]).toEqual(['track-1']);
+    expect(state.createdPlaylists[0].tracks.map((track) => track.id)).toEqual(['track-1']);
+});
+
 test('playlist handle dragging works with sideways movement and cancels without changing order', async ({ page }) => {
     const state = await installNavidromeMock(page);
     await page.goto('/playlist/playlist-1');
