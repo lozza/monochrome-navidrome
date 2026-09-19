@@ -129,7 +129,7 @@ test('home, library, albums, artists, starred tracks, playlists and search rende
     await expect(page.locator('#search-tracks-container [data-track-id="track-1"]')).toBeVisible();
 });
 
-test('creates a native playlist and adds the current track from the player', async ({ page }) => {
+test('creates a native playlist and adds the current track from the player', async ({ page }, testInfo) => {
     const state = await installNavidromeMock(page);
     await page.goto('/playlists');
     await waitForReady(page);
@@ -144,9 +144,10 @@ test('creates a native playlist and adds the current track from the player', asy
     await waitForReady(page);
     await page.locator('#play-playlist-btn').click();
     await expect(page.locator('.now-playing-bar .track-info .title')).toContainText('Alpha Song');
-    const addToPlaylistButton = page
-        .locator('#now-playing-add-playlist-btn:visible, #mobile-add-playlist-btn:visible')
-        .first();
+    const addToPlaylistButton =
+        testInfo.project.name === 'mobile-chromium'
+            ? page.locator('#mobile-add-playlist-btn')
+            : page.locator('#now-playing-add-playlist-btn');
     await expect(addToPlaylistButton).toBeVisible();
     await addToPlaylistButton.click();
 
