@@ -2688,6 +2688,7 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
     const nowPlayingAddPlaylistBtn = document.getElementById('now-playing-add-playlist-btn');
     if (nowPlayingAddPlaylistBtn) {
         nowPlayingAddPlaylistBtn.addEventListener('click', async (e) => {
+            if (e.__navidromePlaylistHandled) return;
             e.stopPropagation();
             if (player.currentTrack) {
                 await handleTrackAction(
@@ -2709,6 +2710,7 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
 
     if (mobileAddPlaylistBtn) {
         mobileAddPlaylistBtn.addEventListener('click', async (e) => {
+            if (e.__navidromePlaylistHandled) return;
             e.stopPropagation();
             if (player.currentTrack) {
                 await handleTrackAction(
