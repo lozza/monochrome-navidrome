@@ -13,6 +13,7 @@ import {
     installNavidromePlaylistUI,
 } from './navidrome-playlist-controller.js';
 import { ensureNavidromePlaylistOwnedActions } from './navidrome-playlist-owned-actions.js';
+import { installQueueEnhancements } from './queue-enhancements.js';
 import './navidrome-migration-compat.js';
 import './navidrome-search-compat.js';
 import './navidrome-starred-compat.js';
@@ -28,6 +29,7 @@ export function navigate(path) {
 
 export function createRouter(ui) {
     installNavidromePlaylistUI(ui);
+    installQueueEnhancements(ui);
 
     const router = async () => {
         ensureLibraryNavigation();
