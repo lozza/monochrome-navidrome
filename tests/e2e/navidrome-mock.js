@@ -259,7 +259,9 @@ export async function installNavidromeMock(page, options = {}) {
             const id = `playlist-created-${state.createdPlaylists.length + 1}`;
             const name = url.searchParams.get('name') || 'Created Playlist';
             const songIds = url.searchParams.getAll('songId');
-            const tracks = songIds.map((trackId) => DEFAULT_TRACKS.find((track) => track.id === trackId)).filter(Boolean);
+            const tracks = songIds
+                .map((trackId) => DEFAULT_TRACKS.find((track) => track.id === trackId))
+                .filter(Boolean);
             state.createdPlaylists.push({ id, name, tracks });
             return json(route, ok({ playlist: { id, name, entry: tracks } }));
         }
