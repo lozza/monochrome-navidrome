@@ -2,6 +2,14 @@
 
 All notable changes to Navichrome are documented here.
 
+## [0.1.0-beta.6] - 2026-09-27
+
+### Changed
+
+- Modal close buttons that rendered only the `&times;` character now have an `aria-label="Close"`, so screen readers
+  announce them instead of reading nothing or the raw glyph.
+- Updated the README's current-beta references from `0.1.0-beta.4` to `0.1.0-beta.6`.
+
 ## [0.1.0-beta.1] - 2026-09-01
 
 ### Added
