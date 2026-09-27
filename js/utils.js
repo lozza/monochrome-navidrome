@@ -944,7 +944,7 @@ export function createModal({ title, content, className = '', onClose }) {
         <div class="modal-content ${className}" style="display: flex; flex-direction: column;">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
                 <h3 style="margin: 0;">${title}</h3>
-                <button class="btn-close" style="background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--foreground); padding: 0.2rem 0.5rem; line-height: 1;">&times;</button>
+                <button class="btn-close" aria-label="Close" style="background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--foreground); padding: 0.2rem 0.5rem; line-height: 1;">&times;</button>
             </div>
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 0.5rem;"></div>
         </div>
