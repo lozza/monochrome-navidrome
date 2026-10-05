@@ -19,17 +19,85 @@ export const recentActivityManager = {
     },
 
     _save(data) {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+            // Recent activity is optional. A full mobile storage quota must not
+            // turn a successfully loaded album into a page-level failure.
+            console.warn('Could not save recent activity:', error);
+        }
     },
 
     getRecents() {
         return this._get();
     },
 
+    _compactItem(item) {
+        if (!item || typeof item !== 'object') return item;
+
+        const compact = {};
+        const fields = [
+            'id',
+            'uuid',
+            'title',
+            'name',
+            'cover',
+            'squareImage',
+            'image',
+            'picture',
+            'releaseDate',
+            'year',
+            'duration',
+            'numberOfTracks',
+            'numberOfVideos',
+            'numberOfVolumes',
+            'subTitle',
+            'description',
+            'isUserPlaylist',
+            'type',
+            'explicit',
+            'audioQuality',
+            'audioModes',
+            'albumType',
+            'videoCoverUrl',
+        ];
+
+        for (const field of fields) {
+            if (item[field] !== undefined && item[field] !== null) compact[field] = item[field];
+        }
+
+        if (typeof item.artist === 'string') {
+            compact.artist = item.artist;
+        } else if (item.artist && typeof item.artist === 'object') {
+            compact.artist = {
+                id: item.artist.id,
+                name: item.artist.name,
+            };
+        }
+
+        if (Array.isArray(item.artists)) {
+            compact.artists = item.artists.slice(0, 4).map((artist) => ({
+                id: artist?.id,
+                name: artist?.name,
+            }));
+        }
+
+        if (Array.isArray(item.images)) compact.images = item.images.slice(0, 4);
+
+        return compact;
+    },
+
     _add(type, item) {
         const data = this._get();
-        data[type] = data[type].filter((i) => i.id !== item.id);
-        data[type].unshift(item);
+        for (const key of ['artists', 'albums', 'playlists', 'mixes']) {
+            data[key] = Array.isArray(data[key])
+                ? data[key].slice(0, this.LIMIT).map((entry) => this._compactItem(entry))
+                : [];
+        }
+
+        const compactItem = this._compactItem(item);
+        data[type] = data[type].filter((entry) => entry.id !== compactItem.id);
+        data[type].unshift(compactItem);
         data[type] = data[type].slice(0, this.LIMIT);
         this._save(data);
     },

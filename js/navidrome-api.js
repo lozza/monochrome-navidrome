@@ -454,7 +454,7 @@ export class NavidromeAPI {
         const knownIds = knownTrackIds instanceof Set ? [...knownTrackIds] : asArray(knownTrackIds);
         const seen = new Set([...asArray(tracks), ...knownIds].map((track) => String(track?.id ?? track)));
         const recommendations = [];
-        for (const seed of asArray(tracks).slice(0, 3)) {
+        for (const seed of asArray(tracks).slice(0, 2)) {
             const items = await this.getTrackRecommendations(seed.id).catch(() => []);
             for (const track of items) {
                 const trackId = String(track.id);
