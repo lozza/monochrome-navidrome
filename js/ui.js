@@ -2774,7 +2774,7 @@ export class UIRenderer {
                     ...history.map((t) => t.id),
                 ]);
 
-                let recommendedTracks = await this.api.getRecommendedTracksForPlaylist(seeds, 20, {
+                let recommendedTracks = await this.api.getRecommendedTracksForPlaylist(seeds, 10, {
                     skipCache: forceRefresh,
                     knownTrackIds: knownTrackIds,
                 });
@@ -3786,7 +3786,7 @@ export class UIRenderer {
         }
 
         try {
-            let recommendedTracks = await this.api.getRecommendedTracksForPlaylist(tracks, 20, {
+            let recommendedTracks = await this.api.getRecommendedTracksForPlaylist(tracks, 10, {
                 refresh: forceRefresh,
             });
 
@@ -4040,7 +4040,7 @@ export class UIRenderer {
 
                 // Load recommended songs thingy
                 if (ownedPlaylist) {
-                    await this.loadRecommendedSongsForPlaylist(tracks);
+                    void this.loadRecommendedSongsForPlaylist(tracks);
 
                     const refreshBtn = document.getElementById('refresh-recommended-songs-btn');
                     if (refreshBtn) {
